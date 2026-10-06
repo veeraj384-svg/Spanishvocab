@@ -157,7 +157,7 @@ p { margin: 0 0 var(--sp-4); }
 .nav a:hover { background: var(--surface-2); color: var(--text); text-decoration: none; }
 .nav a.active { background: var(--surface-3); color: var(--text); }
 .header-tools { display: flex; align-items: center; gap: var(--sp-2); }
-.xp-pill { display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px 6px 8px; border-radius: var(--r-pill); background: var(--surface); border: 1px solid var(--border); font-size: 0.85rem; font-weight: 600; }
+.xp-pill { display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px 6px 8px; border-radius: var(--r-pill); background: var(--surface); border: 1px solid var(--border); font-size: 0.85rem; font-weight: 600; white-space: nowrap; }
 .xp-pill .lvl { width: 24px; height: 24px; border-radius: 50%; background: var(--grad-primary); color: #1a1200; display: grid; place-items: center; font-size: 0.75rem; font-weight: 800; }
 
 /* ---------- Buttons ---------- */
