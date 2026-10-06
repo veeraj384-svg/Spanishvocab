@@ -484,7 +484,7 @@
           const v = props[k];
           if (v == null) continue;
           if (k === 'class' || k === 'className') el.className += (el.className ? ' ' : '') + v;
-          else if (k === 'style' && typeof v === 'object') Object.assign(el.style, v);
+          else if (k === 'style' && typeof v === 'object') { for (const sk in v) { if (sk.indexOf('--') === 0) el.style.setProperty(sk, v[sk]); else el.style[sk] = v[sk]; } }
           else if (k === 'html') el.innerHTML = v;
           else if (k === 'dataset') Object.assign(el.dataset, v);
           else if (k.slice(0, 2) === 'on' && typeof v === 'function') el.addEventListener(k.slice(2).toLowerCase(), v);
@@ -834,7 +834,7 @@
         const submit = () => {
           if (answered) return;
           const r = Text.check(input.value, q.accepted, q.canonical);
-          if (r.status === 'empty') { input.classList.add('is-wrong'); setTimeout(() => input.classList.remove('is-wrong'), 500); return; }
+          if (r.status === 'empty') { input.classList.add('is-wrong'); setTimeout(() => input.classList.remove('is-wrong'), 500); try { input.focus({ preventScroll: true }); } catch (e) { /* ignore */ } return; }
           input.classList.add(r.status === 'correct' ? 'is-correct' : r.status === 'accent' ? 'is-accent' : 'is-wrong');
           input.disabled = true;
           finish(r.status, { input: r.input, expected: r.expected });
@@ -846,6 +846,7 @@
           const hintBtn = UI.h('button.btn.btn-ghost', { type: 'button', onclick: () => {
             if (answered) return; usedHint = true; hintBtn.disabled = true;
             body.appendChild(UI.h('div.small.muted.anim-pop', { style: { marginTop: '8px', textAlign: 'center' } }, '💡 ' + q.hint));
+            try { input.focus({ preventScroll: true }); } catch (e) { /* ignore */ }
           } }, 'Hint');
           actions.appendChild(hintBtn);
         }

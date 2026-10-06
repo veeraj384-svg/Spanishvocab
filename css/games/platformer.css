@@ -1,0 +1,83 @@
+/* ============================================================
+   PALABRA QUEST — Energy Run (platformer) styles
+   Every selector is prefixed with .g-platformer (module contract).
+   ============================================================ */
+
+.g-platformer .game-title { align-items: center; }
+.g-platformer .game-title > span:last-child { display: flex; flex-direction: column; line-height: 1.1; }
+.g-platformer .game-title .icon { background: rgba(246, 196, 83, 0.15); border-color: rgba(246, 196, 83, 0.4); box-shadow: 0 0 18px rgba(246, 196, 83, 0.25); }
+.g-platformer-tag { font-family: var(--font-body); font-size: 0.78rem; font-weight: 500; color: var(--muted); letter-spacing: 0.02em; }
+.g-platformer-best { font-family: var(--font-display); font-weight: 700; font-size: 0.85rem; color: var(--c-amber); padding: 6px 12px; border-radius: var(--r-pill); background: rgba(246, 196, 83, 0.1); border: 1px solid rgba(246, 196, 83, 0.3); white-space: nowrap; }
+
+/* ---------- HUD ---------- */
+.g-platformer-hud { gap: var(--sp-3) var(--sp-5); }
+.g-platformer-energy { flex: 1 1 220px; min-width: 180px; }
+.g-platformer-energy .label { white-space: nowrap; }
+.g-platformer-ebar { flex: 1; min-width: 100px; }
+.g-platformer-energy .val { min-width: 2.6ch; text-align: right; font-variant-numeric: tabular-nums; }
+.g-platformer-hearts { display: inline-flex; gap: 3px; font-size: 1.35rem; line-height: 1; }
+.g-platformer-heart { color: var(--c-rose); text-shadow: 0 0 10px rgba(255, 92, 122, 0.7); transition: transform var(--t-med) var(--ease-bounce), color var(--t-med), text-shadow var(--t-med); animation: g-platformer-heartbeat 1.6s ease-in-out infinite; }
+.g-platformer-heart:nth-child(2) { animation-delay: 0.15s; }
+.g-platformer-heart:nth-child(3) { animation-delay: 0.3s; }
+.g-platformer-heart.is-off { color: var(--muted-2); text-shadow: none; animation: none; transform: scale(0.85); }
+@keyframes g-platformer-heartbeat { 0%, 100% { transform: scale(1); } 12% { transform: scale(1.14); } 24% { transform: scale(1); } }
+.g-platformer-hud .hud-item .val { font-variant-numeric: tabular-nums; }
+.g-platformer-streak { animation: g-platformer-flame 0.9s ease-in-out infinite; }
+@keyframes g-platformer-flame { 0%, 100% { transform: translateY(0) scale(1); } 50% { transform: translateY(-1px) scale(1.06); } }
+
+/* ---------- Stage ---------- */
+.g-platformer-stage { background: #0a0e22; touch-action: none; -webkit-user-select: none; user-select: none; }
+.g-platformer-canvas { width: 100%; height: 100%; display: block; image-rendering: auto; }
+.g-platformer-stage::after { content: ''; position: absolute; inset: 0; pointer-events: none; border-radius: inherit; box-shadow: inset 0 0 60px rgba(7, 10, 20, 0.55), inset 0 0 0 1px rgba(255, 255, 255, 0.04); }
+.g-platformer-overlay .panel { max-width: 560px; }
+.g-platformer-intro p { margin-bottom: var(--sp-4); }
+.g-platformer-legend { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; text-align: left; font-size: 0.85rem; color: var(--text-2); }
+.g-platformer-legend > div { padding: 8px 12px; border-radius: 10px; background: var(--surface); border: 1px solid var(--border); }
+.g-platformer-legend b { color: var(--c-amber); font-family: var(--font-display); margin-right: 4px; }
+
+/* ---------- Question modal ---------- */
+.g-platformer-q { display: flex; flex-direction: column; gap: var(--sp-4); }
+.g-platformer-qhead { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: var(--r-md); border: 1px solid var(--border); background: var(--surface); animation: pop var(--t-med) var(--ease-bounce) both; }
+.g-platformer-qhead b { display: block; font-family: var(--font-display); font-size: 1.05rem; }
+.g-platformer-qhead span:last-child { font-size: 0.85rem; color: var(--text-2); }
+.g-platformer-qhead.is-energy { border-color: rgba(246, 196, 83, 0.45); background: rgba(246, 196, 83, 0.08); }
+.g-platformer-qhead.is-gate { border-color: rgba(167, 139, 250, 0.45); background: rgba(167, 139, 250, 0.08); }
+.g-platformer-qicon { width: 42px; height: 42px; border-radius: 12px; display: grid; place-items: center; font-size: 1.4rem; background: var(--surface-2); border: 1px solid var(--border-strong); animation: float 2.4s ease-in-out infinite; }
+
+/* ---------- Touch controls ---------- */
+.g-platformer-is-touch .g-platformer-touch { display: flex; }
+.g-platformer-touch .touch-btn { width: 72px; height: 72px; font-size: 1.7rem; transition: transform 80ms var(--ease), background var(--t-fast); }
+.g-platformer-touch .touch-btn.is-down { transform: scale(0.94); }
+.g-platformer-jump { background: rgba(246, 196, 83, 0.12); border-color: rgba(246, 196, 83, 0.45); color: var(--c-amber); width: 84px !important; }
+.g-platformer-help { text-align: center; }
+.g-platformer-is-touch .g-platformer-help { display: none; }
+
+/* ---------- Responsive ---------- */
+@media (max-width: 640px) {
+  .g-platformer .game-topbar .row { gap: 6px; }
+  .g-platformer-tag { display: none; }
+  .g-platformer-hud { padding: 10px 12px; gap: 8px 14px; }
+  .g-platformer-energy { flex-basis: 100%; }
+  .g-platformer-hud .hud-item { font-size: 0.82rem; }
+  .g-platformer-hud .hud-item .val { font-size: 1rem; }
+  .g-platformer-hud .hud-spacer { display: none; }
+  .g-platformer-legend { grid-template-columns: 1fr; }
+  .g-platformer-overlay { padding: var(--sp-3); }
+  .g-platformer-overlay .panel { padding: var(--sp-5) var(--sp-4); }
+  .g-platformer-overlay .panel h2 { font-size: 1.35rem; }
+  .g-platformer-overlay .panel .big { font-size: 2.2rem; }
+  .g-platformer-overlay .panel .stat-grid { grid-template-columns: repeat(2, 1fr); margin: var(--sp-3) 0; }
+  .g-platformer-overlay .panel p { font-size: 0.9rem; }
+}
+
+/* Compact overlays on touch devices / small screens so every button stays reachable */
+.g-platformer-is-touch .g-platformer-legend { display: none; }
+@media (max-width: 640px) {
+  .g-platformer-legend { display: none; }
+  .g-platformer-overlay .panel .stat-grid { grid-template-columns: repeat(4, 1fr); gap: 6px; }
+  .g-platformer-overlay .panel .stat { padding: 8px 4px; }
+  .g-platformer-overlay .panel .stat-val { font-size: 1.05rem; }
+  .g-platformer-overlay .panel .stat-label { font-size: 0.6rem; letter-spacing: 0.04em; }
+  .g-platformer-overlay .panel .btn-lg { padding: 11px 18px; font-size: 0.95rem; }
+  .g-platformer-overlay .panel .row { gap: 8px; }
+}
