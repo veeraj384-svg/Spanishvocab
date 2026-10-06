@@ -331,7 +331,7 @@
       opts = opts || {};
       const pool = (opts.pool || Vocab.active()).slice();
       const exclude = new Set(opts.exclude || []);
-      count = Math.max(0, Math.min(count || 1, pool.length));
+      count = Math.max(0, Math.min(count == null ? 1 : count, pool.length));
       let candidates = pool.filter((e) => !exclude.has(e.id));
       if (candidates.length < count) candidates = pool;
       const out = [];
@@ -564,7 +564,7 @@
         bar.appendChild(b);
       });
       input.addEventListener('keydown', (e) => {
-        if (e.key === '`' || e.key === '´' || e.key === 'Dead') {
+        if (e.key === '`' || e.key === '´') {
           const pos = input.selectionStart == null ? input.value.length : input.selectionStart;
           if (pos > 0 && input.selectionStart === input.selectionEnd) {
             const ch = input.value[pos - 1];
@@ -768,15 +768,26 @@
         const result = Object.assign({ status, xp: rec.xp, box: rec.box, levelUp: rec.levelUp, question: q, elapsed, usedHint }, extra || {});
         Sound.play(status === 'correct' ? 'correct' : status === 'accent' ? 'accent' : 'wrong');
         if (rec.levelUp) setTimeout(() => { Sound.play('levelup'); UI.toast('Level up! You are now level ' + rec.level, 'ok'); }, 350);
+        UI.clear(actions); // Check / Hint / Confirm are no longer meaningful once graded
         showFeedback(result);
         if (opts.onAnswer) opts.onAnswer(result);
-        const cont = () => { if (!destroyed && opts.onResult) opts.onResult(result); };
-        if (opts.autoContinue) setTimeout(cont, typeof opts.autoContinue === 'number' ? opts.autoContinue : (status === 'correct' ? 900 : 2200));
-        else {
+        let continued = false;
+        const cont = () => { if (continued || destroyed) return; continued = true; if (opts.onResult) opts.onResult(result); };
+        if (opts.autoContinue) {
+          const tm = setTimeout(cont, typeof opts.autoContinue === 'number' ? opts.autoContinue : (status === 'correct' ? 900 : 2200));
+          root._cleanup.push(() => clearTimeout(tm));
+        } else {
           const btn = UI.h('button.btn.btn-primary', { type: 'button', onclick: cont }, status === 'correct' ? 'Continue →' : 'Got it →');
           actions.appendChild(btn);
-          setTimeout(() => { try { btn.focus(); } catch (e) { /* ignore */ } }, 30);
-          const onKey = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); document.removeEventListener('keydown', onKey); cont(); } };
+          setTimeout(() => { try { btn.focus({ preventScroll: true }); } catch (e) { /* ignore */ } }, 30);
+          // The keystroke that submitted the answer is still bubbling: ignore events older than now.
+          const armedAt = performance.now();
+          const onKey = (e) => {
+            if (e.key !== 'Enter' || e.timeStamp <= armedAt) return;
+            const ae = document.activeElement;
+            if (ae && ae !== btn && ae.tagName === 'BUTTON' && root.contains(ae)) return; // let a focused button (e.g. Hear it) handle Enter itself
+            e.preventDefault(); e.stopPropagation(); document.removeEventListener('keydown', onKey); cont();
+          };
           document.addEventListener('keydown', onKey);
           root._cleanup.push(() => document.removeEventListener('keydown', onKey));
         }
@@ -828,7 +839,7 @@
           input.disabled = true;
           finish(r.status, { input: r.input, expected: r.expected });
         };
-        input.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); submit(); } });
+        input.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); submit(); } });
         const submitBtn = UI.h('button.btn.btn-primary', { type: 'button', onclick: submit }, 'Check');
         actions.appendChild(submitBtn);
         if (opts.allowHint !== false) {
@@ -906,15 +917,29 @@
         root._submit = confirm;
       }
 
-      if (opts.mount) { UI.clear(opts.mount).appendChild(root); }
-
-      return {
+      const controller = {
         el: root,
         question: q,
         get answered() { return answered; },
+        get destroyed() { return destroyed; },
         submit() { if (root._submit) root._submit(); },
-        destroy() { destroyed = true; root._cleanup.forEach((f) => { try { f(); } catch (e) { /* ignore */ } }); root._cleanup = []; root.remove(); },
+        destroy() {
+          if (destroyed) return; destroyed = true;
+          root._cleanup.forEach((f) => { try { f(); } catch (e) { /* ignore */ } }); root._cleanup = [];
+          if (opts.mount && opts.mount._pqQuiz === controller) opts.mount._pqQuiz = null;
+          root.remove();
+        },
       };
+
+      if (opts.mount) {
+        // A new question in the same container replaces (and cleans up) the previous widget.
+        if (opts.mount._pqQuiz && opts.mount._pqQuiz !== controller) { try { opts.mount._pqQuiz.destroy(); } catch (e) { /* ignore */ } }
+        UI.clear(opts.mount).appendChild(root);
+        opts.mount._pqQuiz = controller;
+        if (input && opts.focus !== false) { try { input.focus({ preventScroll: true }); } catch (e) { /* ignore */ } }
+      }
+
+      return controller;
     },
   };
   PQ.QuizUI = QuizUI;
