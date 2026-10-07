@@ -337,6 +337,7 @@ p { margin: 0 0 var(--sp-4); }
 .modal-backdrop { position: fixed; inset: 0; z-index: 100; background: rgba(4, 6, 14, 0.7); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); display: grid; place-items: center; padding: var(--sp-4); animation: fade-in var(--t-med) both; }
 .modal { width: min(100%, 560px); max-height: calc(100vh - 2 * var(--sp-4)); overflow: auto; background: linear-gradient(170deg, var(--bg-3), var(--bg-2)); border: 1px solid var(--border-strong); border-radius: var(--r-xl); padding: var(--sp-6); box-shadow: var(--shadow-lg); animation: pop var(--t-med) var(--ease-bounce) both; }
 .modal-lg { width: min(100%, 720px); }
+.modal:focus-visible { outline: none; }   /* the dialog box receives focus for keyboard safety; no ring around the whole dialog */
 .modal-head { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); margin-bottom: var(--sp-4); }
 .modal-head h3 { margin: 0; }
 .modal-close { width: 36px; height: 36px; border-radius: 10px; display: grid; place-items: center; color: var(--muted); background: var(--surface-2); }

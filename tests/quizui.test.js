@@ -118,10 +118,27 @@ const { launch, assert, SITE } = require('./helpers');
   await page.keyboard.type('facil'); await page.keyboard.press('Enter'); await page.waitForTimeout(60);
   assert(await page.evaluate(() => window.__r.length === 0 && document.querySelector('#m input').value === ''), 'keystrokes do not reach the question behind a dialog');
   assert(await page.evaluate(() => { document.querySelector('#m input').value = 'fácil'; window.__c.submit(); return window.__r.length === 0; }), 'submit() is blocked behind a dialog');
-  await page.evaluate(() => window.__modal.close()); await page.waitForTimeout(40);
+  await page.evaluate(() => window.__modal.close()); await page.waitForTimeout(150); // restore happens on the next frame
   assert(await page.evaluate(() => document.activeElement === document.querySelector('#m input')), 'focus restored to the input when the dialog closes');
   await page.keyboard.press('Enter'); await page.waitForTimeout(60);
   assert(await page.evaluate(() => JSON.stringify(window.__r) === '["correct"]'), 'graded normally after the dialog closed');
+  // closing a dialog restores focus on the next frame (a held Enter cannot re-trigger the opener); backdrop ignores an immediate second click
+  const reopen = await page.evaluate(async () => {
+    let opens = 0;
+    const btn = window.PQ.UI.h('button', { type: 'button', onclick: () => { opens++; const m = window.PQ.UI.modal({ title: 'x', content: window.PQ.UI.h('p', null, 'y') }); setTimeout(() => m.close(), 30); } }, 'open');
+    document.body.appendChild(btn); btn.focus();
+    btn.click();
+    await new Promise((r) => setTimeout(r, 20));
+    const focusDuringClose = document.activeElement === btn;
+    await new Promise((r) => setTimeout(r, 120));
+    const restored = document.activeElement === btn;
+    const m2 = window.PQ.UI.modal({ title: 'x', content: window.PQ.UI.h('p', null, 'y') });
+    m2.backdrop.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    const stillOpen = !!document.querySelector('.modal-backdrop');
+    m2.close(); btn.remove();
+    return { opens, focusDuringClose, restored, stillOpen };
+  });
+  assert(reopen.opens === 1 && !reopen.focusDuringClose && reopen.restored && reopen.stillOpen, 'dialog focus restore + double-click guard: ' + JSON.stringify(reopen));
   // feedback sits above the Continue button
   assert(await page.evaluate(() => { const r = document.querySelector('#m .quiz'); const fb = r.querySelector('.quiz-feedback-slot'), ac = r.querySelector('.quiz-actions'); return !!(fb.compareDocumentPosition(ac) & Node.DOCUMENT_POSITION_FOLLOWING) && !!ac.querySelector('.btn-primary'); }), 'feedback renders above Continue');
   // a question inside a forced modal (platformer style) gets its input focused

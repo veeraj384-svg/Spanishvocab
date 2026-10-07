@@ -526,14 +526,16 @@
       const box = UI.h('div.modal' + (opts.large ? '.modal-lg' : ''), { role: 'dialog', 'aria-modal': 'true', tabindex: '-1' });
       const backdrop = UI.h('div.modal-backdrop', null, box);
       const previousFocus = document.activeElement;
+      const openedAt = performance.now();
       let closed = false;
       const close = () => {
         if (closed) return; closed = true;
         backdrop.remove();
         document.removeEventListener('keydown', onKey);
-        // give focus back to where it was (if that element is still on the page)
-        if (opts.restoreFocus !== false && previousFocus && previousFocus.isConnected && typeof previousFocus.focus === 'function' && previousFocus !== document.body) {
-          try { previousFocus.focus({ preventScroll: true }); } catch (e) { /* ignore */ }
+        // Give focus back to where it was (if still on the page) — on the next frame, so the keystroke
+        // that closed the dialog (e.g. a held Enter) cannot re-activate the button that opened it.
+        if (opts.restoreFocus !== false && previousFocus && typeof previousFocus.focus === 'function' && previousFocus !== document.body) {
+          requestAnimationFrame(() => { if (previousFocus.isConnected && !document.querySelector('.modal-backdrop')) { try { previousFocus.focus({ preventScroll: true }); } catch (e) { /* ignore */ } } });
         }
         if (opts.onClose) opts.onClose();
       };
@@ -544,7 +546,8 @@
           opts.closable !== false ? UI.h('button.modal-close', { type: 'button', 'aria-label': 'Close', onclick: close }, '✕') : null));
       }
       if (content) box.appendChild(content);
-      backdrop.addEventListener('mousedown', (e) => { if (e.target === backdrop && opts.closable !== false) close(); });
+      // Clicking the dim backdrop closes — but not the second half of a double-click / double-tap that opened it
+      backdrop.addEventListener('mousedown', (e) => { if (e.target === backdrop && opts.closable !== false && performance.now() - openedAt > 350) close(); });
       document.addEventListener('keydown', onKey);
       document.body.appendChild(backdrop);
       // Move focus into the dialog so keystrokes never reach inputs behind the backdrop.
@@ -820,7 +823,7 @@
           // The keystroke that submitted the answer is still bubbling: ignore events older than now.
           const armedAt = performance.now();
           const onKey = (e) => {
-            if (e.key !== 'Enter' || e.timeStamp <= armedAt || blockedByModal()) return;
+            if (e.key !== 'Enter' || e.repeat || e.timeStamp <= armedAt || blockedByModal()) return;
             const ae = document.activeElement;
             if (ae && ae !== btn && ae.tagName === 'BUTTON' && root.contains(ae)) return; // let a focused button (e.g. Hear it) handle Enter itself
             e.preventDefault(); e.stopPropagation(); document.removeEventListener('keydown', onKey); cont();
