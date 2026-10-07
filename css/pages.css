@@ -54,7 +54,7 @@
 @keyframes pg-flash-accent { 0% { background: rgba(246,196,83,0.3); border-color: var(--c-amber); } 100% { background: var(--surface); } }
 @keyframes pg-flash-bad { 0% { background: rgba(255,92,122,0.3); border-color: var(--c-rose); } 100% { background: var(--surface); } }
 
-.pg-say { width: 36px; height: 36px; border-radius: 10px; font-size: 1rem; }
+.pg-say { width: 40px; height: 40px; border-radius: 10px; font-size: 1rem; }
 .pg-say.is-speaking { animation: pg-speak 700ms var(--ease-bounce); color: var(--c-mint); }
 @keyframes pg-speak { 0% { transform: scale(1); } 30% { transform: scale(1.25); } 100% { transform: scale(1); } }
 .pg-practice-btn {
@@ -152,7 +152,8 @@
 .pg-stats-grid .stat:nth-child(5) { animation-delay: 160ms; }
 
 .pg-catbar { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-top: 1px solid var(--border); }
-.pg-catbar:first-of-type { border-top: 0; }
+.pg-catbar { border-top: 0; }
+.pg-catbar + .pg-catbar { border-top: 1px solid var(--border); }
 .pg-catbar-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 5px; }
 .pg-catbar-body .row-between { flex-wrap: nowrap; align-items: flex-start; }
 .pg-catbar-name { font-weight: 600; font-size: 0.95rem; min-width: 0; overflow-wrap: anywhere; }
@@ -169,7 +170,8 @@
 .pg-box-label b { font-family: var(--font-mono); font-size: 0.8rem; color: var(--text-2); }
 
 .pg-trouble .pg-rows { gap: 8px; }
-.pg-trouble-row.word-row { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto auto; --cat: var(--c-amber); }
+.pg-trouble-row.word-row { grid-template-columns: minmax(max-content, 1.3fr) minmax(0, 1fr) auto auto; --cat: var(--c-amber); }
+.pg-trouble-row .es { overflow-wrap: normal; white-space: nowrap; } /* the correct spelling is the point of this list: never break it mid-word */
 .pg-slips { color: var(--c-amber); font-weight: 600; }
 
 .pg-games { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
@@ -242,3 +244,9 @@
   .pg-games { grid-template-columns: 1fr 1fr; gap: 8px; }
   .pg-game { padding: 12px; }
 }
+
+/* ---- Review fixes: touch targets, keyboard focus on toggles ---- */
+.pg-search-clear { width: 36px; height: 36px; }
+@media (pointer: coarse) { .pg-say { width: 44px; height: 44px; } }
+.pg-toggle:has(input:focus-visible) .track { outline: 2px solid var(--c-amber); outline-offset: 3px; }
+@media (max-width: 640px) { .pg-trouble-row .es { white-space: normal; } }

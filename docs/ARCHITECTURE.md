@@ -44,6 +44,7 @@ tests/run-all.js        runs every test file in order
 | `Progress.weakest(n, {includeUnseen?})`, `Progress.due(pool?)` | SRS helpers |
 | `Progress.record(id, 'correct'│'accent'│'wrong', {bonus?})` | records an answer → `{xp, box, levelUp, level}`. **QuizUI.ask already calls this – don't double-record.** |
 | `Progress.setBest(gameId, score, extra?, onBest?)` → bool isNewBest | high score (also counts a play). `extra` merges every call; `onBest` merges only on a new best (best-run metadata such as the wave reached); `lastScore`/`lastAt` are always updated |
+| `Progress.touchBest(gameId, score, onBest?)` → bool | save a milestone score mid-run (level complete) without counting a play |
 | `Progress.best(gameId)`, `Progress.gameStats(gameId)`, `Progress.noteStreak(n)` | stats |
 | `Text.check(input, accepted, canonical)` | → `{status: 'correct'│'accent'│'wrong'│'empty', input, expected}` |
 | `Text.normalize`, `Text.stripAccents`, `Text.hasAccent`, `Text.accentPositions`, `Text.toggleAccent` | string helpers |

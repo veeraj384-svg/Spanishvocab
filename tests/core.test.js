@@ -93,6 +93,7 @@ t('due includes unseen', Progress.due().length >= 42);
 t('level curve', Progress.xpForLevel(1) === 0 && Progress.xpForLevel(2) === 100 && Progress.xpForLevel(3) === 300);
 t('setBest', Progress.setBest('x', 10) === true && Progress.setBest('x', 5) === false && Progress.best('x') === 10 && Progress.gameStats('x').plays === 2);
 Progress.setBest('y', 100, { mode: 'a' }, { wave: 3 }); Progress.setBest('y', 20, { mode: 'b' }, { wave: 1 });
+t('touchBest updates best without a play', Progress.touchBest('z', 50, { lvl: 2 }) === true && Progress.gameStats('z').best === 50 && Progress.gameStats('z').plays === 0 && Progress.gameStats('z').lvl === 2 && Progress.touchBest('z', 10) === false);
 t('setBest onBest kept from the best run', Progress.gameStats('y').wave === 3 && Progress.gameStats('y').mode === 'b' && Progress.gameStats('y').lastScore === 20 && Progress.gameStats('y').best === 100);
 const sum = Progress.summary(); t('summary', sum.total === 44 && sum.mastered === 1 && sum.boxes.reduce((a, b) => a + b, 0) === 44);
 w.PQ.Settings.set('cats', ['useful']); t('active respects filter', Vocab.active().length === 4 && Vocab.active().every((e) => e.cat === 'useful'));

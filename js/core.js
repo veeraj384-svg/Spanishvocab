@@ -308,6 +308,13 @@
      */
     best(gameId) { return (Progress._d.games[gameId] || {}).best || 0; },
     gameStats(gameId) { return Object.assign({ best: 0, plays: 0 }, Progress._d.games[gameId] || {}); },
+    /** Save a milestone score mid-run (e.g. a level completed) without counting a play. Returns true on a new best. */
+    touchBest(gameId, score, onBest) {
+      const g = Progress._d.games[gameId] || (Progress._d.games[gameId] = { best: 0, plays: 0 });
+      const isNew = score > g.best;
+      if (isNew) { g.best = score; if (onBest) Object.assign(g, onBest); Progress._save(); }
+      return isNew;
+    },
     setBest(gameId, score, extra, onBest) {
       const g = Progress._d.games[gameId] || (Progress._d.games[gameId] = { best: 0, plays: 0 });
       g.plays++;
@@ -539,7 +546,11 @@
         }
         if (opts.onClose) opts.onClose();
       };
-      const onKey = (e) => { if (e.key === 'Escape' && opts.closable !== false) { e.preventDefault(); close(); } };
+      const onKey = (e) => {
+        if (e.key === 'Escape' && opts.closable !== false) { e.preventDefault(); close(); return; }
+        // the dialog box holds focus when it has no input: keep Space / arrows / page keys from scrolling the page behind it
+        if (document.activeElement === box && /^(Space|ArrowUp|ArrowDown|PageUp|PageDown)$/.test(e.code || '')) e.preventDefault();
+      };
       if (opts.title || opts.closable !== false) {
         box.appendChild(UI.h('div.modal-head', null,
           UI.h('h3', null, opts.title || ''),

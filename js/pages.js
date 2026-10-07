@@ -1,12 +1,11 @@
 /* ============================================================
    PALABRA QUEST — Pages: Words (#/words) and Progress (#/stats)
 
-   Registers both pages with PQ.Pages. Pages get no unmount() hook
-   from the router, so this module keeps a single "live" record for
-   whichever page it mounted and tears it down itself:
-     - on `hashchange` (this listener is registered at load time,
-       before Router.start() adds its own, so it always runs first), and
-     - defensively whenever one of our pages is mounted again.
+   Registers both pages with PQ.Pages as { mount, unmount }. The router
+   calls unmount() before rendering the next route; this module keeps a
+   single "live" record for whichever page it mounted and tears it down
+   there (and, defensively, on `hashchange` and whenever one of our
+   pages is mounted again).
    Every listener / timer / RAF / modal a page creates is pushed onto
    live.cleanups so mount → unmount → mount leaves nothing behind.
    ============================================================ */
@@ -20,6 +19,8 @@
   const BOX_COLORS = ['#ff5c7a', '#ff8a5c', '#f6c453', '#a3e635', '#38d9c4', '#60a5fa'];
   const LEVEL_TITLES = ['Novato', 'Aprendiz', 'Estudiante', 'Explorador', 'Experto', 'Maestro', 'Leyenda'];
   const ALL_CAT = 'all';
+  // Short chip labels keep the sticky toolbar to one row of chips; the full sheet title is in the chip's title / aria-label.
+  const SHORT_CAT = { school: 'School day', question: 'Question words', adjective: 'Adjectives', ordinal: 'Ordinals', useful: 'Useful words' };
 
   /* ------------------------------------------------------------
      Page lifecycle
@@ -29,7 +30,9 @@
   function mountPage(id, root) {
     teardown();
     const page = UI.h('div.page.container.pg.pg-' + id);
-    live = { id, page, cleanups: [], practice: null, confirm: null, rows: new Map(), filter: null, api: null, rerender: null };
+    live = { id, page, cleanups: [], practice: null, confirm: null, rows: new Map(), filter: null, api: null, rerender: null, dirty: false, raf: 0 };
+    const l = live;
+    l.cleanups.push(() => cancelAnimationFrame(l.raf));
     root.appendChild(page);
     return page;
   }
@@ -141,6 +144,8 @@
         rec.ctl.destroy();
         if (live && live.practice === rec) live.practice = null;
         if (opts.onClose) opts.onClose(rec.result);
+        // the Progress page postpones its full re-render until the dialog is gone (keeps the row flash + focus target alive)
+        if (live && live.dirty && live.rerender) { live.dirty = false; live.rerender(); }
       },
     });
     live.practice = rec;
@@ -194,7 +199,7 @@
   /* ============================================================
      WORDS PAGE  (#/words)
      ============================================================ */
-  Pages.register('words', function (root) {
+  Pages.register('words', { unmount: teardown, mount(root) {
     const page = mountPage('words', root);
     const meta = Vocab.meta();
     const all = Vocab.all();
@@ -225,17 +230,17 @@
       search, clearBtn,
       UI.h('span.kbd.pg-search-kbd', { 'aria-hidden': 'true', title: 'Press / to search' }, '/'));
 
-    const chips = UI.h('div.chip-group.pg-chips', { role: 'tablist', 'aria-label': 'Category' });
+    const chips = UI.h('div.chip-group.pg-chips', { role: 'group', 'aria-label': 'Category' });
     const chipOf = {};
-    const makeChip = (id, icon, label, color) => {
-      const chip = UI.h('button.chip.pg-chip', { type: 'button', role: 'tab', dataset: { cat: id }, style: color ? { '--cat': color } : null },
+    const makeChip = (id, icon, label, color, full) => {
+      const chip = UI.h('button.chip.pg-chip', { type: 'button', dataset: { cat: id }, style: color ? { '--cat': color } : null, title: full || null, 'aria-label': full || null },
         UI.h('span.pg-chip-icon', { 'aria-hidden': 'true' }, icon), UI.h('span', null, label), UI.h('span.pg-chip-count'));
       chip.addEventListener('click', () => { setCat(id); Sound.play('click'); });
       chipOf[id] = chip;
       chips.appendChild(chip);
     };
     makeChip(ALL_CAT, '✦', 'All');
-    cats.forEach((c) => makeChip(c.id, c.icon, c.en, c.color));
+    cats.forEach((c) => makeChip(c.id, c.icon, SHORT_CAT[c.id] || c.en, c.color, c.en));
 
     const accInput = UI.h('input', { type: 'checkbox' });
     const accToggle = UI.h('label.toggle.pg-toggle.pg-toggle-accents', null, accInput, UI.h('span.track'),
@@ -310,7 +315,6 @@
       Object.keys(chipOf).forEach((id) => {
         const chip = chipOf[id];
         chip.setAttribute('aria-pressed', state.cat === id ? 'true' : 'false');
-        chip.setAttribute('aria-selected', state.cat === id ? 'true' : 'false');
         chip.querySelector('.pg-chip-count').textContent = id === ALL_CAT ? matching : (perCat[id] || 0);
       });
       const filtered = !!q || state.accents || state.cat !== ALL_CAT;
@@ -321,10 +325,18 @@
       accInput.checked = state.accents;
       state.visible = visible;
     }
-    function setSearch(q) { state.q = q; if (search.value !== q) search.value = q; apply(); }
-    function setCat(id) { state.cat = chipOf[id] ? id : ALL_CAT; apply(); }
-    function setAccents(b) { state.accents = !!b; apply(); }
-    function resetFilters() { state.q = ''; search.value = ''; state.cat = ALL_CAT; state.accents = false; apply(); }
+    /** After a filter change the first result must be visible, not above the fold / under the sticky toolbar. */
+    function keepListInView() {
+      const toolbar = page.querySelector('.pg-toolbar');
+      const first = list.classList.contains('hidden') ? emptyEl : list;
+      // gap between the sticky toolbar's bottom edge and the first result; negative = hidden under it
+      const gap = first.getBoundingClientRect().top - ((toolbar ? toolbar.getBoundingClientRect().bottom : 0) + 16);
+      if (gap < 0) window.scrollBy(0, gap);
+    }
+    function setSearch(q) { state.q = q; if (search.value !== q) search.value = q; apply(); keepListInView(); }
+    function setCat(id) { state.cat = chipOf[id] ? id : ALL_CAT; apply(); keepListInView(); }
+    function setAccents(b) { state.accents = !!b; apply(); keepListInView(); }
+    function resetFilters() { state.q = ''; search.value = ''; state.cat = ALL_CAT; state.accents = false; apply(); keepListInView(); }
 
     search.addEventListener('input', () => setSearch(search.value));
     search.addEventListener('keydown', (e) => {
@@ -358,12 +370,12 @@
     apply();
     refreshMastery();
     live.api = { setSearch, setCat, setAccents, resetFilters, refreshMastery };
-  });
+  } });
 
   /* ============================================================
      PROGRESS PAGE  (#/stats)
      ============================================================ */
-  Pages.register('stats', function (root) {
+  Pages.register('stats', { unmount: teardown, mount(root) {
     const page = mountPage('stats', root);
     const cats = Vocab.categories();
     const all = Vocab.all();
@@ -386,8 +398,9 @@
       data.appendChild(buildOverview(summary, lp, totals));
       data.appendChild(UI.h('div.grid.grid-2.pg-grid', null, buildCategoryMastery(), buildBoxChart(summary)));
       data.appendChild(UI.h('div.grid.grid-2.pg-grid', null, buildAccentTrouble(), buildGameRecords()));
-      // Bars start at zero and animate to their value once laid out.
-      frame(() => {
+      // Bars start at zero and animate to their value once laid out (one pending frame per page; cancelled on teardown).
+      cancelAnimationFrame(live.raf);
+      live.raf = requestAnimationFrame(() => {
         void data.offsetWidth; // flush the zero-width layout so the transition runs
         data.querySelectorAll('.pg-fill[data-w]').forEach((el) => { el.style.width = el.dataset.w + '%'; });
         data.querySelectorAll('.pg-box-fill[data-h]').forEach((el) => { el.style.height = el.dataset.h + '%'; });
@@ -559,9 +572,13 @@
     }
 
     render();
-    on(window, 'pq:progress', () => { if (live && live.page === page && page.isConnected) render(); });
+    on(window, 'pq:progress', () => {
+      if (!live || live.page !== page || !page.isConnected) return;
+      if (live.practice) { live.dirty = true; return; } // answered inside the practice dialog: redraw once it closes
+      render();
+    });
     live.rerender = render;
-  });
+  } });
 
   /* ------------------------------------------------------------
      Debug hooks for tests

@@ -90,7 +90,7 @@ async function desktop() {
   /* ---------- Words page ---------- */
   await page.goto(SITE + '#/words');
   await page.waitForSelector('.pg-words .pg-row');
-  assert(await page.evaluate(() => typeof PQ.Pages.get('words') === 'function' && typeof PQ.Pages.get('stats') === 'function'), 'both pages registered');
+  assert(await page.evaluate(() => typeof PQ.Pages.get('words').mount === 'function' && typeof PQ.Pages.get('stats').mount === 'function' && typeof PQ.Pages.get('words').unmount === 'function'), 'both pages registered');
   assert((await state(page)).id === 'words', 'live page is words');
   assert((await page.locator('.pg-words .word-row').count()) === 44, 'renders all 44 word rows');
   assert((await visible(page)).length === 44, '44 visible with no filter');
