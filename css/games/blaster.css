@@ -1,0 +1,137 @@
+/* ============================================================
+   PALABRA QUEST — Word Rain (blaster) styles
+   Every selector is prefixed with .g-blaster (module contract).
+   Accent colour: rose.
+   ============================================================ */
+
+/* ---------- Top bar ---------- */
+.g-blaster .game-title > span:last-child { display: flex; flex-direction: column; line-height: 1.1; }
+.g-blaster .game-title .icon { background: rgba(255, 92, 122, 0.15); border-color: rgba(255, 92, 122, 0.4); box-shadow: 0 0 18px rgba(255, 92, 122, 0.25); }
+.g-blaster-tag { font-family: var(--font-body); font-size: 0.78rem; font-weight: 500; color: var(--muted); letter-spacing: 0.02em; }
+.g-blaster-best { font-family: var(--font-display); font-weight: 700; font-size: 0.85rem; color: var(--c-rose); padding: 6px 12px; border-radius: var(--r-pill); background: rgba(255, 92, 122, 0.1); border: 1px solid rgba(255, 92, 122, 0.3); white-space: nowrap; }
+.g-blaster .game-topbar .row { gap: 8px; }
+
+/* ---------- HUD ---------- */
+.g-blaster-hud { gap: var(--sp-3) var(--sp-5); }
+.g-blaster-hud .hud-item .val { font-variant-numeric: tabular-nums; min-width: 2ch; }
+.g-blaster-hearts { display: inline-flex; gap: 3px; font-size: 1.4rem; line-height: 1; }
+.g-blaster-heart { color: var(--c-rose); text-shadow: 0 0 10px rgba(255, 92, 122, 0.7); transition: transform var(--t-med) var(--ease-bounce), color var(--t-med), text-shadow var(--t-med); animation: g-blaster-heartbeat 1.6s ease-in-out infinite; }
+.g-blaster-heart:nth-child(2) { animation-delay: 0.15s; }
+.g-blaster-heart:nth-child(3) { animation-delay: 0.3s; }
+.g-blaster-heart.is-off { color: var(--muted-2); text-shadow: none; animation: none; transform: scale(0.8); }
+.g-blaster-heart.is-lost { animation: g-blaster-heartbreak 0.7s var(--ease) both; }
+@keyframes g-blaster-heartbeat { 0%, 100% { transform: scale(1); } 12% { transform: scale(1.14); } 24% { transform: scale(1); } }
+@keyframes g-blaster-heartbreak { 0% { transform: scale(1.6) rotate(0); color: #fff; } 100% { transform: scale(0.8) rotate(-20deg); } }
+.g-blaster-combo .val { transition: color var(--t-fast), transform var(--t-fast) var(--ease-bounce); }
+.g-blaster-combo.is-hot .val { color: var(--c-amber); text-shadow: 0 0 12px rgba(246, 196, 83, 0.6); animation: g-blaster-flame 0.9s ease-in-out infinite; }
+@keyframes g-blaster-flame { 0%, 100% { transform: translateY(0) scale(1); } 50% { transform: translateY(-1px) scale(1.06); } }
+
+/* The correct spelling after a hit on the city */
+.g-blaster-hudmsg { display: none; flex-basis: 100%; align-items: center; gap: 12px; padding: 10px 14px; border-radius: 12px; background: rgba(255, 92, 122, 0.1); border: 1px solid rgba(255, 92, 122, 0.4); box-shadow: 0 0 24px rgba(255, 92, 122, 0.15) inset; }
+.g-blaster-hudmsg.is-on { display: flex; animation: pop var(--t-med) var(--ease-bounce) both; }
+.g-blaster-hudmsg-icon { font-size: 1.3rem; }
+.g-blaster-hudmsg-text { flex: 1; display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; min-width: 0; }
+.g-blaster-hudmsg-en { color: var(--text-2); font-weight: 500; }
+.g-blaster-hudmsg-arrow { color: var(--muted); }
+.g-blaster-hudmsg-es { font-family: var(--font-display); font-size: 1.6rem; font-weight: 800; letter-spacing: 0.02em; line-height: 1.1; color: var(--text); }
+.g-blaster-hudmsg-speak { width: 38px; height: 38px; border-radius: 10px; display: grid; place-items: center; font-size: 1.1rem; background: var(--surface-2); border: 1px solid var(--border); transition: background var(--t-fast), transform var(--t-fast) var(--ease-bounce); }
+.g-blaster-hudmsg-speak:hover { background: var(--surface-3); transform: scale(1.06); }
+
+/* ---------- Stage ---------- */
+.g-blaster-stage { background: #06091a; touch-action: manipulation; -webkit-user-select: none; user-select: none; cursor: crosshair; -webkit-tap-highlight-color: transparent; }
+.g-blaster-canvas { width: 100%; height: 100%; display: block; }
+.g-blaster-stage::after { content: ''; position: absolute; inset: 0; pointer-events: none; border-radius: inherit; box-shadow: inset 0 0 60px rgba(7, 10, 20, 0.55), inset 0 0 0 1px rgba(255, 255, 255, 0.04); transition: box-shadow var(--t-med); z-index: 2; }
+.g-blaster-stage.is-hit::after { box-shadow: inset 0 0 90px rgba(255, 92, 122, 0.6), inset 0 0 0 2px rgba(255, 92, 122, 0.6); transition: none; }
+
+/* Wave banner (top of the stage, never blocks the input) */
+.g-blaster-banner { position: absolute; top: 16px; left: 50%; transform: translateX(-50%); width: min(100% - 32px, 520px); text-align: center; pointer-events: none; z-index: 3; opacity: 0; transition: opacity var(--t-med); }
+.g-blaster-banner.is-on { opacity: 1; animation: g-blaster-banner-in var(--t-slow) var(--ease-bounce) both; }
+@keyframes g-blaster-banner-in { from { opacity: 0; transform: translateX(-50%) translateY(-14px) scale(0.92); } to { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); } }
+.g-blaster-banner-title { font-family: var(--font-display); font-size: clamp(1.5rem, 4.5vw, 2.3rem); font-weight: 900; letter-spacing: -0.01em; line-height: 1.1; background: var(--grad-text); -webkit-background-clip: text; background-clip: text; color: transparent; filter: drop-shadow(0 6px 18px rgba(0, 0, 0, 0.7)); }
+.g-blaster-banner-sub { margin-top: 4px; font-size: 0.85rem; font-weight: 600; color: var(--text-2); text-shadow: 0 2px 8px rgba(0, 0, 0, 0.8); }
+.g-blaster-banner-list { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; margin-top: 10px; }
+.g-blaster-banner-list span { padding: 5px 11px; border-radius: 999px; background: rgba(7, 10, 20, 0.82); border: 1px solid rgba(246, 196, 83, 0.45); font-size: 0.8rem; color: var(--text-2); animation: pop var(--t-med) var(--ease-bounce) both; }
+.g-blaster-banner-list b { color: var(--text); font-family: var(--font-display); }
+
+/* ---------- Typing console ---------- */
+.g-blaster-console { padding: var(--sp-4); display: flex; flex-direction: column; gap: 4px; }
+.g-blaster-console-row { display: flex; gap: 10px; align-items: stretch; }
+.g-blaster-input { flex: 1; min-width: 0; }
+.g-blaster-input:focus { border-color: var(--c-rose); box-shadow: 0 0 0 4px rgba(255, 92, 122, 0.18), 0 0 30px rgba(255, 92, 122, 0.12); }
+.g-blaster-input.is-correct { border-color: var(--c-mint); box-shadow: 0 0 0 4px rgba(56, 217, 196, 0.2); }
+.g-blaster-fire { min-width: 104px; font-size: 1rem; border-radius: var(--r-lg); }
+.g-blaster-fire:active { transform: scale(0.96); }
+.g-blaster-bar .accent-bar { margin-top: 10px; }
+
+/* ---------- Overlays ---------- */
+.g-blaster-overlay .panel { max-width: 540px; }
+.g-blaster-intro-icon { font-size: 3rem; line-height: 1; margin-bottom: 6px; animation: float 3s ease-in-out infinite; filter: drop-shadow(0 8px 24px rgba(255, 92, 122, 0.45)); }
+.g-blaster-intro p { margin-bottom: var(--sp-4); }
+.g-blaster-legend { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; text-align: left; font-size: 0.85rem; color: var(--text-2); margin-bottom: var(--sp-4); }
+.g-blaster-legend > div { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 10px; background: var(--surface); border: 1px solid var(--border); }
+.g-blaster-legend b { flex: 0 0 28px; height: 28px; display: grid; place-items: center; border-radius: 8px; background: rgba(255, 92, 122, 0.14); color: var(--c-amber); font-family: var(--font-display); font-size: 1rem; }
+.g-blaster-intro-best { margin-bottom: var(--sp-3); }
+.g-blaster-actions { justify-content: center; margin-top: var(--sp-2); }
+/* Game over: everything (Retry included) must fit inside the 460px stage without scrolling */
+.g-blaster-over.panel { padding: var(--sp-5) var(--sp-6); max-width: 600px; }
+.g-blaster-over .eyebrow { margin-bottom: 4px; }
+.g-blaster-over h2 { font-size: 1.5rem; margin-bottom: 2px; }
+.g-blaster-over .big { font-size: 2.6rem; margin: 4px 0; background: var(--grad-text); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.g-blaster-newbest { display: inline-block; padding: 4px 14px; border-radius: 999px; background: rgba(246, 196, 83, 0.15); border: 1px solid rgba(246, 196, 83, 0.5); color: var(--c-amber); font-weight: 700; font-size: 0.85rem; animation: pulse 1.2s ease-in-out infinite; }
+.g-blaster-over .stat-grid { grid-template-columns: repeat(4, 1fr); gap: 8px; margin: 10px 0; }
+.g-blaster-over .stat { padding: 8px 6px; }
+.g-blaster-over .stat-val { font-size: 1.3rem; }
+.g-blaster-missed-title { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
+.g-blaster-missed { max-height: 64px; overflow: auto; display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; margin-bottom: 10px; }
+.g-blaster-missed-row { display: inline-flex; align-items: center; gap: 8px; padding: 4px 6px 4px 12px; border-radius: 999px; background: var(--surface); border: 1px solid rgba(246, 196, 83, 0.35); }
+.g-blaster-missed-row .en { color: var(--text-2); font-size: 0.85rem; }
+.g-blaster-missed-row .en::after { content: '→'; color: var(--muted); margin-left: 6px; }
+.g-blaster-missed-row .es { font-family: var(--font-display); font-weight: 800; font-size: 1rem; white-space: nowrap; }
+.g-blaster-missed-row .btn { padding: 2px 6px; font-size: 0.85rem; }
+.g-blaster-over .g-blaster-actions { margin-top: 4px; }
+
+/* ---------- Responsive ---------- */
+@media (max-width: 640px) {
+  .g-blaster-tag { display: none; }
+  .g-blaster-hud { padding: 10px 12px; gap: 8px 14px; }
+  .g-blaster-hud .hud-item { font-size: 0.82rem; }
+  .g-blaster-hud .hud-item .val { font-size: 1rem; }
+  .g-blaster-hud .hud-spacer { display: none; }
+  .g-blaster-hearts { font-size: 1.2rem; }
+  .g-blaster-hudmsg { padding: 8px 10px; gap: 8px; }
+  .g-blaster-hudmsg-es { font-size: 1.3rem; }
+  .g-blaster-console { padding: var(--sp-3); }
+  .g-blaster-input { font-size: 1.15rem; padding: 12px 14px; }
+  .g-blaster-fire { min-width: 0; padding: 10px 14px; }
+  .g-blaster-overlay { padding: var(--sp-3); }
+  .g-blaster-overlay .panel { padding: var(--sp-5) var(--sp-4); }
+  .g-blaster-overlay .panel h2 { font-size: 1.35rem; }
+  .g-blaster-overlay .panel .big { font-size: 2.2rem; }
+  .g-blaster-overlay .panel p { font-size: 0.9rem; margin-bottom: var(--sp-3); }
+  .g-blaster-intro-icon { font-size: 2.2rem; }
+  .g-blaster-legend { display: none; }
+  /* Game over must fit a 360px-tall stage with Retry reachable without scrolling */
+  .g-blaster-over.panel { padding: var(--sp-4) var(--sp-4); }
+  .g-blaster-over .eyebrow { display: none; }
+  .g-blaster-over h2 { font-size: 1.3rem; }
+  .g-blaster-over .big { font-size: 1.9rem; }
+  .g-blaster-over .small { font-size: 0.78rem; }
+  .g-blaster-newbest { font-size: 0.78rem; padding: 3px 10px; }
+  .g-blaster-over .stat-grid { gap: 6px; margin: 8px 0; }
+  .g-blaster-over .stat { padding: 6px 4px; border-radius: 10px; }
+  .g-blaster-over .stat-val { font-size: 1rem; }
+  .g-blaster-over .stat-label { font-size: 0.6rem; letter-spacing: 0.04em; }
+  .g-blaster-missed-title { display: none; }
+  .g-blaster-missed { gap: 4px; max-height: 58px; margin-bottom: 6px; }
+  .g-blaster-missed-row { padding: 3px 4px 3px 8px; gap: 6px; }
+  .g-blaster-missed-row .en { font-size: 0.72rem; }
+  .g-blaster-missed-row .es { font-size: 0.85rem; }
+  .g-blaster-missed-row .btn { padding: 0 4px; font-size: 0.8rem; }
+  .g-blaster-overlay .panel .btn-lg { padding: 11px 18px; font-size: 0.95rem; }
+  .g-blaster-actions { gap: 8px; }
+  .g-blaster-banner { top: 10px; }
+  .g-blaster-banner-list { gap: 4px; }
+  .g-blaster-banner-list span { font-size: 0.72rem; padding: 3px 8px; }
+}
+/* On touch devices the accent bar is the way to type accents: hide the backtick tip */
+@media (pointer: coarse) { .g-blaster .accent-hint { display: none; } }
