@@ -187,7 +187,14 @@
     stage.addEventListener('click', () => { if (S && S.mode === 'play') focusInput(); });
 
     const input = h('input.input.input-lg.g-blaster-input', { type: 'text', placeholder: 'Type the Spanish… then Enter', 'aria-label': 'Spanish spelling', enterkeyhint: 'send', inputmode: 'text' });
-    input.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); submitAnswer(); } });
+    input.addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter') return;
+      e.preventDefault();
+      if (!S) return;
+      if (S.mode === 'intro' || S.mode === 'over') startGame();   // Enter in the box starts a run too
+      else if (S.mode === 'pause') resume();
+      else submitAnswer();
+    });
     const fire = h('button.btn.btn-danger.g-blaster-fire', { type: 'button', title: 'Fire (Enter)', onmousedown: (e) => e.preventDefault(), onclick: () => submitAnswer() }, '💥 Fire');
     const barWrap = h('div.g-blaster-bar');
     const consoleEl = h('div.card.card-glass.g-blaster-console', null, h('div.g-blaster-console-row', null, input, fire), barWrap);
@@ -196,7 +203,7 @@
     const shell = h('div.game-shell.g-blaster', null, topbar, hud, stage, consoleEl);
     root.appendChild(shell);
     return {
-      shell, stage, canvas, ctx: canvas.getContext('2d'), banner, input, fire, best, pauseBtn, overlay: null,
+      shell, stage, canvas, ctx: canvas.getContext('2d'), banner, input, fire, best, pauseBtn, consoleEl, overlay: null,
       hud: { score, wave, hearts, combo, comboItem, msg, msgEn, msgEs },
     };
   }
@@ -204,6 +211,29 @@
   function focusInput() {
     if (!D) return;
     try { D.input.focus({ preventScroll: true }); } catch (e) { /* ignore */ }
+  }
+
+  /**
+   * Make sure the typing box is fully on screen. If its bottom edge hangs below the viewport,
+   * Chromium centres the caret on the first keystroke and scrolls the play field under the
+   * sticky header; a small nudge now (nothing on tall windows) prevents that.
+   */
+  function revealConsole() {
+    if (!D) return;
+    const r = D.consoleEl.getBoundingClientRect();
+    const room = Math.max(0, document.documentElement.scrollHeight - window.innerHeight - (window.scrollY || 0));
+    const over = Math.min(Math.ceil(r.bottom - window.innerHeight + 8), room); // how far the box hangs below the fold
+    if (over <= 2) return;                                                        // tall window: nothing to do
+    try { window.scrollBy({ top: over, left: 0, behavior: 'smooth' }); } catch (e) { window.scrollBy(0, over); }
+  }
+
+  /** The Fire button recoils on every shot (keyboard or tap). */
+  function kickFire() {
+    const b = D.fire;
+    b.classList.remove('is-firing');
+    void b.offsetWidth;
+    b.classList.add('is-firing');
+    later(() => b.classList.remove('is-firing'), 300);
   }
 
   function flashInput(cls) {
@@ -297,6 +327,7 @@
     updateHud(true);
     Sound.play('gate');
     focusInput();
+    revealConsole();
   }
 
   /** Pick a whole wave up front: Progress.pick is weak-weighted, then weakest first. */
@@ -417,7 +448,7 @@
       r: (w < 480 ? 15 : 18) + Math.random() * 5,
       rot: Math.random() * TAU, rotV: (Math.random() - 0.5) * 1.2,
       rock: makeRock(),
-      cracked: false, revealUntil: 0, revealText: '',
+      cracked: false, crackAt: -1, revealUntil: 0, revealText: '',
       recorded: false,
     };
     S.meteors.push(m);
@@ -435,6 +466,7 @@
     const text = raw == null ? D.input.value : String(raw);
     if (!Text.normalize(text)) { flashInput('is-wrong'); focusInput(); return { status: 'empty' }; }
     S.attempts++;
+    kickFire();
     // Lowest meteor first: the one closest to the city is the natural target.
     const falling = S.meteors.slice().sort((a, b) => b.fy - a.fy);
     let hit = null, crack = null;
@@ -484,6 +516,7 @@
   function crackMeteor(m, expected) {
     const { x, y } = meteorPos(m);
     if (!m.cracked) { m.cracked = true; m.speedMult = 0.5; m.rock.cracks = makeCracks(); }
+    m.crackAt = S.t;                // every slip re-triggers the crack flash
     m.revealUntil = S.t + REVEAL;
     m.revealText = expected;
     burst(x, y, 10, [C.amber, C.amber2], 110);
@@ -573,6 +606,7 @@
     hideOverlay();
     Sound.play('click');
     focusInput();
+    revealConsole();
   }
 
   /* ------------------------------------------------------------
@@ -610,7 +644,7 @@
       }
       if (m.fy >= 1) {
         S.meteors.splice(i, 1);
-        if (harmless) burst(m.fx * S.view.w, PH, 14, [C.rose, C.amber], 120);
+        if (harmless || S.mode !== 'play') burst(m.fx * S.view.w, PH, 14, [C.rose, C.amber], 120);
         else cityHit(m);
       }
     }
@@ -672,7 +706,10 @@
   function resizeCanvas() {
     if (!S || !D) return;
     const w = Math.max(240, Math.round(D.stage.clientWidth));
-    const hh = w < 640 ? Math.round(Math.min(360, Math.max(300, w * 1.05))) : Math.round(Math.min(460, Math.max(360, w * 0.42)));
+    const vh = window.innerHeight || 900;
+    const hh = w < 640
+      ? Math.round(Math.min(360, Math.max(300, w * 1.05)))
+      : Math.round(clamp(Math.min(w * 0.42, vh - 400), 360, 460)); // 460 on roomy windows, 400 at 800px tall, 360 on tiny ones
     const dpr = Math.min(2, window.devicePixelRatio || 1);
     if (D.canvas.width !== Math.round(w * dpr) || D.canvas.height !== Math.round(hh * dpr)) {
       D.canvas.width = Math.round(w * dpr);
@@ -682,6 +719,7 @@
     D.stage.style.height = hh + 'px';
     S.view = { w, h: hh, dpr, cw: w };
     S.bg = null; // the sky is cached per size
+    D.input.placeholder = w < 480 ? 'Type the Spanish…' : 'Type the Spanish… then Enter';
   }
 
   function frame(now) {
@@ -704,6 +742,7 @@
   function updateHud(force) {
     const c = S.hudCache;
     const set = (k, v, fn) => { if (force || c[k] !== v) { c[k] = v; fn(v); } };
+    set('mode', S.mode, (v) => { D.shell.classList.toggle('is-playing', v === 'play'); D.shell.dataset.mode = v; });
     set('score', S.score, (v) => { D.hud.score.textContent = fmt(v); });
     set('wave', Math.max(1, S.wave), (v) => { D.hud.wave.textContent = String(v); });
     set('lives', S.lives, (v) => D.hud.hearts.forEach((el, i) => el.classList.toggle('is-off', i >= v)));
@@ -859,14 +898,17 @@
     // rock
     ctx.shadowColor = m.cracked ? C.amber : C.rose;
     ctx.shadowBlur = 16 + 6 * Math.sin(S.anim * 6 + m.id);
+    const ck = m.cracked ? clamp(1 - (S.t - m.crackAt) / 0.45, 0, 1) : 0; // crack flash: 1 right after the slip → 0
     ctx.save();
     ctx.rotate(m.rot);
+    if (ck > 0 && !REDUCED) { const sc = 1 + 0.3 * Math.sin(ck * Math.PI); ctx.scale(sc, sc); }
     ctx.beginPath();
     m.rock.pts.forEach(([a, b], i) => { if (i) ctx.lineTo(a * r, b * r); else ctx.moveTo(a * r, b * r); });
     ctx.closePath();
     const rg = ctx.createRadialGradient(-r * 0.3, -r * 0.3, r * 0.1, 0, 0, r);
     rg.addColorStop(0, '#ffd27a'); rg.addColorStop(0.45, '#c2552f'); rg.addColorStop(1, '#3a1420');
     ctx.fillStyle = rg; ctx.fill();
+    if (ck > 0) { ctx.shadowBlur = 30 * ck; ctx.fillStyle = rgba(C.white, 0.8 * ck); ctx.fill(); }
     ctx.shadowBlur = 0;
     ctx.strokeStyle = 'rgba(255,170,120,0.35)'; ctx.lineWidth = 1.5; ctx.stroke();
     ctx.fillStyle = 'rgba(0,0,0,0.28)';
@@ -880,17 +922,26 @@
     drawLabel(ctx, m, x, y);
   }
 
+  /** The English shown on a meteor. Narrow canvases drop parenthetical notes so two pills can still sit side by side. */
+  function labelFor(entry) {
+    if (!S || S.view.w >= 480) return entry.en;
+    const short = entry.en.replace(/\s*\([^)]*\)/g, '').replace(/\s+/g, ' ').trim();
+    return short || entry.en;
+  }
+
   /** The English meaning (and, after an accent slip, the correct spelling) on a glass pill under the rock. */
   function drawLabel(ctx, m, x, y) {
     const { w, h: hh } = S.view;
     const fs = w < 480 ? 13 : 14;
     const icon = CAT_ICON[m.entry.cat] || '';
+    const label = labelFor(m.entry);
     const padX = 10, iconW = icon ? 22 : 0;
     ctx.font = '700 ' + fs + 'px ' + FONT;
-    const tw = ctx.measureText(m.entry.en).width;
+    const tw = ctx.measureText(label).width;
     let pw = tw + padX * 2 + iconW;
     let ph = fs + 14;
     const reveal = m.cracked && S.t < m.revealUntil ? m.revealText : null;
+    const revealK = reveal ? clamp((m.revealUntil - S.t) / 0.4, 0, 1) : 0; // fade-out near the end
     if (reveal) {
       ctx.font = '800 ' + (fs + 2) + 'px ' + FONT;
       pw = Math.max(pw, ctx.measureText(reveal).width + padX * 2);
@@ -901,7 +952,7 @@
     if (ly + ph > hh - 4) ly = y - m.r - 8 - ph; // near the ground: label above the rock
     roundRect(ctx, lx - pw / 2, ly, pw, ph, 10);
     ctx.fillStyle = 'rgba(7,10,20,0.84)'; ctx.fill();
-    ctx.strokeStyle = m.cracked ? 'rgba(246,196,83,0.7)' : 'rgba(255,255,255,0.2)'; ctx.lineWidth = 1; ctx.stroke();
+    ctx.strokeStyle = m.cracked ? rgba(C.amber, 0.45 + 0.35 * revealK) : 'rgba(255,255,255,0.2)'; ctx.lineWidth = 1; ctx.stroke();
     ctx.textBaseline = 'middle';
     ctx.textAlign = 'left';
     let tx = lx - pw / 2 + padX;
@@ -909,14 +960,20 @@
     if (icon) { ctx.font = (fs - 1) + 'px ' + FONT; ctx.fillStyle = '#fff'; ctx.fillText(icon, tx, ty + 1); tx += iconW; }
     ctx.font = '700 ' + fs + 'px ' + FONT;
     ctx.fillStyle = '#eef1ff';
-    ctx.fillText(m.entry.en, tx, ty);
+    ctx.fillText(label, tx, ty);
     if (reveal) {
+      const age = S.t - m.crackAt;
+      const pop = REDUCED ? 1 : Math.min(1, age / 0.18);                 // quick pop-in
+      ctx.save();
+      ctx.globalAlpha = revealK * pop;
+      ctx.translate(lx, ty + fs + 8);
+      ctx.scale(0.7 + 0.3 * pop, 0.7 + 0.3 * pop);
       ctx.font = '800 ' + (fs + 2) + 'px ' + FONT;
       ctx.textAlign = 'center';
       ctx.fillStyle = C.amber;
-      ctx.shadowColor = C.amber; ctx.shadowBlur = 10;
-      ctx.fillText(reveal, lx, ty + fs + 8);
-      ctx.shadowBlur = 0;
+      ctx.shadowColor = C.amber; ctx.shadowBlur = 10 + 6 * Math.sin(S.anim * 7); // breathing glow
+      ctx.fillText(reveal, 0, 0);
+      ctx.restore();
     }
     ctx.textAlign = 'left';
     ctx.textBaseline = 'alphabetic';
@@ -963,7 +1020,7 @@
     drawStars(ctx);
     if (S.shake > 0 && !REDUCED) ctx.translate((Math.random() - 0.5) * 10 * S.shake, (Math.random() - 0.5) * 10 * S.shake);
     drawCity(ctx);
-    S.meteors.forEach((m) => drawMeteor(ctx, m));
+    S.meteors.slice().sort((a, b) => a.fy - b.fy).forEach((m) => drawMeteor(ctx, m)); // lowest meteor drawn last: its label stays on top
     drawTurret(ctx);
     drawFx(ctx);
     if (S.flash > 0) {
@@ -1037,7 +1094,7 @@
   /* ------------------------------------------------------------
      Debug hooks for tests
      ------------------------------------------------------------ */
-  const meteorInfo = (m) => ({ id: m.id, entryId: m.entry.id, en: m.entry.en, fy: Math.round(m.fy * 1000) / 1000, cracked: m.cracked, reveal: S.t < m.revealUntil ? m.revealText : '', recorded: m.recorded });
+  const meteorInfo = (m) => ({ id: m.id, entryId: m.entry.id, en: m.entry.en, label: labelFor(m.entry), fy: Math.round(m.fy * 1000) / 1000, cracked: m.cracked, crackAge: m.cracked ? Math.round((S.t - m.crackAt) * 1000) / 1000 : null, reveal: S.t < m.revealUntil ? m.revealText : '', recorded: m.recorded });
   window.PQ.debug = window.PQ.debug || {};
   window.PQ.debug[ID] = {
     get state() { return S; },

@@ -51,10 +51,17 @@ const entry = (id) => VOCAB.find((e) => e.id === id);
       const cs = await page.$eval('.g-blaster canvas', (c) => ({ w: c.clientWidth, h: c.clientHeight, bw: c.width, bh: c.height }));
       assert(cs.h >= 400 && cs.h <= 470 && cs.w > 900 && cs.bw === cs.w && cs.bh === cs.h, 'desktop canvas sized and dpr-aware: ' + JSON.stringify(cs));
       await shot(page, 'blaster-intro.png');
+      const fitIntro = await page.evaluate(() => { const s = document.querySelector('.g-blaster-stage').getBoundingClientRect(); const b = document.querySelector('.g-blaster-intro button.btn-primary').getBoundingClientRect(); return { ok: b.top >= s.top && b.bottom <= s.bottom, stage: [s.top, s.bottom], btn: [b.top, b.bottom] }; });
+      assert(fitIntro.ok, 'intro Start button fully inside the stage on desktop: ' + JSON.stringify(fitIntro));
+      const idle = await page.evaluate(() => ({ playing: document.querySelector('.g-blaster').classList.contains('is-playing'), dim: parseFloat(getComputedStyle(document.querySelector('.g-blaster-console')).opacity) }));
+      assert(!idle.playing && idle.dim < 1, 'console dimmed while idle on the intro: ' + JSON.stringify(idle));
 
       // Start with the mouse; the typing input must take focus
       await page.click('.g-blaster .game-overlay button.btn-primary');
       assert(await mode(page) === 'play', 'Start begins play');
+      await page.waitForTimeout(450); // let the console's opacity transition finish
+      const live = await page.evaluate(() => ({ playing: document.querySelector('.g-blaster').classList.contains('is-playing'), mode: document.querySelector('.g-blaster').dataset.mode, dim: parseFloat(getComputedStyle(document.querySelector('.g-blaster-console')).opacity) }));
+      assert(live.playing && live.mode === 'play' && live.dim === 1, 'console lit while playing: ' + JSON.stringify(live));
       assert(await page.$('.g-blaster .game-overlay') == null, 'intro overlay removed');
       await page.waitForTimeout(100);
       assert(await inputFocused(page), 'input focused after start');
@@ -75,6 +82,8 @@ const entry = (id) => VOCAB.find((e) => e.id === id);
       let list = await meteors(page);
       let m = list.find((x) => x.id === fr.id);
       assert(m && m.cracked && m.reveal === 'francés', 'accent slip cracks the meteor and reveals the spelling: ' + JSON.stringify(m));
+      assert(typeof m.crackAge === 'number' && m.crackAge >= 0 && m.crackAge < 0.5, 'crack flash just started: ' + m.crackAge);
+      assert(await page.$eval('.g-blaster-fire', (el) => el.classList.contains('is-firing')), 'Fire button kicks on submit');
       const w1 = await word(page, 'frances');
       assert(w1.acc === w0.acc + 1 && w1.n === w0.n + 1, 'accent slip recorded once');
       const sm = await dbg(page, (id) => PQ.debug.blaster.state.meteors.find((x) => x.id === id).speedMult, fr.id);
@@ -82,6 +91,9 @@ const entry = (id) => VOCAB.find((e) => e.id === id);
       assert(await page.$eval('.g-blaster-input', (el) => el.classList.contains('is-accent')), 'input shakes amber on an accent slip');
       assert(await page.$eval('.g-blaster-input', (el) => el.value === ''), 'input cleared after submit');
       assert(await inputFocused(page), 'input still focused after submit');
+      await page.waitForTimeout(400); // any smooth scroll settles
+      const vis = await page.evaluate(() => { const r = (s) => document.querySelector(s).getBoundingClientRect(); const hb = r('.site-header').bottom; return { headerBottom: hb, stageTop: r('.g-blaster-stage').top, hudTop: r('.g-blaster-hud').top, inputBottom: r('.g-blaster-input').bottom, vh: window.innerHeight }; });
+      assert(vis.stageTop >= vis.headerBottom && vis.hudTop >= vis.headerBottom - 12 && vis.inputBottom <= vis.vh, 'typing keeps HUD, sky and input on screen at 800px tall: ' + JSON.stringify(vis));
       await shot(page, 'blaster-cracked.png');
       // a second slip on the same meteor must not record again
       await typeAnswer(page, 'frances');
@@ -144,6 +156,8 @@ const entry = (id) => VOCAB.find((e) => e.id === id);
       assert(await mode(page) === 'play', 'empty submit ignored');
 
       // ---- a meteor reaching the city ----
+      assert((await dbg(page, () => PQ.debug.blaster.spawn('hora-de'))).label === 'in the … (class period) hour', 'desktop keeps the full English label');
+      await dbg(page, () => PQ.debug.blaster.submit('en la hora de'));
       const di = await spawn(page, 'dificil');
       const d0 = await word(page, 'dificil');
       await dbg(page, (id) => PQ.debug.blaster.drop(id), di.id);
@@ -185,6 +199,8 @@ const entry = (id) => VOCAB.find((e) => e.id === id);
       const banner = await page.$eval('.g-blaster-banner', (el) => ({ on: el.classList.contains('is-on'), title: el.querySelector('.g-blaster-banner-title').textContent, list: Array.from(el.querySelectorAll('.g-blaster-banner-list span')).map((s) => s.textContent) }));
       assert(banner.on && banner.title === 'Wave 1 cleared', 'wave cleared banner: ' + JSON.stringify(banner));
       assert(banner.list.some((t) => t.includes('difficult') && t.includes('difícil')), 'banner lists the missed word with its spelling');
+      const pill = await page.evaluate(() => { const pills = document.querySelectorAll('.g-blaster-banner-list > span'); const ac = document.querySelector('.g-blaster-banner-list .accent-char'); return { pills: pills.length, acBorder: ac ? getComputedStyle(ac).borderTopWidth : null, acPad: ac ? getComputedStyle(ac).paddingLeft : null }; });
+      assert(pill.pills === 1 && pill.acBorder === '0px' && pill.acPad === '0px', 'exactly one pill per missed word, accent letter styled inline: ' + JSON.stringify(pill));
       await shot(page, 'blaster-wave-cleared.png');
       await page.waitForFunction(() => PQ.debug.blaster.state.wave === 2, null, { timeout: 6000 });
       const w2st = await dbg(page, () => { const s = PQ.debug.blaster.state; return { total: s.waveTotal, spawned: s.spawned, lives: s.lives }; });
@@ -223,8 +239,12 @@ const entry = (id) => VOCAB.find((e) => e.id === id);
       assert(await mode(page) === 'play', 'Resume button resumes');
       await page.click('.g-blaster-pausebtn');
       assert(await mode(page) === 'pause', 'pause button pauses');
-      await page.keyboard.press('Escape');
-      assert(await mode(page) === 'play', 'resume again');
+      await page.click('.g-blaster-input');
+      await page.keyboard.press('Enter');
+      assert(await mode(page) === 'play', 'Enter inside the input resumes');
+      await page.waitForTimeout(60);
+      assert(await inputFocused(page), 'input focused after resuming from the box');
+      assert(await page.$eval('.g-blaster-input', (el) => el.value === ''), 'Enter while paused does not fire');
       // typing with focus elsewhere lands in the input; clicking the canvas refocuses it
       await page.evaluate(() => document.activeElement.blur());
       await page.keyboard.type('x');
@@ -243,9 +263,16 @@ const entry = (id) => VOCAB.find((e) => e.id === id);
       await dbg(page, () => PQ.debug.blaster.setLives(1));
       const scoreFinal = await dbg(page, () => PQ.debug.blaster.state.score);
       const ut = await spawn(page, 'util');
-      await dbg(page, (id) => PQ.debug.blaster.drop(id), ut.id);
+      const te = await spawn(page, 'tengo');
+      const u0 = await word(page, 'util');
+      // both land in the same frame: 'tengo' (processed first) takes the last life, 'util' must burst harmlessly
+      await dbg(page, (ids) => { PQ.debug.blaster.drop(ids[0]); PQ.debug.blaster.drop(ids[1]); }, [ut.id, te.id]);
       await page.waitForTimeout(120);
       assert(await mode(page) === 'ending', 'last life → ending');
+      const endSt = await dbg(page, (ids) => { const s = PQ.debug.blaster.state; return { lives: s.lives, missed: s.missed.map((e) => e.id), landed: s.meteors.filter((m) => ids.includes(m.id)).length }; }, [ut.id, te.id]);
+      assert(endSt.lives === 0 && endSt.landed === 0, 'lives never go below zero and both meteors are gone: ' + JSON.stringify(endSt));
+      assert(endSt.missed.includes('tengo') && !endSt.missed.includes('util'), 'only the meteor that ended the run counts as missed: ' + JSON.stringify(endSt));
+      assert((await word(page, 'util')).n === u0.n, 'a meteor landing after the run ended records nothing');
       await page.waitForSelector('.g-blaster-over', { timeout: 3000 });
       assert(await mode(page) === 'over', 'game over mode');
       const over = await page.$eval('.g-blaster-over', (el) => ({
@@ -258,7 +285,7 @@ const entry = (id) => VOCAB.find((e) => e.id === id);
       }));
       assert(over.big.replace(/,/g, '') === String(scoreFinal), 'final score shown: ' + over.big);
       assert(over.stats.some((s) => s.startsWith('Wave=2')) && over.stats.some((s) => s.startsWith('Destroyed=')) && over.stats.some((s) => /^Accuracy=\d+%$/.test(s)), 'stats grid: ' + over.stats.join(', '));
-      assert(over.missed.includes('difficult|difícil') && over.missed.includes('useful|útil'), 'missed list with correct spellings: ' + over.missed.join(', '));
+      assert(over.missed.includes('difficult|difícil') && over.missed.includes('I have|yo tengo'), 'missed list with correct spellings: ' + over.missed.join(', '));
       assert(over.newBest && over.retry && over.home, 'new best + retry/home buttons');
       const best = await dbg(page, () => PQ.Progress.gameStats('blaster'));
       assert(best.best === scoreFinal && best.wave === 2 && best.plays === 1, 'best saved with wave: ' + JSON.stringify(best));
@@ -297,6 +324,10 @@ const entry = (id) => VOCAB.find((e) => e.id === id);
       await page.evaluate(() => { location.hash = '#/play/blaster'; });
       await page.waitForSelector('.g-blaster canvas');
       assert(await mode(page) === 'intro', 'second remount ok');
+      await page.click('.g-blaster-input');
+      await page.keyboard.press('Enter');
+      assert(await mode(page) === 'play', 'Enter inside the input starts the run');
+      assert(await dbg(page, () => PQ.debug.blaster.state.meteors.length === 0 && PQ.debug.blaster.state.attempts === 0), 'that Enter did not count as a shot');
 
       assert(errors.length === 0, 'console errors (desktop): ' + errors.join('\n'));
       console.log('desktop: OK');
@@ -317,7 +348,15 @@ const entry = (id) => VOCAB.find((e) => e.id === id);
       assert(cs.w <= 390 && cs.w > 300 && cs.h >= 300 && cs.h <= 360, 'canvas sized for mobile: ' + JSON.stringify(cs));
       const hintHidden = await page.$eval('.g-blaster .accent-hint', (el) => getComputedStyle(el).display === 'none');
       assert(hintHidden, 'backtick tip hidden on touch devices');
+      assert(await page.$eval('.g-blaster-input', (el) => el.placeholder.length <= 20), 'short placeholder on narrow screens');
+      const oneRow = async (label) => {
+        const tops = await page.$$eval('.g-blaster-hud .hud-item', (els) => els.map((e) => e.getBoundingClientRect().top));
+        assert(tops.length === 4 && Math.max.apply(null, tops) - Math.min.apply(null, tops) < 6, 'HUD stats on one row ' + label + ': ' + JSON.stringify(tops));
+      };
+      await oneRow('on the intro');
       await shot(page, 'blaster-mobile-intro.png');
+      const fitIntroM = await page.evaluate(() => { const s = document.querySelector('.g-blaster-stage').getBoundingClientRect(); const b = document.querySelector('.g-blaster-intro button.btn-primary').getBoundingClientRect(); return { ok: b.top >= s.top && b.bottom <= s.bottom, stage: [s.top, s.bottom], btn: [b.top, b.bottom] }; });
+      assert(fitIntroM.ok, 'intro Start button fully inside the stage on mobile: ' + JSON.stringify(fitIntroM));
       const sb = await (await page.$('.g-blaster .game-overlay button.btn-primary')).boundingBox();
       await page.touchscreen.tap(sb.x + sb.width / 2, sb.y + sb.height / 2);
       assert(await mode(page) === 'play', 'touch tap starts the game');
@@ -351,11 +390,19 @@ const entry = (id) => VOCAB.find((e) => e.id === id);
       assert(!ms.find((x) => x.id === ing.id), 'mobile fire button destroys the meteor');
       // label pills stay inside the canvas on narrow screens
       const widest = await spawn(page, 'hora-de');
-      assert(widest, 'long label meteor spawned');
+      assert(widest && widest.label === 'in the … hour', 'narrow canvas drops the parenthetical note from the label: ' + JSON.stringify(widest.label));
       await page.waitForTimeout(100);
       await shot(page, 'blaster-mobile-long-label.png');
       const wrongR = await dbg(page, () => PQ.debug.blaster.submit('nope'));
       assert(wrongR.status === 'wrong', 'mobile wrong answer');
+      const oc = await spawn(page, 'octavo');
+      await dbg(page, (id) => { PQ.debug.blaster.state.score = 12345; PQ.debug.blaster.drop(id); }, oc.id);
+      await page.waitForTimeout(150);
+      const mmsg = await page.$eval('.g-blaster-hudmsg', (el) => ({ on: el.classList.contains('is-on'), es: el.querySelector('.g-blaster-hudmsg-es').textContent }));
+      assert(mmsg.on && mmsg.es === 'octavo', 'mobile HUD teaching moment: ' + JSON.stringify(mmsg));
+      await oneRow('with a 5-digit score and the teaching row');
+      assert(await noOverflow(page), 'no overflow with the HUD message');
+      await shot(page, 'blaster-mobile-hit.png');
 
       // game over panel must fit inside the stage on mobile
       await dbg(page, () => PQ.debug.blaster.setLives(1));
