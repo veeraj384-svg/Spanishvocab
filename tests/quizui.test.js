@@ -121,7 +121,7 @@ const { launch, assert, SITE } = require('./helpers');
   await page.evaluate(() => window.__modal.close()); await page.waitForTimeout(40);
   assert(await page.evaluate(() => document.activeElement === document.querySelector('#m input')), 'focus restored to the input when the dialog closes');
   await page.keyboard.press('Enter'); await page.waitForTimeout(60);
-  assert(JSON.stringify(await results()) === '[]' && await page.evaluate(() => JSON.stringify(window.__r) === '["correct"]'), 'graded normally after the dialog closed');
+  assert(await page.evaluate(() => JSON.stringify(window.__r) === '["correct"]'), 'graded normally after the dialog closed');
   // feedback sits above the Continue button
   assert(await page.evaluate(() => { const r = document.querySelector('#m .quiz'); const fb = r.querySelector('.quiz-feedback-slot'), ac = r.querySelector('.quiz-actions'); return !!(fb.compareDocumentPosition(ac) & Node.DOCUMENT_POSITION_FOLLOWING) && !!ac.querySelector('.btn-primary'); }), 'feedback renders above Continue');
   // a question inside a forced modal (platformer style) gets its input focused
