@@ -427,6 +427,14 @@ p { margin: 0 0 var(--sp-4); }
   .xp-pill { padding: 3px; }
   .brand-mark { width: 32px; height: 32px; }
 }
+/* Touch targets: nothing interactive under 40px on touch screens */
+@media (pointer: coarse) {
+  .btn-sm { min-height: 40px; }
+  .btn-icon { width: 40px; height: 40px; }
+  .chip { min-height: 38px; }
+  .accent-key { min-width: 44px; height: 44px; }
+  .modal-close { width: 40px; height: 40px; }
+}
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; }
 }

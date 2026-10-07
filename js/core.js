@@ -352,7 +352,7 @@
     weakest(n, opts) {
       opts = opts || {};
       const list = (opts.pool || Vocab.all()).filter((e) => opts.includeUnseen || Progress.word(e.id).n > 0);
-      return list
+      return Rand.shuffle(list)                       // ties (e.g. a fresh profile) come out in random order, not sheet order
         .map((e) => ({ e, w: Progress.word(e.id) }))
         .sort((x, y) => (x.w.box - y.w.box) || ((y.w.acc + y.w.wrong) - (x.w.acc + x.w.wrong)) || (x.w.ok - y.w.ok))
         .slice(0, n || 5)
@@ -515,13 +515,18 @@
     modal(opts) {
       opts = opts || {};
       const content = typeof opts.content === 'string' ? UI.h('div', { html: opts.content }) : opts.content;
-      const box = UI.h('div.modal' + (opts.large ? '.modal-lg' : ''), { role: 'dialog', 'aria-modal': 'true' });
+      const box = UI.h('div.modal' + (opts.large ? '.modal-lg' : ''), { role: 'dialog', 'aria-modal': 'true', tabindex: '-1' });
       const backdrop = UI.h('div.modal-backdrop', null, box);
+      const previousFocus = document.activeElement;
       let closed = false;
       const close = () => {
         if (closed) return; closed = true;
         backdrop.remove();
         document.removeEventListener('keydown', onKey);
+        // give focus back to where it was (if that element is still on the page)
+        if (opts.restoreFocus !== false && previousFocus && previousFocus.isConnected && typeof previousFocus.focus === 'function' && previousFocus !== document.body) {
+          try { previousFocus.focus({ preventScroll: true }); } catch (e) { /* ignore */ }
+        }
         if (opts.onClose) opts.onClose();
       };
       const onKey = (e) => { if (e.key === 'Escape' && opts.closable !== false) { e.preventDefault(); close(); } };
@@ -534,6 +539,13 @@
       backdrop.addEventListener('mousedown', (e) => { if (e.target === backdrop && opts.closable !== false) close(); });
       document.addEventListener('keydown', onKey);
       document.body.appendChild(backdrop);
+      // Move focus into the dialog so keystrokes never reach inputs behind the backdrop.
+      // A text input inside gets focus; otherwise the dialog box itself (never a button, so a held
+      // Space/Enter cannot "click" something by accident).
+      if (opts.focus !== false) {
+        const inp = box.querySelector('input:not([type=hidden]), textarea, select');
+        try { (inp || box).focus({ preventScroll: true }); } catch (e) { /* ignore */ }
+      }
       return { el: box, backdrop, close };
     },
     /** Insert text at the caret of an input (keeps focus). */
@@ -746,6 +758,8 @@
       const root = UI.h('div.quiz', { 'data-kind': q.kind });
       let answered = false, usedHint = false, destroyed = false;
       const t0 = performance.now();
+      const createdAt = t0;                 // keystrokes older than this (e.g. the Enter that started a round) are ignored
+      let hiddenSince = 0, hiddenTotal = 0; // time spent in a background tab does not count as thinking time
       const kindLabel = { typed: 'Spell it in Spanish', choice: 'Pick the correct spelling', meaning: 'What does it mean?', accent: 'Place the accents' }[q.kind] || 'Question';
       root.appendChild(UI.h('div.quiz-kind', null, kindLabel));
       const promptEl = UI.h('div.quiz-prompt', null,
@@ -754,13 +768,19 @@
       root.appendChild(promptEl);
       const body = UI.h('div.quiz-body');
       root.appendChild(body);
+      const feedbackSlot = UI.h('div.quiz-feedback-slot');
+      root.appendChild(feedbackSlot);           // feedback reads first, the Continue button sits below it
       const actions = UI.h('div.quiz-actions');
       root.appendChild(actions);
-      const feedbackSlot = UI.h('div.quiz-feedback-slot');
-      root.appendChild(feedbackSlot);
 
       let selected = []; // accent kind
       let input = null;
+      root._cleanup = [];
+      const onVis = () => { if (document.hidden) { if (!hiddenSince) hiddenSince = performance.now(); } else if (hiddenSince) { hiddenTotal += performance.now() - hiddenSince; hiddenSince = 0; } };
+      document.addEventListener('visibilitychange', onVis);
+      root._cleanup.push(() => document.removeEventListener('visibilitychange', onVis));
+      /** True for a keystroke this widget should not act on: auto-repeat, or older than the widget itself. */
+      const staleKey = (e) => !!(e.repeat || e.timeStamp <= createdAt);
       /** True when a modal that does NOT contain this widget is on top (e.g. a game's quit dialog). */
       const blockedByModal = () => {
         const backs = document.querySelectorAll('.modal-backdrop');
@@ -772,7 +792,8 @@
         if (answered || destroyed) return;
         answered = true;
         const rec = Progress.record(q.entry.id, status, { bonus: opts.bonus });
-        const elapsed = (performance.now() - t0) / 1000;
+        if (hiddenSince) { hiddenTotal += performance.now() - hiddenSince; hiddenSince = 0; }
+        const elapsed = Math.max(0, (performance.now() - t0 - hiddenTotal) / 1000);
         const result = Object.assign({ status, xp: rec.xp, box: rec.box, levelUp: rec.levelUp, question: q, elapsed, usedHint }, extra || {});
         Sound.play(status === 'correct' ? 'correct' : status === 'accent' ? 'accent' : 'wrong');
         if (rec.levelUp) setTimeout(() => { Sound.play('levelup'); UI.toast('Level up! You are now level ' + rec.level, 'ok'); }, 350);
@@ -800,8 +821,6 @@
           root._cleanup.push(() => document.removeEventListener('keydown', onKey));
         }
       };
-      root._cleanup = [];
-
       const showFeedback = (r) => {
         UI.clear(feedbackSlot);
         const canon = q.kind === 'meaning' ? q.canonical : q.canonical;
@@ -840,14 +859,14 @@
         body.appendChild(wrap);
         UI.accentBar(input, { mount: wrap });
         const submit = () => {
-          if (answered) return;
+          if (answered || blockedByModal()) return;
           const r = Text.check(input.value, q.accepted, q.canonical);
           if (r.status === 'empty') { input.classList.add('is-wrong'); setTimeout(() => input.classList.remove('is-wrong'), 500); try { input.focus({ preventScroll: true }); } catch (e) { /* ignore */ } return; }
           input.classList.add(r.status === 'correct' ? 'is-correct' : r.status === 'accent' ? 'is-accent' : 'is-wrong');
           input.disabled = true;
           finish(r.status, { input: r.input, expected: r.expected });
         };
-        input.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); submit(); } });
+        input.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); if (!staleKey(e)) submit(); } });
         const submitBtn = UI.h('button.btn.btn-primary', { type: 'button', onclick: submit }, 'Check');
         actions.appendChild(submitBtn);
         if (opts.allowHint !== false) {
@@ -860,7 +879,17 @@
         }
         if (opts.allowSkip) actions.appendChild(UI.h('button.btn.btn-ghost', { type: 'button', onclick: () => { if (!answered) { input.disabled = true; finish('wrong', { input: '', expected: q.canonical, skipped: true }); } } }, "Don't know"));
         root._submit = submit;
-        if (opts.focus !== false) setTimeout(() => { try { input.focus({ preventScroll: true }); } catch (e) { /* ignore */ } }, 30);
+        if (opts.focus !== false) {
+          // Deferred focus for widgets not mounted through `mount` — but never steal focus from a dialog
+          // that opened meanwhile, or from something the caller focused on purpose.
+          const tm = setTimeout(() => {
+            if (destroyed || answered || blockedByModal() || !input.isConnected) return;
+            const ae = document.activeElement;
+            if (ae && ae !== document.body && ae !== input && !root.contains(ae) && !(ae.classList && ae.classList.contains('modal') && ae.contains(root))) return;
+            try { input.focus({ preventScroll: true }); } catch (e) { /* ignore */ }
+          }, 30);
+          root._cleanup.push(() => clearTimeout(tm));
+        }
       } else if (q.kind === 'choice' || q.kind === 'meaning') {
         const grid = UI.h('div.quiz-options', { role: 'group' });
         const btns = q.options.map((opt, i) => {
@@ -870,7 +899,7 @@
           return b;
         });
         const choose = (i) => {
-          if (answered) return;
+          if (answered || blockedByModal()) return;
           const opt = q.options[i];
           const r = Quiz.grade(q, opt);
           btns.forEach((b, k) => { b.disabled = true; if (q.options[k].correct) b.classList.add('is-correct'); });
@@ -879,7 +908,7 @@
         };
         body.appendChild(grid);
         const onKey = (e) => {
-          if (answered || blockedByModal()) return;
+          if (answered || blockedByModal() || staleKey(e)) return;
           const n = parseInt(e.key, 10);
           if (n >= 1 && n <= q.options.length && !e.metaKey && !e.ctrlKey && !e.altKey) { e.preventDefault(); choose(n - 1); }
         };
@@ -906,7 +935,7 @@
         });
         body.appendChild(row);
         const confirm = () => {
-          if (answered) return;
+          if (answered || blockedByModal()) return;
           const r = Quiz.grade(q, selected);
           tiles.forEach((t, i) => {
             if (!(t instanceof HTMLButtonElement)) return;
@@ -920,7 +949,7 @@
         };
         actions.appendChild(UI.h('button.btn.btn-primary', { type: 'button', onclick: confirm }, 'Confirm'));
         actions.appendChild(UI.h('button.btn.btn-outline', { type: 'button', onclick: () => { if (answered) return; selected = []; tiles.forEach((t, i) => { if (t instanceof HTMLButtonElement) { t.textContent = q.letters[i]; t.setAttribute('aria-pressed', 'false'); t.classList.remove('is-on'); } }); confirm(); } }, 'No accents needed'));
-        const onKey = (e) => { if (!answered && e.key === 'Enter' && !blockedByModal()) { e.preventDefault(); confirm(); } };
+        const onKey = (e) => { if (!answered && e.key === 'Enter' && !blockedByModal() && !staleKey(e)) { e.preventDefault(); confirm(); } };
         document.addEventListener('keydown', onKey);
         root._cleanup.push(() => document.removeEventListener('keydown', onKey));
         root._submit = confirm;

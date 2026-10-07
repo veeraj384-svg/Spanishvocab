@@ -97,6 +97,10 @@ w.PQ.Settings.set('cats', ['useful']); t('active respects filter', Vocab.active(
 w.PQ.Settings.set('cats', ['nope']); t('active falls back', Vocab.active().length === 44);
 w.PQ.Settings.set('cats', null);
 t('withAccents', Vocab.withAccents().every((e) => Text.hasAccent(e.base)) && Vocab.withAccents().length > 20);
+Progress.reset();
+const wk1 = Progress.weakest(10, { includeUnseen: true }).map((e) => e.id).join(), wk2 = Progress.weakest(10, { includeUnseen: true }).map((e) => e.id).join();
+t('weakest breaks ties randomly', wk1 !== wk2 || Progress.weakest(10, { includeUnseen: true }).map((e) => e.id).join() !== wk1);
+t('weakest still ranks weak words first', (Progress.record('facil', 'wrong'), Progress.record('facil', 'wrong'), Progress.weakest(1)[0].id === 'facil'));
 
 console.log(count - fails + '/' + count + ' passed');
 process.exit(fails ? 1 : 0);

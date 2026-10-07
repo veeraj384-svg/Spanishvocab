@@ -100,6 +100,43 @@ const { launch, assert, SITE } = require('./helpers');
   const n = await page.evaluate(() => window.PQ.Progress.word('facil').n);
   assert(n === 1, 'facil recorded once, got ' + n);
 
+  // the Enter keystroke that creates a question never confirms it; a fresh Enter does
+  await page.evaluate(() => {
+    window.__r = [];
+    window.addEventListener('keydown', function once(e) { if (e.key === 'Enter') { window.removeEventListener('keydown', once, true); window.__c = window.PQ.QuizUI.ask(window.PQ.Quiz.accent(window.PQ.Vocab.byId('frances')), { mount: document.getElementById('m'), onAnswer: (r) => window.__r.push(r.status) }); } }, true);
+  });
+  await page.keyboard.press('Enter'); await page.waitForTimeout(80);
+  assert(await page.evaluate(() => window.__r.length === 0 && !document.querySelector('#m .quiz-feedback')), 'stale Enter ignored by a new question');
+  await page.keyboard.press('Enter'); await page.waitForTimeout(80);
+  assert(await page.evaluate(() => window.__r.length === 1), 'fresh Enter confirms');
+
+  // a dialog on top: focus moves into it (even if opened right after the question), nothing is graded behind it, focus comes back on close
+  await page.evaluate(() => { window.__r = []; window.__c = window.PQ.QuizUI.ask(window.PQ.Quiz.typed(window.PQ.Vocab.byId('facil')), { mount: document.getElementById('m'), onAnswer: (r) => window.__r.push(r.status) }); window.__modal = window.PQ.UI.modal({ title: 'Quit?', content: window.PQ.UI.h('p', null, 'sure?') }); });
+  await page.waitForTimeout(80);
+  assert(await page.evaluate(() => document.querySelector('.modal-backdrop').contains(document.activeElement)), 'focus moved into the dialog');
+  // (ASCII only: Playwright inserts non-keyboard characters like á through an IME path that ignores focus)
+  await page.keyboard.type('facil'); await page.keyboard.press('Enter'); await page.waitForTimeout(60);
+  assert(await page.evaluate(() => window.__r.length === 0 && document.querySelector('#m input').value === ''), 'keystrokes do not reach the question behind a dialog');
+  assert(await page.evaluate(() => { document.querySelector('#m input').value = 'fácil'; window.__c.submit(); return window.__r.length === 0; }), 'submit() is blocked behind a dialog');
+  await page.evaluate(() => window.__modal.close()); await page.waitForTimeout(40);
+  assert(await page.evaluate(() => document.activeElement === document.querySelector('#m input')), 'focus restored to the input when the dialog closes');
+  await page.keyboard.press('Enter'); await page.waitForTimeout(60);
+  assert(JSON.stringify(await results()) === '[]' && await page.evaluate(() => JSON.stringify(window.__r) === '["correct"]'), 'graded normally after the dialog closed');
+  // feedback sits above the Continue button
+  assert(await page.evaluate(() => { const r = document.querySelector('#m .quiz'); const fb = r.querySelector('.quiz-feedback-slot'), ac = r.querySelector('.quiz-actions'); return !!(fb.compareDocumentPosition(ac) & Node.DOCUMENT_POSITION_FOLLOWING) && !!ac.querySelector('.btn-primary'); }), 'feedback renders above Continue');
+  // a question inside a forced modal (platformer style) gets its input focused
+  assert(await page.evaluate(() => { const c = window.PQ.QuizUI.ask(window.PQ.Quiz.typed(window.PQ.Vocab.byId('que'))); const md = window.PQ.UI.modal({ closable: false, content: c.el }); const ok = document.activeElement === c.el.querySelector('input'); md.close(); c.destroy(); return ok; }), 'typed question inside a modal is focused');
+  // time in a hidden tab is not counted as thinking time
+  const elapsed = await page.evaluate(async () => {
+    const m = document.getElementById('m'); let res = null;
+    const c = window.PQ.QuizUI.ask(window.PQ.Quiz.typed(window.PQ.Vocab.byId('util')), { mount: m, onAnswer: (r) => { res = r; } });
+    Object.defineProperty(document, 'hidden', { configurable: true, get: () => true }); document.dispatchEvent(new Event('visibilitychange'));
+    await new Promise((r) => setTimeout(r, 350));
+    Object.defineProperty(document, 'hidden', { configurable: true, get: () => false }); document.dispatchEvent(new Event('visibilitychange'));
+    m.querySelector('input').value = 'útil'; c.submit(); delete document.hidden; return res.elapsed;
+  });
+  assert(elapsed < 0.25, 'hidden time excluded from elapsed, got ' + elapsed);
+
   assert(errors.length === 0, 'console errors: ' + errors.join('\n'));
   await browser.close();
   console.log('quizui.test.js: all passed');
