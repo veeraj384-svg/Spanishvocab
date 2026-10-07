@@ -52,7 +52,8 @@ button.g-spell-mode:active { transform: translateY(0) scale(0.99); }
   font-family: var(--font-mono); font-size: 0.68rem; font-weight: 500; color: var(--muted);
 }
 .g-spell-cats { margin-top: 12px; }
-.g-spell-cats .chip { --cat: var(--c-amber); cursor: pointer; }
+/* The chips start a round, so they get full button-sized targets (≥40px; 44px for fingers). */
+.g-spell-cats .chip { --cat: var(--c-amber); cursor: pointer; min-height: 40px; padding: 8px 14px; font-size: 0.85rem; }
 .g-spell-cats .chip:hover, .g-spell-cats .chip:focus-visible { color: var(--text); border-color: var(--cat); background: var(--surface-3); transform: translateY(-1px); }
 .g-spell-cats .chip:active { transform: scale(0.97); }
 
@@ -62,6 +63,9 @@ button.g-spell-mode:active { transform: translateY(0) scale(0.99); }
 }
 .g-spell-toggle { color: var(--text); font-weight: 600; }
 .g-spell-note { flex: 1 1 320px; text-align: right; }
+
+/* Topbar actions (Home / Quit) are real targets on every pointer type: 40px, level with the title icon. */
+.g-spell .game-topbar .btn-sm { min-height: 40px; }
 
 /* ---------- Round screen ---------- */
 .g-spell-modechip {
@@ -203,4 +207,5 @@ button.g-spell-mode:active { transform: translateY(0) scale(0.99); }
 }
 @media (pointer: coarse) {
   .g-spell-key { display: none; }
+  .g-spell-cats .chip { min-height: 44px; }
 }

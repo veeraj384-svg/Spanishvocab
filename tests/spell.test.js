@@ -22,7 +22,7 @@ const snap = (page) => page.evaluate(() => {
   };
 });
 const question = (page) => page.evaluate(() => {
-  const c = PQ.debug.spell.ctl;
+  const c = PQ.debug.spell.controller;
   if (!c) return null;
   const q = c.question;
   return { kind: q.kind, id: q.entry.id, canonical: q.canonical, correctIdx: q.options ? q.options.findIndex((o) => o.correct) : -1, needs: q.needs || null, answered: c.answered };
@@ -46,6 +46,11 @@ async function typeAnswer(page, text) {
   await page.keyboard.type(text);
   await page.keyboard.press('Enter');
   await page.waitForSelector('.g-spell-mount .quiz-feedback');
+}
+/** The live answer input must hold focus (after a dialog closes, after a question mounts, ...). */
+async function expectInputFocus(page, why) {
+  await page.waitForFunction(() => !!document.activeElement && document.activeElement.matches('.g-spell-mount input'), undefined, { timeout: 1500 })
+    .catch(() => { throw new Error('ASSERT: ' + why); });
 }
 /** Continue past the feedback with Enter (the widget's own keyboard handling). */
 async function next(page) {
@@ -81,6 +86,18 @@ async function desktop() {
   const registered = await page.evaluate(() => { const g = PQ.Games.get('spell'); return g && g.name + '|' + g.icon + '|' + g.order + '|' + g.accent; });
   assert(registered === 'Spell Forge|✍️|2|var(--c-mint)', 'registration: ' + registered);
   await shot(page, 'desktop-start');
+  assert(await page.evaluate(() => typeof PQ.debug.spell.controller !== 'undefined' && 'state' in PQ.debug.spell && typeof PQ.debug.spell.start === 'function'), 'debug hook has state / start / controller');
+
+  // ---- Weak words on a fresh profile: every word ties, so the queue must not simply be the sheet order ----
+  const weakRuns = await page.evaluate(() => {
+    const runs = [];
+    for (let i = 0; i < 2; i++) { PQ.debug.spell.start('weak'); runs.push(PQ.debug.spell.state.round.queue.map((e) => e.id).join(',')); }
+    PQ.debug.spell.showStart();
+    return { runs, sheet: PQ.Vocab.all().slice(0, 10).map((e) => e.id).join(',') };
+  });
+  assert(weakRuns.runs.every((r) => r !== weakRuns.sheet), 'a fresh Weak round is not the first ten sheet words: ' + weakRuns.runs[0]);
+  assert(weakRuns.runs[0] !== weakRuns.runs[1], 'two fresh Weak rounds draw different queues');
+  assert(weakRuns.runs.every((r) => new Set(r.split(',')).size === 10), 'weak queues hold 10 distinct words');
 
   // ---- Quick 10 via click ----
   await page.click('.g-spell-mode[data-mode="quick"]');
@@ -93,7 +110,7 @@ async function desktop() {
   assert((await page.evaluate(() => window.__liveIntervals())) === 1, 'round timer interval running');
   await page.evaluate(() => { Object.defineProperty(document, 'hidden', { configurable: true, get: () => true }); document.dispatchEvent(new Event('visibilitychange')); });
   const tHidden = await page.evaluate(() => PQ.debug.spell.elapsed());
-  await page.waitForTimeout(350);
+  await page.waitForTimeout(2500);
   assert((await page.evaluate(() => PQ.debug.spell.elapsed())) === tHidden, 'timer paused while hidden');
   await page.evaluate(() => { Object.defineProperty(document, 'hidden', { configurable: true, get: () => false }); document.dispatchEvent(new Event('visibilitychange')); });
   await page.waitForTimeout(120);
@@ -103,6 +120,7 @@ async function desktop() {
   await answerCorrect(page);
   s = await snap(page);
   assert(s.answers[0].status === 'correct' && s.answers[0].points >= 100 && s.score === s.answers[0].points, 'correct answer scored: ' + JSON.stringify(s.answers[0]));
+  assert(s.answers[0].points >= 142, 'time in a hidden tab does not count against the speed bonus: ' + s.answers[0].points);
   assert(s.streak === 1, 'streak 1');
   assert(await page.locator('.g-spell-float.is-ok').count() === 1, 'score float shown');
   assert(await page.locator('.quiz-feedback.ok').count() === 1, 'ok feedback');
@@ -207,8 +225,11 @@ async function desktop() {
   s = await snap(page);
   assert(s.mode === 'weak' && s.total === 10, 'weak mode via key 2: ' + JSON.stringify(s));
   const firstWeak = await question(page);
-  const weakestIds = await page.evaluate(() => PQ.Progress.weakest(10, { pool: PQ.Vocab.active(), includeUnseen: true }).map((e) => e.id));
-  assert(firstWeak.id === weakestIds[0], 'weak mode asks the weakest word first');
+  const weakInfo = await page.evaluate((id) => {
+    const boxes = PQ.Vocab.active().map((e) => PQ.Progress.box(e.id));
+    return { box: PQ.Progress.box(id), min: Math.min.apply(null, boxes) };
+  }, firstWeak.id);
+  assert(weakInfo.box === weakInfo.min, 'weak mode asks one of the weakest words first (box ' + weakInfo.box + ', weakest box ' + weakInfo.min + ')');
 
   // Esc opens the quit dialog; "Finish now" ends the round early
   await answerCorrect(page); await next(page);
@@ -232,6 +253,94 @@ async function desktop() {
   assert((await page.locator('.g-spell-modechip').textContent()).includes('Question words'), 'mode chip names the category');
   const catQ = await question(page);
   assert((await page.evaluate((id) => PQ.Vocab.byId(id).cat, catQ.id)) === 'question', 'question from the chosen category');
+
+  // ---- Quit dialog: keystrokes never reach the question behind it, and closing it hands focus back ----
+  await expectInputFocus(page, 'input focused before opening the quit dialog');
+  await page.keyboard.press('Escape');
+  await page.waitForSelector('.modal');
+  await page.keyboard.type('hola');
+  await page.keyboard.press('Enter');
+  await page.waitForTimeout(150);
+  s = await snap(page);
+  assert(s.answers.length === 0 && (await page.locator('.quiz-feedback').count()) === 0, 'typing behind the quit dialog grades nothing');
+  assert((await page.inputValue('.g-spell-mount input')) === '', 'keystrokes do not land in the input behind the dialog');
+  assert(await page.locator('.modal-backdrop').count() === 1, 'dialog still open');
+  await page.click('.modal button:has-text("Keep playing")');
+  await expectInputFocus(page, 'input refocused after "Keep playing"');
+  await page.keyboard.press('Escape');
+  await page.waitForSelector('.modal');
+  await page.click('.modal .modal-close');
+  await expectInputFocus(page, 'input refocused after closing the dialog with ✕');
+  await page.keyboard.press('Escape');
+  await page.waitForSelector('.modal');
+  await page.keyboard.press('Escape');
+  await expectInputFocus(page, 'input refocused after closing the dialog with Esc');
+  assert(await page.locator('.modal-backdrop').count() === 0, 'dialog closed');
+
+  // ---- Progress bar is a real progressbar for assistive tech ----
+  const pbAttrs = (p) => p.evaluate(() => { const b = document.querySelector('.g-spell-round [role=progressbar]'); return ['aria-valuemin', 'aria-valuemax', 'aria-valuenow'].map((a) => b.getAttribute(a)).join(); });
+  assert((await pbAttrs(page)) === '0,8,0', 'progressbar exposes min/max/now: ' + (await pbAttrs(page)));
+  await answerCorrect(page);
+  assert((await pbAttrs(page)) === '0,8,1', 'aria-valuenow follows the answers: ' + (await pbAttrs(page)));
+
+  // ---- Quitting after the last answer is a finished round (results only), never "Finished early" ----
+  await page.evaluate(() => PQ.debug.spell.start('retry', { entries: ['arte', 'clase'] }));
+  await page.waitForSelector('.g-spell-round .quiz');
+  await answerCorrect(page); await next(page);
+  await answerCorrect(page);                           // last question graded, feedback on screen
+  await page.keyboard.press('Escape');
+  await page.waitForSelector('.modal');
+  assert(await page.locator('.modal button:has-text("See results")').count() === 1 && await page.locator('.modal button:has-text("Back to start")').count() === 0 && await page.locator('.modal button:has-text("Finish now")').count() === 0, 'a completed round only offers its results');
+  await page.click('.modal button:has-text("See results")');
+  await page.waitForSelector('.g-spell-end');
+  s = await snap(page);
+  assert(s.reason === 'complete' && s.answers.length === 2, 'completed round: ' + JSON.stringify(s));
+  assert((await page.locator('.g-spell-end .eyebrow').textContent()).includes('complete'), 'end screen does not say "Finished early"');
+
+  // ---- Leaving the end screen cancels its count-up, confetti and toasts: nothing bleeds into the next round ----
+  await page.evaluate(() => PQ.debug.spell.start('retry', { entries: ['arte'] }));
+  await page.waitForSelector('.g-spell-round .quiz');
+  await answerCorrect(page);
+  await page.waitForFunction(() => !document.querySelector('.confetti-canvas') && !document.querySelector('.toast')); // nothing left over from the previous win
+  await page.evaluate(() => { PQ.debug.spell.end('complete'); PQ.debug.spell.els.again.click(); }); // "Play again" in the same tick as the end screen
+  await page.waitForSelector('.g-spell-round .quiz');
+  const hudSeen = new Set();
+  for (let i = 0; i < 25; i++) { hudSeen.add(await page.locator('.g-spell-scorewrap .val').textContent()); await page.waitForTimeout(40); }
+  assert(hudSeen.size === 1 && hudSeen.has('0'), 'HUD score stays 0 in the fresh round (saw ' + Array.from(hudSeen).join(' ') + ')');
+  assert((await snap(page)).score === 0 && await page.locator('.confetti-canvas').count() === 0 && await page.locator('.toast:has-text("New best")').count() === 0, 'no confetti / toast from the abandoned end screen');
+
+  // ---- Missed-word list: a multiple-choice miss says "you picked", not "you typed" ----
+  await page.evaluate(() => PQ.debug.spell.start('retry', { entries: ['tecnologia'] }));
+  await page.waitForSelector('.g-spell-round .quiz');
+  await page.evaluate(() => PQ.debug.spell.force('tecnologia', 'choice'));
+  assert(await page.evaluate(() => PQ.debug.spell.controller === PQ.debug.spell.ctl && PQ.debug.spell.controller.question.kind === 'choice'), 'PQ.debug.spell.controller is the live QuizUI controller');
+  const wrongIdx = await page.evaluate(() => PQ.debug.spell.controller.question.options.findIndex((o) => !o.correct));
+  await page.click('.quiz-option[data-idx="' + wrongIdx + '"]');
+  await page.waitForSelector('.quiz-feedback');
+  await next(page);
+  await page.waitForSelector('.g-spell-end');
+  const missSide = await page.locator('.g-spell-miss-side').textContent();
+  assert(missSide.includes('you picked') && !missSide.includes('you typed'), 'choice miss wording: ' + missSide);
+  await shot(page, 'desktop-end-choice-miss');
+
+  // ---- Retry rounds re-test typing even when the mix toggle is on ----
+  const retryKinds = await page.evaluate(() => {
+    const kinds = new Set();
+    for (let i = 0; i < 20; i++) { PQ.debug.spell.start('retry', { entries: ['dificil', 'frances'], mix: true }); kinds.add(PQ.debug.spell.controller.question.kind); }
+    return { kinds: Array.from(kinds), mix: PQ.debug.spell.state.round.mix };
+  });
+  assert(retryKinds.kinds.join() === 'typed' && retryKinds.mix === false, 'retry is always typed: ' + JSON.stringify(retryKinds));
+
+  // ---- Mode copy never promises more words than the category filter leaves in play ----
+  await page.evaluate(() => { PQ.Settings.set('cats', ['useful']); PQ.debug.spell.showStart(); });
+  assert((await page.locator('.g-spell-mode[data-mode="quick"] .g-spell-mode-name').textContent()).startsWith('Quick 4'), 'Quick card counts the words in play');
+  assert((await page.locator('.g-spell-mode[data-mode="quick"] .g-spell-mode-desc').textContent()).startsWith('Four words'), 'Quick description matches the count');
+  assert((await page.locator('.g-spell-mode[data-mode="weak"] .g-spell-mode-desc').textContent()).includes('four shakiest'), 'Weak description matches the count');
+  await page.click('.g-spell-mode[data-mode="quick"]');
+  await page.waitForSelector('.g-spell-round .quiz');
+  assert((await page.locator('.g-spell-modechip').textContent()).includes('Quick 4') && (await page.locator('.g-spell-progress-label').textContent()).includes('of 4'), 'round chip and progress agree with the copy');
+  await page.evaluate(() => { PQ.Settings.set('cats', null); PQ.debug.spell.showStart(); });
+  assert((await page.locator('.g-spell-mode[data-mode="quick"] .g-spell-mode-name').textContent()).startsWith('Quick 10'), 'back to Quick 10 with every word in play');
 
   // ---- Marathon with mixed question kinds, lives and the 3-miss ending ----
   await page.evaluate(() => PQ.debug.spell.start('marathon', { mix: true }));
@@ -317,6 +426,8 @@ async function mobile() {
   await page.goto(SITE + '#/play/spell');
   await page.waitForSelector('.g-spell-start');
   assert(await noOverflow(page), 'no horizontal overflow on the start screen');
+  const chipHeights = await page.evaluate(() => Array.from(document.querySelectorAll('.g-spell-cats .chip')).map((c) => Math.round(c.getBoundingClientRect().height)));
+  assert(chipHeights.length === 5 && chipHeights.every((hh) => hh >= 40), 'category chips are finger-sized (≥40px): ' + chipHeights.join());
   await shot(page, 'mobile-start');
 
   await page.tap('.g-spell-mode[data-mode="quick"]');
@@ -340,6 +451,14 @@ async function mobile() {
   await page.waitForSelector('.g-spell-mount input:not(:disabled)');
   const s = await snap(page);
   assert(s.index === 2 && s.answers.length === 1 && s.answers[0].status === 'correct', 'continued to question 2 by touch');
+  assert((await page.evaluate(() => Math.round(document.querySelector('.g-spell-round button.btn-sm').getBoundingClientRect().height))) >= 40, 'Quit button is finger-sized');
+
+  // Quit dialog → "Keep playing" hands focus back to the input (so the keyboard comes back)
+  await page.tap('.g-spell-round button:has-text("Quit")');
+  await page.waitForSelector('.modal');
+  await page.tap('.modal button:has-text("Keep playing")');
+  await expectInputFocus(page, 'input refocused after "Keep playing" (touch)');
+  assert(await page.locator('.modal-backdrop').count() === 0, 'dialog closed (touch)');
 
   // Quit via the touch button → dialog → finish
   await page.tap('.g-spell-round button:has-text("Quit")');

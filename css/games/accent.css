@@ -70,14 +70,30 @@
 .g-accent-touchhint { display: none; }
 .g-accent.is-touch .g-accent-keys > span:not(.g-accent-touchhint) { display: none; }
 .g-accent.is-touch .g-accent-touchhint { display: inline; }
+.g-accent.is-touch .g-accent-key { display: none; }   /* the 1 / 2 / 3 key badges mean nothing on a phone */
+/* Touch-target floor also keyed on the module's own touch flag (styles.css only keys it on pointer: coarse) */
+.g-accent.is-touch .btn-sm { min-height: 40px; }
+.g-accent.is-touch .btn-icon { min-width: 40px; min-height: 40px; }
 @media (pointer: coarse) {
   .g-accent-keys > span:not(.g-accent-touchhint) { display: none; }
   .g-accent-touchhint { display: inline; }
+  .g-accent-key { display: none; }
 }
 
 /* ---------- Round: HUD ---------- */
 .g-accent-hud { gap: var(--sp-5); }
+.g-accent-hud .hud-item { position: relative; }
 .g-accent-hud .hud-item .label { margin: 0; }
+/* Small rewards that rise out of a HUD item (+2s from the clock, "Combo ×2!" from the badge) */
+.g-accent-hudfloat {
+  position: absolute; left: 50%; top: -6px; z-index: 3; transform: translate(-50%, -100%); pointer-events: none; white-space: nowrap;
+  padding: 3px 9px; border-radius: 999px; background: var(--bg-3); border: 1px solid var(--border-strong); box-shadow: var(--shadow-sm);
+  font-family: var(--font-display); font-weight: 800; font-size: 0.85rem; line-height: 1.2; color: var(--c-mint);
+  animation: g-accent-hudfloat 1.2s var(--ease) both;
+}
+.g-accent-hudfloat.is-time { color: var(--c-mint); border-color: rgba(56,217,196,0.5); }
+.g-accent-hudfloat.is-combo { color: #1a1200; background: var(--grad-primary); border-color: transparent; box-shadow: var(--glow-amber); }
+.g-accent-time.is-bonus { animation: g-accent-bonus 0.6s var(--ease-bounce); }
 .g-accent-scorewrap .val { display: inline-block; min-width: 2ch; }
 .g-accent-scorewrap.is-bump .val { animation: g-accent-bump 0.5s var(--ease-bounce); }
 .g-accent-combo {
@@ -152,17 +168,17 @@
 .g-accent-mount .quiz-feedback { text-align: center; }
 .g-accent-mount .quiz-option { font-size: 1.25rem; }
 
-/* Particle layer */
+/* Particle layer. Floats are anchored by their bottom edge just above the word and rise from there,
+   so they never cover the word or its English meaning. */
 .g-accent-fx { position: absolute; inset: 0; z-index: 2; pointer-events: none; overflow: hidden; overflow: clip; }
 .g-accent-float {
-  position: absolute; transform: translate(-50%, -50%); pointer-events: none; white-space: nowrap;
+  position: absolute; transform: translate(-50%, -100%); pointer-events: none; white-space: nowrap;
   font-family: var(--font-display); font-weight: 900; font-size: 1.9rem; line-height: 1; letter-spacing: -0.01em;
   color: var(--c-amber); text-shadow: 0 2px 18px rgba(246,196,83,0.55);
   animation: g-accent-float 1.3s var(--ease) both;
 }
 .g-accent-float.is-ok { color: var(--c-mint); text-shadow: 0 2px 18px rgba(56,217,196,0.55); }
 .g-accent-float.is-bad { color: var(--c-rose); text-shadow: 0 2px 18px rgba(255,92,122,0.5); font-size: 1.4rem; animation-name: g-accent-float-bad; }
-.g-accent-float.is-time { color: var(--c-amber); font-size: 1.1rem; }
 .g-accent-float.is-go { font-size: 2.6rem; background: var(--grad-text); -webkit-background-clip: text; background-clip: text; color: transparent; text-shadow: none; animation: g-accent-go 1.3s var(--ease) both; }
 .g-accent-spark {
   position: absolute; width: 8px; height: 8px; border-radius: 50%; pointer-events: none;
@@ -190,13 +206,15 @@
 .g-accent-missed-head h3 { margin: 0; }
 .g-accent-missed { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; text-align: left; }
 .g-accent-miss {
-  display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 14px; border-radius: 14px;
+  display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 14px;
   background: var(--surface); border: 1px solid var(--border); border-left: 3px solid var(--c-amber);
 }
 .g-accent-miss[data-status="wrong"] { border-left-color: var(--c-rose); }
-.g-accent-miss-main { min-width: 0; }
+.g-accent-miss-main { min-width: 0; flex: 1 1 auto; }
 .g-accent-miss-es { font-family: var(--font-display); font-weight: 800; font-size: 1.3rem; letter-spacing: 0.02em; }
 .g-accent-miss-side { display: flex; align-items: center; gap: 10px; flex-shrink: 0; flex-wrap: wrap; justify-content: flex-end; }
+.g-accent-end .g-accent-say { width: 44px; height: 44px; flex-shrink: 0; font-size: 1.1rem; border-radius: 12px; background: var(--surface-2); border: 1px solid var(--border); }
+.g-accent-end .g-accent-say:hover { background: var(--surface-3); border-color: var(--border-strong); }
 .g-accent-miss-typed s { color: var(--c-rose); text-decoration-thickness: 2px; }
 .g-accent-miss-tag { padding: 3px 9px; border-radius: 999px; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; background: rgba(246,196,83,0.15); color: var(--c-amber); border: 1px solid rgba(246,196,83,0.4); }
 .g-accent-miss[data-status="wrong"] .g-accent-miss-tag { background: rgba(255,92,122,0.15); color: var(--c-rose); border-color: rgba(255,92,122,0.4); }
@@ -212,9 +230,19 @@
 @keyframes g-accent-slide { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
 @keyframes g-accent-wordpop { 0% { opacity: 0; transform: scale(0.6); } 60% { transform: scale(1.08); } 100% { opacity: 1; transform: scale(1); } }
 @keyframes g-accent-blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.25; } }
-@keyframes g-accent-float { 0% { opacity: 0; transform: translate(-50%, -30%) scale(0.6); } 20% { opacity: 1; transform: translate(-50%, -60%) scale(1.15); } 100% { opacity: 0; transform: translate(-50%, -220%) scale(1); } }
-@keyframes g-accent-float-bad { 0% { opacity: 0; transform: translate(-50%, -50%) scale(0.7); } 20% { opacity: 1; transform: translate(-50%, -50%) scale(1.1); } 100% { opacity: 0; transform: translate(-50%, 40%) scale(0.9); } }
-@keyframes g-accent-go { 0% { opacity: 0; transform: translate(-50%, -50%) scale(0.4); } 25% { opacity: 1; transform: translate(-50%, -50%) scale(1.2); } 60% { opacity: 1; transform: translate(-50%, -50%) scale(1); } 100% { opacity: 0; transform: translate(-50%, -140%) scale(1); } }
+@keyframes g-accent-float { 0% { opacity: 0; transform: translate(-50%, -70%) scale(0.6); } 20% { opacity: 1; transform: translate(-50%, -100%) scale(1.15); } 100% { opacity: 0; transform: translate(-50%, calc(-100% - 46px)) scale(1); } }
+@keyframes g-accent-float-bad {
+  0% { opacity: 0; transform: translate(-50%, -100%) scale(0.7); }
+  15% { opacity: 1; transform: translate(-50%, -100%) scale(1.1); }
+  30% { transform: translate(calc(-50% - 7px), -100%); }
+  45% { transform: translate(calc(-50% + 7px), -100%); }
+  60% { transform: translate(-50%, -100%); }
+  100% { opacity: 0; transform: translate(-50%, calc(-100% - 22px)) scale(0.95); }
+}
+@keyframes g-accent-go { 0% { opacity: 0; transform: translate(-50%, -100%) scale(0.4); } 25% { opacity: 1; transform: translate(-50%, -100%) scale(1.2); } 60% { opacity: 1; transform: translate(-50%, -100%) scale(1); } 100% { opacity: 0; transform: translate(-50%, calc(-100% - 40px)) scale(1); } }
+@keyframes g-accent-hudfloat { 0% { opacity: 0; transform: translate(-50%, -40%) scale(0.7); } 20% { opacity: 1; transform: translate(-50%, -100%) scale(1.08); } 75% { opacity: 1; transform: translate(-50%, calc(-100% - 10px)) scale(1); } 100% { opacity: 0; transform: translate(-50%, calc(-100% - 26px)) scale(0.95); } }
+@keyframes g-accent-hudfloat-side { 0% { opacity: 0; transform: translate(10px, -50%) scale(0.7); } 20% { opacity: 1; transform: translate(0, -50%) scale(1.08); } 75% { opacity: 1; transform: translate(0, -50%) scale(1); } 100% { opacity: 0; transform: translate(0, calc(-50% - 10px)) scale(0.95); } }
+@keyframes g-accent-bonus { 0% { transform: scale(1); } 35% { transform: scale(1.3); color: var(--c-mint); } 100% { transform: scale(1); } }
 @keyframes g-accent-spark { 0% { opacity: 1; transform: translate(-50%, -50%) scale(1); } 100% { opacity: 0; transform: translate(calc(-50% + var(--dx, 0px)), calc(-50% + var(--dy, -60px))) scale(0.2); } }
 
 /* ---------- Responsive ---------- */
@@ -227,17 +255,26 @@
   .g-accent-hero-stats { grid-template-columns: repeat(3, 1fr); gap: 8px; }
   .g-accent-hero-stats .stat { padding: 10px 6px; }
   .g-accent-hero-stats .stat .stat-val { font-size: 1.2rem; }
-  .g-accent-hud { gap: 10px 14px; padding: 10px 12px; }
-  .g-accent-hud .hud-item { font-size: 0.82rem; }
+  /* 2 × 2 HUD: Score | Combo on the first row, Words | Time on the second (no lonely TIME row) */
+  .g-accent-hud { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 14px; padding: 10px 12px; }
+  .g-accent-hud .hud-item { font-size: 0.82rem; min-width: 0; }
   .g-accent-hud .hud-item .val { font-size: 1.05rem; }
-  .g-accent-accwrap { display: none; }
+  .g-accent-hud .hud-spacer, .g-accent-accwrap { display: none; }
+  .g-accent-hud .g-accent-progwrap:last-child { grid-column: 1 / -1; }   /* zen / spot: the progress item takes the whole second row */
+  /* TIME sits on the second row: its +2s pill pops beside the readout instead of rising onto the COMBO badge above */
+  .g-accent-timewrap .g-accent-hudfloat { left: auto; right: 2px; top: 50%; transform: translate(0, -50%); animation-name: g-accent-hudfloat-side; }
   .g-accent-stage { min-height: 320px; padding: var(--sp-5) var(--sp-4); }
   .g-accent-mount .quiz-letters { gap: 7px; }
   .g-accent-mount .quiz-letter { width: 44px; height: 54px; font-size: 1.4rem; }
   .g-accent-mount .quiz-letter.is-space { width: 16px; }
   .g-accent-mount .quiz-actions .btn { flex: 1 1 auto; }
   .g-accent-float { font-size: 1.5rem; }
-  .g-accent-miss { flex-direction: column; align-items: flex-start; }
-  .g-accent-miss-side { justify-content: flex-start; }
+  .g-accent-float.is-bad { font-size: 1.2rem; }
+  .g-accent-float.is-go { font-size: 2rem; }
+  /* Missed word on a phone: word + 🔊 on the first row, "you had … · tag" underneath */
+  .g-accent-miss { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 8px 12px; }
+  .g-accent-miss-main { grid-column: 1; grid-row: 1; }
+  .g-accent-end .g-accent-say { grid-column: 2; grid-row: 1; }
+  .g-accent-miss-side { grid-column: 1 / -1; grid-row: 2; justify-content: flex-start; }
   .g-accent-actions .btn { flex: 1 1 100%; }
 }

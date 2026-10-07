@@ -43,6 +43,27 @@ const moduleFits = (page) => page.evaluate(() => {
   return Array.from(document.querySelectorAll('.g-accent, .g-accent *:not(.g-accent-fx *)')).every((el) => { const r = el.getBoundingClientRect(); return r.right <= w + 1 && r.left >= -1; });
 });
 const settle = (page) => page.waitForTimeout(700);   // let entrance animations finish before a screenshot
+const KEY_GRACE = 350;   // ms after a question appears during which answer keys are ignored (PQ.debug.accent.KEY_GRACE_MS)
+/** 'visible' when no overflow-clipping ancestor cuts the element off and it lies in the viewport; otherwise says what clips it. */
+const clipState = (page, sel) => page.evaluate((sel) => {
+  const el = document.querySelector(sel); if (!el) return 'missing';
+  const r = el.getBoundingClientRect();
+  for (let p = el.parentElement; p && p !== document.body; p = p.parentElement) {
+    const cs = getComputedStyle(p);
+    if (cs.overflow === 'visible' && cs.overflowX === 'visible' && cs.overflowY === 'visible') continue;
+    const pr = p.getBoundingClientRect();
+    if (r.top < pr.top || r.bottom > pr.bottom || r.left < pr.left || r.right > pr.right) return 'clipped by .' + p.className.split(' ').join('.');
+  }
+  return r.top >= 0 && r.bottom <= window.innerHeight && r.left >= 0 && r.right <= window.innerWidth ? 'visible' : 'offscreen';
+}, sel);
+/** Pause the CSS animations of `sel` at `ms` so geometry can be measured at a known frame. */
+const seekAnim = (page, sel, ms) => page.evaluate(([sel, ms]) => { document.querySelectorAll(sel).forEach((el) => el.getAnimations().forEach((a) => { a.pause(); a.currentTime = ms; })); }, [sel, ms]);
+/** Overlapping area (px²) of two elements' boxes. */
+const overlapPx = (page, a, b) => page.evaluate(([a, b]) => {
+  const A = document.querySelector(a), B = document.querySelector(b); if (!A || !B) return -1;
+  const ra = A.getBoundingClientRect(), rb = B.getBoundingClientRect();
+  return Math.max(0, Math.min(ra.right, rb.right) - Math.max(ra.left, rb.left)) * Math.max(0, Math.min(ra.bottom, rb.bottom) - Math.max(ra.top, rb.top));
+}, [a, b]);
 /** Wait until the widget has moved on to question number `n`. */
 const waitForIndex = (page, n) => page.waitForFunction((n) => { const s = PQ.debug.accent.state; return s && s.screen === 'round' && s.index === n && PQ.debug.accent.ctl && !PQ.debug.accent.ctl.answered; }, n, { timeout: 6000 });
 const waitForEnd = (page) => page.waitForSelector('.g-accent-end', { timeout: 8000 });
@@ -115,7 +136,10 @@ async function desktop() {
   const bonus = after.t - before.t + (after.now - before.now) / 1000;
   assert(s.timeBonus === 2 && bonus > 1.8 && bonus < 2.3, 'correct answer adds +2s (net ' + bonus.toFixed(2) + 's)');
   assert((await page.locator('.g-accent-float.is-ok').count()) === 1, '+100 float');
-  assert((await page.locator('.g-accent-float.is-time').count()) === 1, '+2s float');
+  assert((await page.locator('.g-accent-hudfloat.is-time').count()) === 1, '+2s float');
+  await seekAnim(page, '.g-accent-hudfloat.is-time', 300);
+  assert((await clipState(page, '.g-accent-hudfloat.is-time')) === 'visible', '+2s float is actually visible (not clipped by the stage): ' + (await clipState(page, '.g-accent-hudfloat.is-time')));
+  assert((await page.locator('.g-accent-time.is-bonus').count()) === 1, 'time readout pulses on the bonus');
   assert((await page.locator('.g-accent-spark').count()) > 0, 'spark burst');
   assert((await page.locator('.g-accent-hud .g-accent-scorewrap .val').textContent()) === '100', 'HUD score');
   log('correct answer by mouse');
@@ -222,8 +246,8 @@ async function desktop() {
   const missHtml = await page.locator('.g-accent-miss-es').innerHTML();
   assert(missHtml.includes('accent-char') && missHtml.includes('é'), 'missed word has the accent highlighted: ' + missHtml);
   assert((await page.locator('.g-accent-miss-typed').textContent()).includes('ingles'), 'shows what the learner had');
-  const speechAvail = await page.evaluate(() => PQ.Speech.available());
-  if (speechAvail) { assert((await page.locator('.g-accent-say').count()) === 1, '🔊 button'); await page.click('.g-accent-say'); }
+  const speechOn = await page.evaluate(() => PQ.Speech.enabled());
+  if (speechOn) { assert((await page.locator('.g-accent-say').count()) === 1, '🔊 button'); await page.click('.g-accent-say'); }
   await page.waitForTimeout(1000);
   assert((await page.locator('.g-accent-final-score').textContent()) === '700', 'score counted up to 700');
   await shot(page, 'desktop-end');
@@ -300,6 +324,7 @@ async function desktop() {
   assert(s.mode === 'spot' && s.total === 12, 'spot round of 12');
   q = await question(page);
   assert(q.options.length === 4, 'four options');
+  await page.waitForTimeout(KEY_GRACE + 50);   // a digit typed right as the round starts is deliberately ignored
   await page.keyboard.press(String(q.options.findIndex((o) => o.correct) + 1));
   await page.waitForSelector('.g-accent-mount .quiz-feedback.ok');
   s = await snap(page);
@@ -363,12 +388,18 @@ async function mobile() {
   assert((await page.locator('.g-accent.is-touch').count()) === 1, 'touch device flagged on the shell');
   assert(await page.locator('.g-accent-touchhint').first().isVisible(), 'touch hint shown');
   assert(!(await page.locator('.g-accent-keys .kbd').first().isVisible()), 'keyboard hints hidden on touch');
+  assert((await page.evaluate(() => Array.from(document.querySelectorAll('.g-accent-mode .g-accent-key')).filter((e) => e.getBoundingClientRect().width > 0).length)) === 0, 'no 1/2/3 key badges on the mode cards on touch');
   await settle(page);
   await shot(page, 'mobile-start');
 
   await page.tap('.g-accent-mode[data-mode="blitz"]');
   await page.waitForSelector('.g-accent-mount .quiz[data-kind="accent"]');
   assert(await moduleFits(page), 'mobile round: module fits the viewport');
+  // HUD is a 2 × 2 grid on a phone: Score | Combo over Words | Time (TIME never alone on a row)
+  const hudRows = await page.evaluate(() => Array.from(document.querySelectorAll('.g-accent-hud .hud-item')).filter((i) => i.offsetParent).map((i) => ({ label: i.querySelector('.label').textContent, top: Math.round(i.getBoundingClientRect().top) })));
+  const rowOf = (label) => (hudRows.find((r) => r.label === label) || {}).top;
+  const sameRow = (a, b) => Math.abs(rowOf(a) - rowOf(b)) < 6;   // items centre in their row: a taller badge shifts its top by a pixel
+  assert(hudRows.length === 4 && sameRow('Score', 'Combo') && sameRow('Words', 'Time') && rowOf('Time') - rowOf('Score') > 20, 'mobile HUD pairs Score|Combo and Words|Time: ' + JSON.stringify(hudRows));
   // A long two-word entry wraps its tiles without overflowing
   await force(page, 'edfisica');   // educación física: two accents, a space, 16 tiles
   assert(await moduleFits(page), 'mobile long word: tiles wrap inside the viewport');
@@ -381,6 +412,9 @@ async function mobile() {
   await page.waitForSelector('.g-accent-mount .quiz-feedback.ok');
   let s = await snap(page);
   assert(s.score === 100 && s.correct === 1, 'touch answer scored');
+  await seekAnim(page, '.g-accent-hudfloat.is-time', 300);
+  assert((await clipState(page, '.g-accent-hudfloat.is-time')) === 'visible', 'mobile +2s pill visible: ' + (await clipState(page, '.g-accent-hudfloat.is-time')));
+  assert((await overlapPx(page, '.g-accent-hudfloat.is-time', '.g-accent-combo')) === 0, 'mobile +2s pill does not sit on the combo badge');
   await waitForIndex(page, 2);
   await force(page, 'quien');
   await page.tap('.g-accent-mount .quiz-actions button:has-text("No accents needed")');
@@ -393,6 +427,12 @@ async function mobile() {
   await waitForEnd(page);
   assert(await moduleFits(page), 'mobile end: module fits the viewport');
   await page.waitForTimeout(1200);
+  if (await page.evaluate(() => PQ.Speech.enabled())) {
+    const say = await page.evaluate(() => { const r = document.querySelector('.g-accent-say').getBoundingClientRect(), w = document.querySelector('.g-accent-miss-es').getBoundingClientRect(); return { w: r.width, h: r.height, sameRowAsWord: Math.abs((r.top + r.height / 2) - (w.top + w.height / 2)) < 24 }; });
+    assert(say.w >= 44 && say.h >= 44 && say.sameRowAsWord, 'mobile 🔊 is a 44px target beside the word: ' + JSON.stringify(say));
+  }
+  const smallTargets = await page.evaluate(() => Array.from(document.querySelectorAll('.g-accent button, .g-accent a.btn')).filter((b) => { const r = b.getBoundingClientRect(); return r.width && (r.width < 40 || r.height < 40); }).map((b) => b.className));
+  assert(smallTargets.length === 0, 'no touch target under 40px on the end screen: ' + JSON.stringify(smallTargets));
   await shot(page, 'mobile-end');
 
   // Spot mode on touch
@@ -415,9 +455,151 @@ async function mobile() {
   await browser.close();
 }
 
+/* Regression checks for reviewed bugs (small focus pools, Enter leaking into a fresh question,
+   floats over the word, invisible +2s, empty-round "Flawless", dead 🔊 with speech off). */
+async function regressions() {
+  const { browser, page, errors } = await launch({ viewport: { width: 1280, height: 800 } });
+  await page.goto(SITE + '#/play/accent');
+  await page.waitForSelector('.g-accent-modes');
+  const pickMany = (n) => page.evaluate((n) => { const out = []; for (let i = 0; i < n; i++) out.push(PQ.debug.accent.pick().id); return out; }, n);
+  const repeats = (seq) => seq.filter((id, i) => i > 0 && id === seq[i - 1]).length;
+  const share = (seq) => page.evaluate((seq) => seq.filter((id) => PQ.Text.hasAccent(PQ.Vocab.byId(id).base)).length / seq.length, seq);
+
+  // ---- Small focus pools: never twice in a row, every word gets its turn, share adapts ----
+  const ladder = await page.evaluate(() => [[22, 22], [1, 7], [2, 2], [8, 0], [0, 5], [3, 9]].map(([a, p]) => PQ.debug.accent.accentShare(a, p)).join());
+  assert(ladder === '0.75,0.25,0.5,1,0,0.75', 'adaptive accent share ladder: ' + ladder);
+  await page.evaluate(() => PQ.Settings.set('cats', ['ordinal']));          // séptimo is the only accented ordinal
+  await page.evaluate(() => PQ.debug.accent.start('blitz'));
+  await page.waitForSelector('.g-accent-mount .quiz');
+  let seq = await pickMany(200);
+  const sept = seq.filter((id) => id === 'septimo').length;
+  assert(repeats(seq) === 0, 'ordinals: séptimo is never served twice in a row (' + repeats(seq) + ' repeats)');
+  assert(sept >= 20 && sept <= 70, 'ordinals: séptimo recurs but does not dominate (' + sept + '/200)');
+  assert(new Set(seq).size === 8, 'ordinals: all eight words come up');
+  await page.evaluate(() => PQ.Settings.set('cats', ['useful']));           // 2 accented + 2 plain
+  await page.evaluate(() => PQ.debug.accent.start('blitz'));
+  await page.waitForSelector('.g-accent-mount .quiz');
+  seq = await pickMany(200);
+  const counts = {}; seq.forEach((id) => { counts[id] = (counts[id] || 0) + 1; });
+  assert(repeats(seq) === 0, 'useful words: no back-to-back repeats');
+  assert(Object.keys(counts).length === 4 && Object.values(counts).every((n) => n >= 30), 'useful words: "No accents needed" stays a real decision — ' + JSON.stringify(counts));
+  await page.evaluate(() => PQ.Settings.set('cats', ['question']));         // all accented
+  await page.evaluate(() => PQ.debug.accent.start('blitz'));
+  await page.waitForSelector('.g-accent-mount .quiz');
+  seq = await pickMany(100);
+  assert(repeats(seq) === 0 && (await share(seq)) === 1, 'question words: all accented, no repeats');
+  await page.evaluate(() => PQ.Settings.set('cats', null));
+  await page.evaluate(() => PQ.debug.accent.start('blitz'));
+  await page.waitForSelector('.g-accent-mount .quiz');
+  seq = await pickMany(200);
+  const full = await share(seq);
+  assert(repeats(seq) === 0 && full > 0.62 && full < 0.88, 'full pool keeps ~75% accented words (' + Math.round(full * 100) + '%)');
+  await page.evaluate(() => PQ.debug.accent.endRound());
+  log('small focus pools');
+
+  // ---- The keystroke that starts a round must not answer its first question ----
+  await page.evaluate(() => PQ.debug.accent.showStart());
+  await page.focus('.g-accent-mode[data-mode="blitz"]');
+  await page.keyboard.press('Enter'); await page.keyboard.press('Enter');
+  await page.waitForTimeout(120);
+  let s = await snap(page);
+  assert(s.screen === 'round' && s.mode === 'blitz' && s.answered === 0 && !(await page.evaluate(() => PQ.debug.accent.ctl.answered)), 'Enter×2 on a mode card starts Blitz without answering Q1: ' + JSON.stringify(s));
+  await force(page, 'arte');
+  await page.keyboard.press('n');
+  await page.waitForSelector('.g-accent-mount .quiz-feedback.ok');
+  await page.evaluate(() => PQ.debug.accent.endRound());
+  await waitForEnd(page);
+  await page.click('.g-accent-actions button:has-text("Play again")');
+  await page.waitForSelector('.g-accent-mount .quiz');
+  await page.waitForTimeout(100);
+  await page.keyboard.press('Enter');
+  await page.waitForTimeout(100);
+  s = await snap(page);
+  assert(s.answered === 0, 'Enter 100ms after "Play again" does not answer Q1');
+  await page.evaluate(() => PQ.debug.accent.endRound());
+  await page.evaluate(() => PQ.debug.accent.showStart());
+  await page.keyboard.press('3'); await page.keyboard.press('3');
+  await page.waitForTimeout(120);
+  s = await snap(page);
+  assert(s.mode === 'spot' && s.answered === 0, '"3" twice starts Spot without picking option 3');
+  // Mashing Enter through the feedback must not confirm the next word with nothing selected
+  await page.evaluate(() => PQ.debug.accent.endRound());
+  await page.evaluate(() => PQ.debug.accent.start('zen'));
+  await page.waitForSelector('.g-accent-mount .quiz');
+  await force(page, 'arte');
+  await page.keyboard.press('n');
+  await page.waitForSelector('.g-accent-mount .quiz-feedback.ok');
+  for (let i = 0; i < 12; i++) { await page.keyboard.press('Enter'); await page.waitForTimeout(90); }
+  await waitForIndex(page, 2);
+  s = await snap(page);
+  assert(s.answered === 1 && s.index === 2, 'mashed Enter during feedback leaves Q2 unanswered: ' + JSON.stringify(s));
+  await page.waitForTimeout(KEY_GRACE + 50);
+  await page.keyboard.press('n');                       // after the grace, keys work as usual
+  await page.waitForSelector('.g-accent-mount .quiz-feedback');
+  assert((await snap(page)).answered === 2, 'keys answer normally once the grace has passed');
+  await page.evaluate(() => PQ.debug.accent.endRound());
+  log('round-start keystrokes');
+
+  // ---- Floats never cover the word or its meaning; +2s / combo pop in the HUD, no toast ----
+  await page.evaluate(() => PQ.debug.accent.showStart());
+  await page.evaluate(() => PQ.debug.accent.start('blitz'));
+  await page.waitForSelector('.g-accent-mount .quiz');
+  await page.evaluate(() => PQ.debug.accent.setCombo(2));
+  await force(page, 'edfisica');
+  await page.click('.g-accent-mount .quiz-letter[data-idx="7"]'); await page.click('.g-accent-mount .quiz-letter[data-idx="11"]');
+  await page.click('.g-accent-mount .quiz-actions button:has-text("Confirm")');
+  await page.waitForSelector('.g-accent-mount .quiz-feedback.ok');
+  await page.waitForTimeout(200);
+  await seekAnim(page, '.g-accent-float, .g-accent-hudfloat', 320);
+  const WORD = '.g-accent-mount .quiz-prompt > span:first-child', SUB = '.g-accent-mount .quiz-prompt .sub';
+  assert((await overlapPx(page, '.g-accent-float.is-ok', WORD)) === 0 && (await overlapPx(page, '.g-accent-float.is-ok', SUB)) === 0, '+N float stays clear of the word and its meaning');
+  assert((await clipState(page, '.g-accent-float.is-ok')) === 'visible', '+N float visible: ' + (await clipState(page, '.g-accent-float.is-ok')));
+  assert((await clipState(page, '.g-accent-hudfloat.is-combo')) === 'visible', 'combo step floats from the HUD badge');
+  assert((await page.locator('.toast').count()) === 0, 'no toast for the combo step (it covered the feedback card on phones)');
+  await waitForIndex(page, 2);
+  await force(page, 'matematicas');
+  await page.keyboard.press('n');
+  await page.waitForSelector('.g-accent-mount .quiz-feedback.accent');
+  await page.waitForTimeout(150);
+  await seekAnim(page, '.g-accent-float', 300);
+  assert((await overlapPx(page, '.g-accent-float.is-bad', WORD)) === 0 && (await overlapPx(page, '.g-accent-float.is-bad', SUB)) === 0, '"accent!" float stays clear of the word and its meaning');
+  await page.evaluate(() => PQ.debug.accent.endRound());
+  log('float placement');
+
+  // ---- A Blitz round with nothing answered is not a "Flawless" play ----
+  await page.evaluate(() => PQ.debug.accent.showStart());
+  const playsBefore = await page.evaluate(() => PQ.Progress.gameStats('accent').plays);
+  await page.evaluate(() => PQ.debug.accent.start('blitz'));
+  await page.waitForSelector('.g-accent-mount .quiz');
+  await page.evaluate(() => PQ.debug.accent.setTime(0.2));
+  await page.waitForSelector('.g-accent-modes', { timeout: 5000 });
+  assert((await snap(page)).screen === 'start' && (await page.locator('.g-accent-end').count()) === 0, 'time-out with 0 answers returns to the modes');
+  assert((await page.locator('.toast').last().textContent()).includes('nothing answered'), 'explains why');
+  assert((await page.evaluate(() => PQ.Progress.gameStats('accent').plays)) === playsBefore, 'an empty round does not count as a play');
+  log('empty round');
+
+  // ---- 🔊 only when speech is on ----
+  await page.evaluate(() => PQ.Settings.set('speech', false));
+  await page.evaluate(() => PQ.debug.accent.start('zen'));
+  await page.waitForSelector('.g-accent-mount .quiz');
+  await force(page, 'ingles');
+  await page.keyboard.press('n');
+  await page.waitForSelector('.g-accent-mount .quiz-feedback.accent');
+  await page.evaluate(() => PQ.debug.accent.endRound());
+  await waitForEnd(page);
+  assert((await page.locator('.g-accent-miss').count()) === 1 && (await page.locator('.g-accent-say').count()) === 0, 'no dead 🔊 button when speech is off');
+  await page.evaluate(() => PQ.Settings.set('speech', true));
+  log('speech gate');
+
+  assert(errors.length === 0, 'regression console errors: ' + errors.join('\n'));
+  await browser.close();
+}
+
 (async () => {
   console.log('accent.test.js: desktop');
   await desktop();
+  console.log('accent.test.js: regressions');
+  await regressions();
   console.log('accent.test.js: mobile (390px, touch)');
   await mobile();
   console.log('accent.test.js: all passed');

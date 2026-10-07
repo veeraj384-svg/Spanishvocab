@@ -20,6 +20,9 @@
      that carry an accent and ~25% that do not, so "No accents
      needed" is a real decision. A word never repeats back to back,
      and each group is cycled through before any word comes again.
+     With a small focus filter (e.g. only ordinals, where séptimo is
+     the single accented word) the share adapts so that no word has
+     to come back within fewer than MIN_GAP picks.
 
    Keyboard (accent questions)
      ← →  move the highlight over the letter tiles
@@ -39,7 +42,9 @@
   const LOW_TIME = 10;            // seconds left: the timer turns red and ticks
   const ZEN_COUNT = 15;
   const SPOT_COUNT = 12;
-  const ACCENT_SHARE = 0.75;      // share of accent-bearing words in Blitz / Zen
+  const ACCENT_SHARE = 0.75;      // target share of accent-bearing words in Blitz / Zen
+  const MIN_GAP = 4;              // a word should not be expected back within fewer picks than this (shrinks the share for tiny groups)
+  const KEY_GRACE_MS = 350;       // answer keys are ignored this long after a question appears (the Enter that started the round must not answer it)
   const BASE_POINTS = 100;
   const COMBO_X2 = 3, COMBO_X3 = 6, COMBO_X4 = 10;
   const MAX_FX = 40;              // cap on live particle elements
@@ -137,16 +142,43 @@
   /* ------------------------------------------------------------
      Word selection
      ------------------------------------------------------------ */
+  /**
+   * Share of accent-bearing words for a pool with nA accented / nP plain entries.
+   * ACCENT_SHARE when both groups are big enough; otherwise squeezed so that a group drawn with
+   * probability p and cycled before repeating brings each of its n words back only every n/p picks,
+   * never more often than every MIN_GAP picks. When both constraints collide (two tiny groups)
+   * the natural proportion is used. Examples: all 44 words → 0.75, ordinals (1 / 7) → 0.25,
+   * useful words (2 / 2) → 0.5, question words (8 / 0) → 1.
+   */
+  function accentShare(nA, nP) {
+    if (!nA) return 0;
+    if (!nP) return 1;
+    const lo = Math.max(0, 1 - nP / MIN_GAP), hi = Math.min(1, nA / MIN_GAP);
+    if (lo > hi) return nA / (nA + nP);
+    return Math.min(hi, Math.max(lo, ACCENT_SHARE));
+  }
+
+  /** Entries of `group` not yet seen this cycle; when the cycle is complete, start a new one. */
+  function cycleCandidates(r, group) {
+    let list = group.filter((e) => !r.used.has(e.id));
+    if (!list.length && group.length) { group.forEach((e) => r.used.delete(e.id)); list = group; }
+    return list;
+  }
+
   function pickEntry() {
     const r = state.round;
     let group;
     if (state.mode === 'spot') group = r.pool;
-    else if (!r.plain.length) group = r.accented;
-    else if (!r.accented.length) group = r.plain;
-    else group = Rand.chance(ACCENT_SHARE) ? r.accented : r.plain;
-    let candidates = group.filter((e) => !r.used.has(e.id));
-    if (!candidates.length) { group.forEach((e) => r.used.delete(e.id)); candidates = group; }   // full cycle: start over
-    const entry = Progress.pickOne({ pool: candidates, exclude: r.lastId ? [r.lastId] : [] });
+    else group = Rand.chance(r.share) ? r.accented : r.plain;
+    const inGroup = cycleCandidates(r, group);
+    // Never the same word twice in a row. When this group has nothing else to offer (a single-word
+    // group such as "séptimo" among the ordinals) draw from the other group instead of repeating.
+    let fresh = inGroup.filter((e) => e.id !== r.lastId);
+    if (!fresh.length && state.mode !== 'spot') {
+      const other = group === r.accented ? r.plain : r.accented;
+      fresh = cycleCandidates(r, other).filter((e) => e.id !== r.lastId);
+    }
+    const entry = Progress.pickOne({ pool: fresh.length ? fresh : inGroup });   // weighted: weak words come first within a cycle
     r.used.add(entry.id);
     r.lastId = entry.id;
     return entry;
@@ -159,19 +191,20 @@
     const mode = MODES[modeId] || MODES.blitz;
     destroyCtl(); stopLoop(); closeModal();
     const pool = Vocab.active();
+    const accented = pool.filter((e) => Text.hasAccent(e.base));
+    const plain = pool.filter((e) => !Text.hasAccent(e.base));
     state = {
       screen: 'round', mode: mode.id,
       round: {
-        pool,
-        accented: pool.filter((e) => Text.hasAccent(e.base)),
-        plain: pool.filter((e) => !Text.hasAccent(e.base)),
+        pool, accented, plain,
+        share: accentShare(accented.length, plain.length),
         used: new Set(), lastId: null,
         total: mode.id === 'zen' ? ZEN_COUNT : mode.id === 'spot' ? SPOT_COUNT : Infinity,
       },
       index: 0, answered: 0, correct: 0, accentSlips: 0, wrong: 0,
       score: 0, combo: 0, maxCombo: 0, mult: 1,
       timeLeft: mode.id === 'blitz' ? BLITZ_SECONDS : 0, timeBonus: 0, lowTime: false, lastSec: -1,
-      paused: false, t0: performance.now(), pausedAt: null, pausedMs: 0,
+      paused: false, t0: performance.now(), pausedAt: null, pausedMs: 0, askedAt: 0,
       answers: [], missed: [],
     };
     renderRound();
@@ -190,14 +223,16 @@
   function askEntry(entry) {
     const q = state.mode === 'spot' ? Quiz.choice(entry) : Quiz.accent(entry);
     ctl = QuizUI.ask(q, { mount: els.mount, autoContinue: true, allowHint: false, onAnswer, onResult });
+    state.askedAt = performance.now();   // answer keys within KEY_GRACE_MS of this are swallowed (see onDocKey)
     view.tiles = Array.prototype.slice.call(ctl.el.querySelectorAll('button.quiz-letter'));
     view.cursor = 0;
     paintCursor();
-    // A mouse / touch tap on a tile also moves the keyboard highlight there.
+    // A mouse / touch tap on a tile also moves the keyboard highlight there, and shows the learner is
+    // answering on purpose: the key grace ends so an Enter right after the tap confirms as expected.
     ctl.el.addEventListener('click', (e) => {
       const t = e.target && e.target.closest ? e.target.closest('button.quiz-letter') : null;
       const i = t ? view.tiles.indexOf(t) : -1;
-      if (i >= 0) { view.cursor = i; paintCursor(); }
+      if (i >= 0) { view.cursor = i; paintCursor(); if (state) state.askedAt = 0; }
     });
     updateHud();
   }
@@ -216,12 +251,13 @@
       const mult = multFor(state.combo);
       points = BASE_POINTS * mult;
       state.score += points;
-      if (mult !== state.mult) { state.mult = mult; later(() => UI.toast('Combo ×' + mult + '!', 'ok', 1200), 150); }
+      if (mult !== state.mult) { state.mult = mult; later(() => hudFloat('Combo ×' + mult + '!', 'is-combo', els.comboWrap), 150); }   // beside the badge, never over the feedback card
       if (state.mode === 'blitz') {
         state.timeLeft += BLITZ_BONUS;
         state.timeBonus += BLITZ_BONUS;
         paintTimer();
-        floatText('+' + BLITZ_BONUS + 's', 'is-time', els.time);
+        hudFloat('+' + BLITZ_BONUS + 's', 'is-time', els.timeWrap);   // inside the HUD: the stage layer would clip it
+        replayClass(els.time, 'is-bonus');
       }
       comboChime(state.combo);
       floatText('+' + fmt(points), 'is-ok');
@@ -257,7 +293,13 @@
     stopLoop(); destroyCtl(); closeModal();
     const s = state;
     s.elapsed = elapsedSec();
-    if (reason === 'quit' && !s.answered) { showStart(); return; }
+    if (!s.answered) {
+      // Nothing to score (the clock ran out on the first word, or the learner left): no play is
+      // counted and there is no "Flawless" end screen for an empty round.
+      if (reason === 'time') { UI.toast('Time’s up — nothing answered this round', 'warn'); Sound.play('lose'); }
+      showStart();
+      return;
+    }
     s.screen = 'end';
     s.reason = reason;
     s.accuracy = s.answered ? s.correct / s.answered : 0;
@@ -342,8 +384,18 @@
     }
     if (state.screen !== 'round') return;
     if (e.key === 'Escape') { e.preventDefault(); confirmQuit(); return; }
+    if (isAnswerKey(e.key) && (e.repeat || performance.now() - state.askedAt < KEY_GRACE_MS)) {
+      // A held key, or the Enter / digit that started the round (or was mashed during feedback)
+      // arriving on a question that only just appeared: it must not answer it. This listener was
+      // registered before QuizUI's, so stopping propagation here keeps the keystroke from it.
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      return;
+    }
     if (state.mode !== 'spot') onTileKey(e);
   }
+  /** Keys that answer a question outright (Enter / N on accent questions, 1–4 on multiple choice). */
+  function isAnswerKey(key) { return key === 'Enter' || key === 'n' || key === 'N' || (key.length === 1 && key >= '1' && key <= '4'); }
 
   /** ← → move the highlight, Space toggles the highlighted tile, N = "No accents needed". */
   function onTileKey(e) {
@@ -357,6 +409,7 @@
     } else if (e.key === ' ' || e.key === 'Spacebar') {
       if (ae && ae.tagName === 'BUTTON' && focusedTile < 0) return;   // Confirm / No accents / other buttons keep native Space
       e.preventDefault();                                             // also stops the page from scrolling
+      if (e.repeat) return;                                           // a held Space toggles once, not on every auto-repeat
       if (focusedTile >= 0) view.cursor = focusedTile;
       view.kbd = true;
       paintCursor();
@@ -403,24 +456,58 @@
   /* ------------------------------------------------------------
      Particles: floating "+N" texts and sparkle bursts over the stage
      ------------------------------------------------------------ */
-  function stagePoint(anchor) {
-    const stageRect = els.stage.getBoundingClientRect();
-    const target = anchor || (els.mount && els.mount.querySelector('.quiz-prompt')) || els.stage;
-    const r = target.getBoundingClientRect();
-    return { x: r.left - stageRect.left + r.width / 2, y: r.top - stageRect.top + r.height / 2 };
+  /** The word being quizzed (the big stripped word, or the English prompt in Spot mode). */
+  function wordEl() {
+    const prompt = els.mount && els.mount.querySelector('.quiz-prompt');
+    if (!prompt) return els.stage;
+    const word = prompt.querySelector(':scope > span:first-child:not(.sub)');
+    return word || prompt;
+  }
+  /**
+   * Layout box of an element relative to the stage, ignoring CSS transforms — the word is still
+   * scaling in (g-accent-wordpop) and the stage may be shaking when a float is created, and
+   * getBoundingClientRect() would report that transient geometry.
+   */
+  function layoutBox(el) {
+    let top = 0, left = 0, node = el;
+    while (node && node !== els.stage) { top += node.offsetTop; left += node.offsetLeft; node = node.offsetParent; }
+    return { top, left, width: el.offsetWidth, height: el.offsetHeight };
+  }
+  /** Centre of the word, in stage coordinates (sparks burst from here). */
+  function wordCentre() {
+    const b = layoutBox(wordEl());
+    return { x: b.left + b.width / 2, y: b.top + b.height / 2 };
+  }
+  /**
+   * Anchor for floating texts: centred just ABOVE the word, so a "+300" or "accent!" never sits on
+   * the word or on its English meaning (the two things the learner is reading during feedback).
+   * Floats are positioned by their bottom edge (translateY(-100%)) and rise from here.
+   */
+  function floatPoint() {
+    const b = layoutBox(wordEl());
+    return { x: b.left + b.width / 2, y: Math.max(28, b.top - 6) };
   }
   function trimFx() { while (els.fx.children.length > MAX_FX) els.fx.removeChild(els.fx.firstChild); }
-  function floatText(text, cls, anchor) {
+  function floatText(text, cls) {
     if (!els.fx || !els.stage) return;
-    const p = stagePoint(anchor);
+    els.fx.querySelectorAll('.g-accent-float').forEach((old) => old.remove());   // one text float at a time: a new answer retires "¡Vamos!" or the previous reward
+    const p = floatPoint();
     const el = h('div.g-accent-float' + (cls ? '.' + cls : ''), { style: { left: p.x + 'px', top: p.y + 'px' } }, text);
     els.fx.appendChild(el);
     trimFx();
     later(() => el.remove(), 1400);
   }
+  /** A small float that rises out of a HUD item (time bonus, combo step) — the stage layer would clip it. */
+  function hudFloat(text, cls, host) {
+    if (!host || !host.isConnected) return;
+    host.querySelectorAll('.g-accent-hudfloat').forEach((old) => old.remove());
+    const el = h('div.g-accent-hudfloat' + (cls ? '.' + cls : ''), { 'aria-hidden': 'true' }, text);
+    host.appendChild(el);
+    later(() => el.remove(), 1300);
+  }
   function burst(n) {
     if (!els.fx || !els.stage) return;
-    const p = stagePoint();
+    const p = wordCentre();
     for (let i = 0; i < n; i++) {
       const a = Math.random() * Math.PI * 2, d = 50 + Math.random() * 90;
       const dot = h('i.g-accent-spark', { style: { left: p.x + 'px', top: p.y + 'px' } });
@@ -504,13 +591,15 @@
     els.acc = h('span.val', null, '—');
     els.prog = h('span.val', null, '');
     els.time = h('span.val.g-accent-time', null, blitz ? BLITZ_SECONDS + 's' : '');
+    els.comboWrap = h('div.hud-item.g-accent-combowrap', null, h('span.label', null, 'Combo'), els.combo);
+    els.timeWrap = blitz ? h('div.hud-item.g-accent-timewrap', null, h('span.label', null, 'Time'), els.time) : null;
     const hud = h('div.hud.g-accent-hud', null,
       els.scoreWrap,
-      h('div.hud-item', null, h('span.label', null, 'Combo'), els.combo),
+      els.comboWrap,
       h('div.hud-item.g-accent-accwrap', null, h('span.label', null, 'Accuracy'), els.acc),
       h('div.hud-spacer'),
-      h('div.hud-item', null, h('span.label', null, QUESTION_LABEL[state.mode]), els.prog),
-      blitz ? h('div.hud-item.g-accent-timewrap', null, h('span.label', null, 'Time'), els.time) : null);
+      h('div.hud-item.g-accent-progwrap', null, h('span.label', null, QUESTION_LABEL[state.mode]), els.prog),
+      els.timeWrap);
     shell.appendChild(hud);
 
     // Timer bar (blitz) or progress bar (zen / spot)
@@ -577,6 +666,7 @@
     if (s.missed.length) {
       panel.appendChild(h('div.g-accent-missed-head', null, h('h3', null, 'Words to revisit'), h('span.small.muted', null, 'accents highlighted')));
       const list = h('div.g-accent-missed');
+      const canSay = Speech.enabled();   // same gate as QuizUI's "Hear it": no dead 🔊 when speech is switched off
       s.missed.forEach((a) => {
         list.appendChild(h('div.g-accent-miss', { dataset: { status: a.status, id: a.id } },
           h('div.g-accent-miss-main', null,
@@ -584,8 +674,8 @@
             h('div.g-accent-miss-en.small.text-2', null, a.entry.en + (a.entry.note ? ' · ' + a.entry.note : ''))),
           h('div.g-accent-miss-side', null,
             a.input && Text.normalize(a.input) !== Text.normalize(a.expected) ? h('span.g-accent-miss-typed.small.muted', null, 'you had ', h('s', null, a.input)) : null,
-            h('span.g-accent-miss-tag', null, a.status === 'accent' ? 'accent slip' : 'wrong'),
-            Speech.available() ? h('button.btn.btn-ghost.btn-sm.btn-icon.g-accent-say', { type: 'button', title: 'Hear it', 'aria-label': 'Hear ' + a.entry.base, onclick: () => { Speech.say(a.entry.base); } }, '🔊') : null)));
+            h('span.g-accent-miss-tag', null, a.status === 'accent' ? 'accent slip' : 'wrong')),
+          canSay ? h('button.btn.btn-ghost.btn-icon.g-accent-say', { type: 'button', title: 'Hear it', 'aria-label': 'Hear ' + a.entry.base, onclick: () => { Speech.say(a.entry.base); } }, '🔊') : null));
       });
       panel.appendChild(list);
     } else {
@@ -645,10 +735,11 @@
     get mounted() { return !!view; },
     get cursor() { return view ? view.cursor : -1; },
     get tiles() { return view ? view.tiles.length : 0; },
-    start(mode) { if (view) startRound(mode); return state; },
+    /** Start a round programmatically (answerable at once: no gesture started it, so no key grace). */
+    start(mode) { if (view) { startRound(mode); state.askedAt = 0; } return state; },
     endRound(reason) { endRound(reason || 'quit'); return state; },
     showStart() { if (view) showStart(); },
-    /** Replace the current (unanswered) question with a specific word. */
+    /** Replace the current (unanswered) question with a specific word (answerable at once: no key grace). */
     force(id) {
       if (!state || state.screen !== 'round') return null;
       const entry = Vocab.byId(id);
@@ -656,8 +747,11 @@
       state.round.used.add(entry.id);
       state.round.lastId = entry.id;
       askEntry(entry);
+      state.askedAt = 0;
       return ctl;
     },
+    accentShare,
+    KEY_GRACE_MS,
     setTime(sec) { if (state && state.screen === 'round' && state.mode === 'blitz') { state.timeLeft = Math.max(0, Number(sec) || 0); paintTimer(); } },
     setCombo(n) { if (state && state.screen === 'round') { state.combo = Math.max(0, n | 0); state.maxCombo = Math.max(state.maxCombo, state.combo); state.mult = multFor(state.combo); updateHud(); } },
     pick: () => (state && state.screen === 'round' ? pickEntry() : null),

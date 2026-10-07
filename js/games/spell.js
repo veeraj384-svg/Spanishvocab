@@ -8,7 +8,7 @@
      weak      the 10 weakest words, weakest first
      category  every word of one category
      marathon  endless until 3 misses (accent slips count)
-     retry     the words missed in the previous round (end screen)
+     retry     the words missed in the previous round (end screen); always typed
 
    Scoring
      correct  (100 + speed bonus ≤ 50) × streak multiplier
@@ -42,7 +42,7 @@
     weak:     { id: 'weak',     name: 'Weak words',   icon: '🎯', accent: 'var(--c-lav)',   key: '2', desc: 'Your ten shakiest words, weakest first.' },
     marathon: { id: 'marathon', name: 'Marathon',     icon: '♾️', accent: 'var(--c-rose)',  key: '3', desc: 'Keep going until you miss three. Accent slips count.' },
     category: { id: 'category', name: 'By category',  icon: '🗂️', accent: 'var(--c-amber)', key: '4', desc: 'Sweep one whole group from the sheet, every word once.' },
-    retry:    { id: 'retry',    name: 'Retry missed', icon: '🔁', accent: 'var(--c-sky)',   key: '',  desc: 'Only the words you just missed.' },
+    retry:    { id: 'retry',    name: 'Retry missed', icon: '🔁', accent: 'var(--c-sky)',   key: '',  desc: 'Only the words you just missed, typed out in full.' },
   };
   // Short category labels for chips (the sheet titles are long sentences).
   const CAT_SHORT = { school: 'School day', question: 'Question words', adjective: 'Adjectives', ordinal: 'Ordinals', useful: 'Useful words' };
@@ -67,6 +67,23 @@
   function catLabel(id) { const c = Vocab.category(id); return CAT_SHORT[id] || (c ? c.en : id); }
   function stat(val, label) { return h('div.stat', null, h('div.stat-val', null, val), h('div.stat-label', null, label)); }
   function uniqById(entries) { const seen = new Set(); return entries.filter((e) => !seen.has(e.id) && seen.add(e.id)); }
+  const NUM_WORDS = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten'];
+  function numWord(n) { return NUM_WORDS[n] || String(n); }
+  /** Length of a Quick / Weak round under the learner's category filter (the copy must never promise more words than are in play). */
+  function roundSize(modeId) { return Math.min(modeId === 'weak' ? WEAK_COUNT : QUICK_COUNT, Vocab.active().length); }
+  /** Display name of a mode: "Quick 10" reads "Quick 4" when the filter leaves only four words. `n` = the round length when known. */
+  function modeName(modeId, n) {
+    if (modeId === 'quick') return 'Quick ' + (n == null || n === Infinity ? roundSize('quick') : n);
+    return MODES[modeId] ? MODES[modeId].name : modeId;
+  }
+  function modeDesc(modeId) {
+    const n = roundSize(modeId);
+    if (modeId === 'quick') return Text.cap(numWord(n)) + (n === 1 ? ' word' : ' words') + ', weighted toward the ones you keep missing.';
+    if (modeId === 'weak') return 'Your ' + numWord(n) + (n === 1 ? ' shakiest word.' : ' shakiest words, weakest first.');
+    return MODES[modeId].desc;
+  }
+  /** Label of a round for the mode chip / end screen: the category name, "Quick 4" under a filter, else the mode name. */
+  function roundLabel(r) { return r.mode === 'category' ? catLabel(r.cat) : modeName(r.mode, r.total); }
 
   /** setTimeout that is cancelled on unmount. */
   function later(fn, ms) {
@@ -97,6 +114,25 @@
 
   function destroyCtl() { if (ctl) { try { ctl.destroy(); } catch (e) { /* already gone */ } ctl = null; } }
   function closeModal() { if (view && view.modal) { const m = view.modal; view.modal = null; m.close(); } }
+  /** Drop every pending timer / tween of the screen being left (end-screen count-up, confetti, toasts, floats, focus). */
+  function cancelPending() {
+    if (!view) return;
+    view.timeouts.forEach(clearTimeout); view.timeouts.clear();
+    view.rafs.forEach(cancelAnimationFrame); view.rafs.clear();
+    els.scoreTween = els.endTween = null;
+  }
+  /**
+   * Put the keyboard back on the live question after a dialog closes: the answer input while the
+   * question is open, the Continue button once it is graded. UI.modal gives focus back to whatever
+   * opened the dialog, which is the Quit button on a touch screen and, because the clicked dialog
+   * button is removed in the same tick, occasionally nothing at all; the game therefore refocuses
+   * its own question, right away and again on the next tick.
+   */
+  function refocusQuestion() {
+    if (!view || !state || state.screen !== 'round' || view.modal || !els.mount) return;
+    const target = ctl && !ctl.answered ? els.mount.querySelector('input:not(:disabled)') : els.mount.querySelector('.quiz-actions .btn-primary');
+    if (target && document.activeElement !== target) { try { target.focus({ preventScroll: true }); } catch (e) { /* ignore */ } }
+  }
   function stopTimer() { if (view && view.timerId) { clearInterval(view.timerId); view.timerId = null; } }
   function startTimer() { stopTimer(); view.timerId = setInterval(updateTimer, 500); updateTimer(); }
 
@@ -166,6 +202,7 @@
         round.queue = list;
         round.pool = list;
         round.total = list.length;
+        round.mix = false; // a retry re-tests the spelling: a word missed in a typed question must be typed again, not picked from a list
         break;
       }
       default:
@@ -176,7 +213,7 @@
 
   function startRound(modeId, opts) {
     if (!view) return;
-    closeModal(); destroyCtl(); stopTimer();
+    closeModal(); destroyCtl(); stopTimer(); cancelPending();
     const round = buildRound(MODES[modeId] ? modeId : 'quick', opts);
     state = {
       screen: 'round', round, mode: round.mode, opts: Object.assign({}, opts || {}),
@@ -306,11 +343,18 @@
   /* ------------------------------------------------------------
      Round end
      ------------------------------------------------------------ */
+  /** The reason this round would end with on Continue, or null while questions remain. */
+  function naturalEnd() {
+    const s = state, r = s.round;
+    if (r.mode === 'marathon') return s.lives <= 0 ? 'lives' : s.answers.length >= r.pool.length ? 'swept' : null;
+    return s.answers.length >= r.total ? 'complete' : null;
+  }
+
   function endRound(reason) {
-    destroyCtl(); stopTimer(); closeModal();
+    destroyCtl(); stopTimer(); closeModal(); cancelPending();
     const s = state;
     s.screen = 'end';
-    s.reason = reason;
+    s.reason = reason === 'quit' ? (naturalEnd() || 'quit') : reason; // quitting after the last answer is a finished round, not an early exit
     s.time = elapsedSec();
     const answered = s.answers.length;
     const correct = s.answers.filter((a) => a.status === 'correct').length;
@@ -338,15 +382,22 @@
   function confirmQuit() {
     if (!state || state.screen !== 'round' || view.modal) return;
     const answered = state.answers.length;
+    const done = naturalEnd(); // every question is already answered: only the results are left, nothing to discard
     const content = h('div.stack', null,
-      h('p.text-2', { style: { margin: 0 } }, answered
-        ? 'Finish now and bank your ' + fmt(state.score) + ' points, or leave this round? Every answer is already saved to your word progress.'
-        : 'Leave this round? Nothing is lost.'),
+      h('p.text-2', { style: { margin: 0 } }, done
+        ? 'Every answer is in: ' + fmt(state.score) + ' points. Ready to see how it went?'
+        : answered
+          ? 'Finish now and bank your ' + fmt(state.score) + ' points, or leave this round? Every answer is already saved to your word progress.'
+          : 'Leave this round? Nothing is lost.'),
       h('div.row', null,
-        answered ? h('button.btn.btn-mint', { type: 'button', onclick: () => { closeModal(); endRound('quit'); } }, 'Finish now') : null,
-        h('button.btn.btn-outline', { type: 'button', onclick: () => { closeModal(); showStart(); } }, 'Back to start'),
-        h('button.btn.btn-ghost', { type: 'button', onclick: closeModal }, 'Keep playing')));
-    view.modal = UI.modal({ title: 'Leave the forge?', content, closable: true, onClose: () => { if (view) view.modal = null; } });
+        done ? h('button.btn.btn-mint', { type: 'button', onclick: () => { closeModal(); endRound(done); } }, '🏁 See results')
+          : answered ? h('button.btn.btn-mint', { type: 'button', onclick: () => { closeModal(); endRound('quit'); } }, 'Finish now') : null,
+        done ? null : h('button.btn.btn-outline', { type: 'button', onclick: () => { closeModal(); showStart(); } }, 'Back to start'),
+        h('button.btn.btn-ghost', { type: 'button', onclick: closeModal }, done ? 'Not yet' : 'Keep playing')));
+    view.modal = UI.modal({
+      title: done ? 'All done!' : 'Leave the forge?', content, closable: true,
+      onClose: () => { if (!view) return; view.modal = null; refocusQuestion(); later(refocusQuestion, 40); },
+    });
   }
 
   /* ------------------------------------------------------------
@@ -359,7 +410,7 @@
   }
 
   function showStart() {
-    destroyCtl(); stopTimer(); closeModal();
+    destroyCtl(); stopTimer(); closeModal(); cancelPending();
     state = { screen: 'start' };
     els = {};
     const p = prefs();
@@ -390,11 +441,12 @@
       const m = MODES[id];
       const best = bests[id] || 0;
       const isCat = id === 'category';
-      const card = h((isCat ? 'div' : 'button') + '.g-spell-mode' + (isCat ? '.is-cats' : ''), { type: isCat ? null : 'button', dataset: { mode: id }, 'aria-label': isCat ? m.name : m.name + (best ? ', best ' + best : '') },
+      const name = modeName(id), desc = modeDesc(id);
+      const card = h((isCat ? 'div' : 'button') + '.g-spell-mode' + (isCat ? '.is-cats' : ''), { type: isCat ? null : 'button', dataset: { mode: id }, 'aria-label': isCat ? name : name + (best ? ', best ' + best : '') },
         h('span.g-spell-mode-icon', null, m.icon),
         h('span.g-spell-mode-body', null,
-          h('span.g-spell-mode-name', null, m.name, h('span.g-spell-key', { 'aria-hidden': 'true' }, m.key)),
-          h('span.g-spell-mode-desc', null, m.desc),
+          h('span.g-spell-mode-name', null, name, h('span.g-spell-key', { 'aria-hidden': 'true' }, m.key)),
+          h('span.g-spell-mode-desc', null, desc),
           isCat ? catChips() : null),
         h('span.g-spell-mode-best' + (best ? '.has-best' : ''), null, best ? h('b', null, fmt(best)) : '', best ? ' best' : (isCat ? 'pick one' : 'Play →')));
       card.style.setProperty('--accent', m.accent);
@@ -443,16 +495,17 @@
     els = {};
     const shell = h('div.game-shell.g-spell.g-spell-round');
     shell.style.setProperty('--accent', m.accent);
-    const chip = h('span.g-spell-modechip', null, m.icon + ' ' + (r.mode === 'category' ? catLabel(r.cat) : m.name));
+    const chip = h('span.g-spell-modechip', null, m.icon + ' ' + roundLabel(r));
     shell.appendChild(topbar(h('button.btn.btn-ghost.btn-sm', { type: 'button', title: 'Leave this round (Esc)', onclick: confirmQuit }, '✕ Quit'), chip));
 
     // Progress bar
     els.progLabel = h('span.g-spell-progress-label');
     els.progRight = h('span.muted');
     els.bar = h('div.bar-fill');
+    els.barWrap = h('div.bar.bar-mint', { role: 'progressbar', 'aria-label': 'Round progress', 'aria-valuemin': '0' }, els.bar);
     shell.appendChild(h('div.g-spell-progress', null,
       h('div.g-spell-progress-head.small', null, els.progLabel, els.progRight),
-      h('div.bar.bar-mint', { role: 'progressbar', 'aria-label': 'Round progress' }, els.bar)));
+      els.barWrap));
 
     // HUD
     els.streak = h('b', null, '0');
@@ -513,17 +566,20 @@
     const s = state, r = s.round;
     if (!els.bar) return;
     const done = s.answers.length;
+    const max = r.total === Infinity ? r.pool.length : r.total;
     if (r.total === Infinity) {
       const left = r.pool.length - s.used.size;
       els.progLabel.textContent = 'Question ' + s.index;
       els.progRight.textContent = left ? left + ' words left in the deck' : 'last word of the deck!';
-      els.bar.style.width = Math.round(100 * done / r.pool.length) + '%';
     } else {
       const left = r.total - s.index;
       els.progLabel.textContent = 'Question ' + Math.min(s.index, r.total) + ' of ' + r.total;
       els.progRight.textContent = left > 0 ? left + ' to go' : 'last one!';
-      els.bar.style.width = Math.round(100 * done / r.total) + '%';
     }
+    els.bar.style.width = Math.round(100 * done / max) + '%';
+    els.barWrap.setAttribute('aria-valuemax', String(max));
+    els.barWrap.setAttribute('aria-valuenow', String(done));
+    els.barWrap.setAttribute('aria-valuetext', done + ' of ' + max + ' answered');
   }
 
   function renderEnd() {
@@ -538,7 +594,7 @@
       : s.accuracy >= 0.8 ? '¡Excelente! Well forged.'
       : s.accuracy >= 0.5 ? 'Good work — keep hammering.'
       : 'Tough round — the forge remembers.';
-    const reason = { lives: 'Out of lives', swept: 'You swept the whole deck!', quit: 'Finished early', complete: MODES[s.mode].name + ' · complete' }[s.reason] || 'Round complete';
+    const reason = { lives: 'Out of lives', swept: 'You swept the whole deck!', quit: 'Finished early', complete: roundLabel(s.round) + ' · complete' }[s.reason] || 'Round complete';
 
     const shell = h('div.game-shell.g-spell.g-spell-endwrap');
     shell.style.setProperty('--accent', MODES[s.mode].accent);
@@ -550,7 +606,7 @@
 
     els.score = h('div.g-spell-bigscore', null, '0');
     const badge = s.newBest && answered ? h('span.chip.chip-mint.g-spell-newbest', null, '🏆 New best score')
-      : s.newModeBest ? h('span.chip.chip-mint.g-spell-newbest', null, '🏆 New ' + MODES[s.mode].name + ' best') : null;
+      : s.newModeBest ? h('span.chip.chip-mint.g-spell-newbest', null, '🏆 New ' + modeName(s.mode, s.round.total) + ' best') : null;
     panel.appendChild(h('div.g-spell-end-top', null,
       h('div.g-spell-end-score', null, els.score, h('div.small.muted', null, 'points'), badge),
       h('div.g-spell-end-ring', null, UI.ring(s.accuracy, pct + '%', 128), h('div.small.muted.center', null, 'accuracy'))));
@@ -567,12 +623,13 @@
       const list = h('div.g-spell-missed');
       s.missed.forEach((a) => {
         const typed = typeof a.input === 'string' && a.input && !a.skipped ? a.input : '';
+        const verb = a.kind === 'choice' ? 'you picked ' : 'you typed ';
         list.appendChild(h('div.g-spell-miss', { dataset: { status: a.status, id: a.id } },
           h('div.g-spell-miss-main', null,
             h('div.g-spell-miss-es', { html: Text.highlightAccents(a.expected) }),
             h('div.g-spell-miss-en.small.text-2', null, a.entry.en + (a.entry.note ? ' · ' + a.entry.note : ''))),
           h('div.g-spell-miss-side', null,
-            typed ? h('span.g-spell-miss-typed.small.muted', null, 'you typed ', h('s', null, typed)) : null,
+            typed ? h('span.g-spell-miss-typed.small.muted', null, verb, h('s', null, typed)) : null,
             h('span.g-spell-miss-tag', null, a.skipped ? 'skipped' : a.status === 'accent' ? 'accent slip' : 'wrong'),
             Speech.available() ? h('button.btn.btn-ghost.btn-sm.btn-icon.g-spell-say', { type: 'button', title: 'Hear it', 'aria-label': 'Hear ' + a.entry.base, onclick: () => { Speech.say(a.entry.base); } }, '🔊') : null)));
       });
@@ -583,13 +640,13 @@
 
     els.again = h('button.btn' + (s.missed.length ? '.btn-outline' : '.btn-primary') + '.btn-lg', { type: 'button', onclick: () => { Sound.play('click'); startRound(s.mode, s.opts); } }, '▶ Play again');
     panel.appendChild(h('div.g-spell-actions', null,
-      s.missed.length ? h('button.btn.btn-primary.btn-lg.g-spell-retry', { type: 'button', onclick: () => { Sound.play('click'); startRound('retry', { entries: s.missed.map((a) => a.entry), mix: s.round.mix }); } }, '🔁 Retry missed words') : null,
+      s.missed.length ? h('button.btn.btn-primary.btn-lg.g-spell-retry', { type: 'button', onclick: () => { Sound.play('click'); startRound('retry', { entries: s.missed.map((a) => a.entry) }); } }, '🔁 Retry missed words') : null,
       els.again,
       h('button.btn.btn-ghost.btn-lg', { type: 'button', onclick: () => view.ctx.navigate('/') }, 'Home')));
     shell.appendChild(panel);
     view.root.appendChild(shell);
 
-    tween(900, (k) => { if (els.score) els.score.textContent = fmt(Math.round(s.score * k)); });
+    els.endTween = tween(900, (k) => { if (els.score) els.score.textContent = fmt(Math.round(s.score * k)); });
     // Focus "Play again" a beat later so a held Enter from the last question cannot restart instantly.
     later(() => { try { els.again.focus({ preventScroll: true }); } catch (e) { /* ignore */ } }, 600);
   }
@@ -628,6 +685,7 @@
     MODES,
     get state() { return state; },
     get ctl() { return ctl; },
+    get controller() { return ctl; },
     get els() { return els; },
     get mounted() { return !!view; },
     start(mode, opts) { startRound(mode, opts || {}); return state; },
