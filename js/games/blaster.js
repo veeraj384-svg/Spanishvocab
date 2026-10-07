@@ -166,7 +166,7 @@
     const comboItem = h('div.hud-item.g-blaster-combo', null, h('span.label', null, 'Combo'), combo);
     const msgEn = h('span.g-blaster-hudmsg-en');
     const msgEs = h('b.g-blaster-hudmsg-es');
-    const speak = h('button.g-blaster-hudmsg-speak', { type: 'button', title: 'Hear it', 'aria-label': 'Hear the word', onmousedown: (e) => e.preventDefault(), onclick: () => { if (S && S.hudMsg) Speech.say(S.hudMsg.base); } }, '🔊');
+    const speak = h('button.g-blaster-hudmsg-speak', { type: 'button', title: 'Hear it', 'aria-label': 'Hear the word', onmousedown: (e) => e.preventDefault(), onpointerdown: (e) => e.stopPropagation(), onclick: (e) => { e.stopPropagation(); if (S && S.hudMsg) Speech.say(S.hudMsg.base); } }, '🔊');
     const msg = h('div.g-blaster-hudmsg', { role: 'status' },
       h('span.g-blaster-hudmsg-icon', null, '💥'),
       h('span.g-blaster-hudmsg-text', null, msgEn, h('span.g-blaster-hudmsg-arrow', null, '→'), msgEs),
@@ -176,12 +176,12 @@
       h('div.hud-item', null, h('span.label', null, 'Wave'), wave),
       h('div.hud-item', null, h('span.label', null, 'Lives'), h('span.g-blaster-hearts', { 'aria-label': 'lives' }, hearts)),
       comboItem,
-      h('div.hud-spacer'),
-      msg);
+      h('div.hud-spacer'));
 
     const canvas = h('canvas.g-blaster-canvas', { 'aria-label': 'Word Rain play field' });
     const banner = h('div.g-blaster-banner', { 'aria-live': 'polite' });
-    const stage = h('div.game-stage.g-blaster-stage', null, canvas, banner);
+    // The teaching message floats over the bottom of the play field, so the HUD, canvas and typing box never move.
+    const stage = h('div.game-stage.g-blaster-stage', null, canvas, banner, msg);
     // Clicking / tapping the sky brings the keyboard back to the input.
     stage.addEventListener('pointerdown', (e) => { if (S && S.mode === 'play') { e.preventDefault(); focusInput(); } });
     stage.addEventListener('click', () => { if (S && S.mode === 'play') focusInput(); });
@@ -222,7 +222,11 @@
     if (!D) return;
     const r = D.consoleEl.getBoundingClientRect();
     const room = Math.max(0, document.documentElement.scrollHeight - window.innerHeight - (window.scrollY || 0));
-    const over = Math.min(Math.ceil(r.bottom - window.innerHeight + 8), room); // how far the box hangs below the fold
+    let over = Math.min(Math.ceil(r.bottom - window.innerHeight + 8), room);    // how far the box hangs below the fold
+    // ...but the top bar (title, Best, Pause) must stay below the sticky header
+    const header = document.querySelector('.site-header');
+    const topbar = D.shell.querySelector('.game-topbar');
+    if (header && topbar) over = Math.min(over, Math.floor(topbar.getBoundingClientRect().top - header.getBoundingClientRect().bottom - 6));
     if (over <= 2) return;                                                        // tall window: nothing to do
     try { window.scrollBy({ top: over, left: 0, behavior: 'smooth' }); } catch (e) { window.scrollBy(0, over); }
   }
@@ -261,7 +265,8 @@
     return h('div.panel.g-blaster-intro', null,
       h('div.g-blaster-intro-icon', { 'aria-hidden': 'true' }, '☄️'),
       h('h2', null, 'Word Rain'),
-      h('p.text-2', null, 'English meanings are falling on the city. Type the Spanish — accents included — and press Enter to blast them.'),
+      h('p.text-2', null, 'English meanings are falling on the city. Type the Spanish — accents included — then press Enter or tap Fire to blast them.'),
+      (window.innerHeight < 480 && (navigator.maxTouchPoints > 0)) ? h('div.small.muted', null, '📱 Rotate your phone upright for the best view') : null,
       h('div.g-blaster-legend', null,
         h('div', null, h('b', null, '⌨️'), 'Type the Spanish word, then Enter'),
         h('div', null, h('b', null, 'á'), 'An accent slip only cracks a meteor — fix it!'),
@@ -304,11 +309,12 @@
         statEl('Destroyed', S.hits),
         statEl('Accuracy', accuracy + '%'),
         statEl('Best combo', S.bestCombo)),
-      missed.length ? h('div.g-blaster-missed-title', null, 'Words to review') : null,
-      list,
       h('div.row.g-blaster-actions', null,
         h('button.btn.btn-primary.btn-lg', { type: 'button', onclick: startGame }, '↻ Retry'),
-        h('a.btn.btn-ghost', { href: '#/' }, 'Home')));
+        h('a.btn.btn-ghost', { href: '#/' }, 'Home')),
+      // the review list comes after the buttons: Retry / Home stay in view, the list scrolls as long as it needs
+      missed.length ? h('div.g-blaster-missed-title', null, missed.length + (missed.length === 1 ? ' word to review' : ' words to review')) : null,
+      list);
   }
 
   /* ------------------------------------------------------------
@@ -356,7 +362,7 @@
     const bonus = 100 * S.wave;
     S.score += bonus;
     const { w, h: hh } = S.view;
-    floatText(w / 2, hh * 0.35, 'Wave bonus +' + bonus, C.mint);
+    floatText(w / 2, hh * 0.72, 'Wave bonus +' + bonus, C.mint);
     Sound.play('win');
     if (D.stage) { const r = D.stage.getBoundingClientRect(); UI.confetti({ x: r.left + r.width / 2, y: r.top + r.height * 0.4, count: 70 }); }
     const missed = uniqById(S.waveMissed);
@@ -396,9 +402,12 @@
       const e = S.queue.shift();
       if (!onScreen.has(e.id)) return e;
     }
-    // Queue ran dry (debug spawns, tiny category pool): refill, avoiding this wave's words where possible.
+    // Queue ran dry (debug spawns, tiny category pool): refill, avoiding this wave's words where possible —
+    // and never the word that just spawned / was destroyed, even when the pool is tiny.
     const need = Math.max(1, S.waveTotal - S.spawned);
-    const picked = Progress.pick(need, { exclude: Array.from(onScreen).concat(S.waveUsed) });
+    const all = Vocab.active();
+    const fresh = all.filter((e) => e.id !== S.lastEntryId && !onScreen.has(e.id));
+    const picked = Progress.pick(need, { pool: fresh.length ? fresh : all, exclude: S.waveUsed });
     picked.sort((a, b) => Progress.weight(b) - Progress.weight(a));
     S.queue = picked.filter((e) => !onScreen.has(e.id));
     return S.queue.shift() || null;
@@ -454,6 +463,7 @@
     S.meteors.push(m);
     S.spawned++;
     S.waveUsed.push(entry.id);
+    S.lastEntryId = entry.id;
     if (S.spawned > S.waveTotal) S.waveTotal = S.spawned; // extra (debug) meteors still count toward the wave
     return m;
   }
@@ -464,7 +474,8 @@
   function submitAnswer(raw) {
     if (!S || !D || S.mode !== 'play') return { status: 'ignored' };
     const text = raw == null ? D.input.value : String(raw);
-    if (!Text.normalize(text)) { flashInput('is-wrong'); focusInput(); return { status: 'empty' }; }
+    if (!Text.normalize(text)) { Sound.play('tick'); focusInput(); return { status: 'empty' }; }        // nothing typed: no red shake
+    if (!S.meteors.length) { D.input.value = ''; Sound.play('tick'); focusInput(); return { status: 'nothing' }; } // empty sky: not a miss
     S.attempts++;
     kickFire();
     // Lowest meteor first: the one closest to the city is the natural target.
@@ -576,7 +587,7 @@
   function saveBest() {
     if (S.saved) return;
     S.saved = true;
-    S.isNewBest = Progress.setBest(ID, S.score, { wave: S.wave });
+    S.isNewBest = Progress.setBest(ID, S.score, null, { wave: S.wave });   // the wave belongs to the best run only
     D.best.textContent = bestLabel();
   }
 
@@ -707,9 +718,10 @@
     if (!S || !D) return;
     const w = Math.max(240, Math.round(D.stage.clientWidth));
     const vh = window.innerHeight || 900;
-    const hh = w < 640
+    let hh = w < 640
       ? Math.round(Math.min(360, Math.max(300, w * 1.05)))
-      : Math.round(clamp(Math.min(w * 0.42, vh - 400), 360, 460)); // 460 on roomy windows, 400 at 800px tall, 360 on tiny ones
+      : Math.round(clamp(Math.min(w * 0.42, vh - 420), 280, 460)); // 460 on roomy windows, ~380 at 800px tall, 300 at 720
+    if (vh < 480 && navigator.maxTouchPoints > 0) hh = Math.max(180, Math.min(hh, vh - 250));  // landscape phone: keep the sky in sight
     const dpr = Math.min(2, window.devicePixelRatio || 1);
     if (D.canvas.width !== Math.round(w * dpr) || D.canvas.height !== Math.round(hh * dpr)) {
       D.canvas.width = Math.round(w * dpr);
@@ -1083,8 +1095,8 @@
       document.removeEventListener('visibilitychange', onVisibility);
       window.removeEventListener('resize', onResize);
       clearTimers();
-      // leaving mid-run still counts when it beats the record
-      if (S && D && !S.saved && S.wave > 0 && S.score > Progress.best(ID)) saveBest();
+      // leaving mid-run counts as a play once the learner has actually fired or lost a life
+      if (S && D && !S.saved && S.wave > 0 && (S.attempts > 0 || S.missed.length > 0)) saveBest();
       hideOverlay();
       if (D && D.shell) D.shell.remove();
       S = null; D = null;

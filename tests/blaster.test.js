@@ -49,7 +49,7 @@ const entry = (id) => VOCAB.find((e) => e.id === id);
       assert(await page.$('.g-blaster .game-overlay .panel') != null, 'intro overlay visible');
       assert(await noOverflow(page), 'no horizontal overflow on desktop');
       const cs = await page.$eval('.g-blaster canvas', (c) => ({ w: c.clientWidth, h: c.clientHeight, bw: c.width, bh: c.height }));
-      assert(cs.h >= 400 && cs.h <= 470 && cs.w > 900 && cs.bw === cs.w && cs.bh === cs.h, 'desktop canvas sized and dpr-aware: ' + JSON.stringify(cs));
+      assert(cs.h >= 360 && cs.h <= 470 && cs.w > 900 && cs.bw === cs.w && cs.bh === cs.h, 'desktop canvas sized and dpr-aware: ' + JSON.stringify(cs));
       await shot(page, 'blaster-intro.png');
       const fitIntro = await page.evaluate(() => { const s = document.querySelector('.g-blaster-stage').getBoundingClientRect(); const b = document.querySelector('.g-blaster-intro button.btn-primary').getBoundingClientRect(); return { ok: b.top >= s.top && b.bottom <= s.bottom, stage: [s.top, s.bottom], btn: [b.top, b.bottom] }; });
       assert(fitIntro.ok, 'intro Start button fully inside the stage on desktop: ' + JSON.stringify(fitIntro));
