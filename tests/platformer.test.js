@@ -338,5 +338,79 @@ async function holdKey(page, key, ms) {
       await browser.close();
     }
   }
+  // ---------------- regression checks (round-1 review findings) ----------------
+  {
+    const { browser, page, errors } = await launch();
+    try {
+      await page.goto(SITE + '#/play/platformer'); await page.waitForSelector('.g-platformer canvas');
+      await dbg(page, () => { PQ.Progress.reset(); PQ.Settings.set('cats', null); });
+      // every generated floating platform is landable (jump apex ≈ 117px)
+      const maxH = await dbg(page, () => { let m = 0; for (let l = 1; l <= 12; l++) for (const p of PQ.debug.platformer.generate(l).platforms) if (!p.ground) m = Math.max(m, 350 - p.y); return m; });
+      assert(maxH <= 110, 'floating platforms reachable, max height ' + maxH);
+      // fresh run shows 0 score / 0 m, and an untouched run is never persisted
+      const hud0 = await page.textContent('.g-platformer-hud');
+      assert(/Score0/.test(hud0) && /Dist0m/.test(hud0), 'fresh HUD starts at 0: ' + hud0);
+      // holding → on the intro starts the run AND keeps the hero moving
+      await page.keyboard.down('ArrowRight'); await page.waitForTimeout(500);
+      assert(await mode(page) === 'play' && (await dbg(page, () => PQ.debug.platformer.state.player.x)) > 100, 'held → at intro moves the hero');
+      await page.keyboard.up('ArrowRight');
+      // Space on the pause overlay resumes and never scrolls the page
+      await page.keyboard.press('KeyP'); await page.waitForTimeout(80); await page.keyboard.press('Space'); await page.waitForTimeout(80);
+      assert((await dbg(page, () => window.scrollY)) === 0 && await mode(page) === 'play', 'Space resumes without scrolling');
+      // Restart from the pause panel persists the run and counts a play
+      await page.keyboard.press('KeyP'); await page.waitForTimeout(80);
+      await page.click('.g-platformer-overlay button:has-text("Restart")'); await page.waitForTimeout(100);
+      const gs = await dbg(page, () => PQ.Progress.gameStats('platformer'));
+      assert(gs.plays === 1 && gs.best > 0, 'restart persisted the run: ' + JSON.stringify(gs));
+      // the word just asked is not asked again right after a restart; jump buffer does not survive a question;
+      // a key still held when the question closes keeps the hero moving
+      await dbg(page, () => PQ.Settings.set('cats', ['useful']));
+      await page.keyboard.down('ArrowRight'); await page.waitForTimeout(100);
+      await dbg(page, () => { PQ.debug.platformer.state.energy = 0; PQ.debug.platformer.state.player.buffer = 0.12; });
+      await page.waitForSelector('.modal-backdrop .quiz');
+      const firstId = await dbg(page, () => PQ.debug.platformer.state.question.entry.id);
+      assert((await dbg(page, () => PQ.debug.platformer.state.player.buffer)) === 0, 'jump buffer cleared when a question opens');
+      const xq = await dbg(page, () => PQ.debug.platformer.state.player.x);
+      await answer(page, 'wrong'); await page.waitForTimeout(150); await page.keyboard.press('Enter'); await page.waitForTimeout(400);
+      assert(await mode(page) === 'play', 'back to play after the question');
+      assert((await dbg(page, () => PQ.debug.platformer.state.player.vy)) > -50, 'no involuntary jump after the question');
+      assert((await dbg(page, () => PQ.debug.platformer.state.player.x)) - xq > 20, 'held → keeps moving after the question');
+      await page.keyboard.up('ArrowRight');
+      await page.keyboard.press('KeyP'); await page.waitForTimeout(80); await page.click('.g-platformer-overlay button:has-text("Restart")'); await page.waitForTimeout(100);
+      assert((await dbg(page, () => PQ.debug.platformer.state.recent)).includes(firstId), 'recent words carried across restart');
+      await dbg(page, () => PQ.Settings.set('cats', null));
+      // energy does not drain while pushing against the world edge
+      await dbg(page, () => { const s = PQ.debug.platformer.state; s.player.x = 0; s.player.vx = 0; s.energy = 50; });
+      await page.keyboard.down('ArrowLeft'); await page.waitForTimeout(600); await page.keyboard.up('ArrowLeft');
+      assert(Math.round(await dbg(page, () => PQ.debug.platformer.state.energy)) === 50, 'no drain while blocked');
+      // hearts are stable DOM nodes whose animation actually runs
+      const ha = await dbg(page, async () => { const el = document.querySelector('.g-platformer-heart'); const a = el.getAnimations()[0]; const t0 = a ? a.currentTime : -1; await new Promise((r) => setTimeout(r, 250)); return { adv: a ? a.currentTime - t0 : -1, same: el === document.querySelector('.g-platformer-heart') }; });
+      assert(ha.same && ha.adv > 100, 'heart animation runs: ' + JSON.stringify(ha));
+      // Best badge matches the level-complete panel
+      await dbg(page, () => { PQ.debug.platformer.setEnergy(100); PQ.debug.platformer.teleportToFlag(); });
+      await page.keyboard.down('ArrowRight'); await page.waitForTimeout(1500); await page.keyboard.up('ArrowRight'); await page.waitForTimeout(900);
+      const cp = await dbg(page, () => ({ mode: PQ.debug.platformer.state.mode, badge: document.querySelector('.g-platformer-best').textContent, panel: (document.querySelector('.g-platformer-overlay .stat:last-child .stat-val') || {}).textContent }));
+      assert(cp.mode === 'complete' && cp.badge === 'Best ' + cp.panel, 'best badge in sync at level complete: ' + JSON.stringify(cp));
+      // mounting twice never leaves two shells / loops
+      const dm = await dbg(page, () => { const g = PQ.Games.get('platformer'); const div = document.createElement('div'); document.body.appendChild(div); g.mount(div, PQ.Router.ctx()); const shells = document.querySelectorAll('.g-platformer').length; g.unmount(); const after = document.querySelectorAll('.g-platformer').length; div.remove(); return { shells, after }; });
+      assert(dm.shells === 1 && dm.after === 0, 'double mount guarded: ' + JSON.stringify(dm));
+      assert(errors.length === 0, 'console errors (regressions): ' + errors.join('\n'));
+      console.log('regressions: OK');
+    } finally { await browser.close(); }
+  }
+  {
+    // mobile HUD keeps a fixed height whatever the score / streak
+    const { browser, page, errors } = await launch({ viewport: { width: 390, height: 844 }, touch: true, mobile: true });
+    try {
+      await page.goto(SITE + '#/play/platformer'); await page.waitForSelector('.g-platformer canvas');
+      await dbg(page, () => PQ.debug.platformer.start());
+      const h1 = await dbg(page, () => document.querySelector('.g-platformer-hud').getBoundingClientRect().height);
+      await dbg(page, () => { const s = PQ.debug.platformer.state; s.questionPts = 99999; s.maxX = 9995; s.streak = 12; }); await page.waitForTimeout(150);
+      const h2 = await dbg(page, () => document.querySelector('.g-platformer-hud').getBoundingClientRect().height);
+      assert(Math.abs(h1 - h2) < 1, 'mobile HUD height stable: ' + h1 + ' vs ' + h2);
+      assert((await dbg(page, () => document.documentElement.scrollWidth <= document.documentElement.clientWidth)), 'no horizontal overflow with a big score');
+      assert(errors.length === 0, 'console errors (mobile hud): ' + errors.join('\n'));
+    } finally { await browser.close(); }
+  }
   console.log('ALL PLATFORMER TESTS PASSED');
 })().catch((e) => { console.error(e); process.exit(1); });

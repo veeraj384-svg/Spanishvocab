@@ -42,6 +42,7 @@
   const INVULN = 1.6;
   const DEATH_DELAY = 0.9;
   const GATE_W = 26;
+  const START_X = 60;            // spawn x; distance is measured from here
   const ORB_LETTERS = ['á', 'é', 'í', 'ó', 'ú', 'ñ'];
 
   // Theme colors (mirrors css/styles.css tokens; canvas can't read CSS vars cheaply)
@@ -98,14 +99,14 @@
         const sx = x + ri(90, segW - 90 - sw);
         L.spikes.push({ x: sx, y: GROUND_Y - 22, w: sw, h: 22 });
         // a helper platform above the spikes so there is always a graceful route
-        if (rng() < 0.5) L.platforms.push({ x: sx - 30, y: GROUND_Y - ri(95, 125), w: sw + 70, h: 18, ground: false });
+        if (rng() < 0.5) L.platforms.push({ x: sx - 30, y: GROUND_Y - ri(95, 108), w: sw + 70, h: 18, ground: false });
       }
       // floating platform with orbs on it
       if (segW >= 260 && (rng() < 0.55 || sinceFloat >= 2)) {
         sinceFloat = 0;
         const pw = ri(90, 170);
         const px = x + ri(40, Math.max(41, segW - pw - 40));
-        const py = GROUND_Y - ri(80, 120);
+        const py = GROUND_Y - ri(80, 108);   // jump apex is ~117px: keep every platform landable
         // avoid stacking on top of a spike helper platform
         const clash = L.platforms.some((p) => !p.ground && Math.abs(p.y - py) < 40 && px < p.x + p.w + 20 && px + pw > p.x - 20);
         if (!clash) {
@@ -155,6 +156,8 @@
   let S = null;   // game state; null when unmounted
   let D = null;   // DOM refs; null when unmounted
   let rafId = 0;
+  let carryRecent = [];                                   // last quizzed ids, kept across restarts / remounts
+  const held = { left: false, right: false, jump: false }; // physical key state, independent of game mode
 
   function freshPlayer(x, y) {
     return { x, y, w: PLAYER_W, h: PLAYER_H, vx: 0, vy: 0, dir: 1, onGround: false, wasOnGround: false,
@@ -166,14 +169,14 @@
     const st = {
       mode: 'intro',             // intro | play | question | pause | dead | over | complete
       level: L,
-      player: freshPlayer(60, GROUND_Y - PLAYER_H),
-      checkpoint: { x: 60, y: GROUND_Y - PLAYER_H },
+      player: freshPlayer(START_X, GROUND_Y - PLAYER_H),
+      checkpoint: { x: START_X, y: GROUND_Y - PLAYER_H },
       cam: { x: 0 },
       energy: ENERGY_MAX,
       hearts: HEARTS,
-      orbs: 0, questionPts: 0, maxX: 60,
+      orbs: 0, questionPts: 0, maxX: START_X,
       streak: 0, asked: 0, correct: 0,
-      recent: [],                // ids of the last few quizzed words (never repeat back-to-back)
+      recent: carryRecent.slice(), // ids of the last few quizzed words (never repeat back-to-back, even across restarts)
       particles: [], banner: null, shake: 0, lowPulse: 0,
       deathTimer: 0, time: 0, best: Progress.best(ID), distBase: 0, stars: makeStars(),
       input: { left: false, right: false, jump: false },
@@ -206,10 +209,13 @@
     d.energyBar = UI.h('div.energy-bar.g-platformer-ebar', null, d.energyFill);
     d.energyVal = UI.h('span.val', null, '100');
     d.hearts = UI.h('span.g-platformer-hearts', { html: heartsHtml(HEARTS), 'aria-label': 'hearts' });
+    d.heartEls = Array.prototype.slice.call(d.hearts.children);
+    d.lastHearts = HEARTS;
     d.score = UI.h('span.val', null, '0');
     d.level = UI.h('span.val', null, '1');
     d.dist = UI.h('span.val', null, '0m');
-    d.streak = UI.h('span.streak-flame.g-platformer-streak', { style: { display: 'none' } }, '🔥 ', UI.h('b', null, '0'));
+    d.streak = UI.h('span.streak-flame.g-platformer-streak.is-hidden', null, '🔥 ', UI.h('b', null, '0'));
+    d.streakVal = d.streak.querySelector('b');
     d.hud = UI.h('div.hud.g-platformer-hud', null,
       UI.h('div.hud-item.g-platformer-energy', null, UI.h('span.label', null, '⚡ Energy'), d.energyBar, d.energyVal),
       UI.h('div.hud-item', null, d.hearts),
@@ -237,23 +243,29 @@
     return d;
   }
 
+  function setText(el, v) { if (el.textContent !== v) el.textContent = v; }
   function updateHud() {
     if (!S || !D) return;
     const e = Math.max(0, Math.min(ENERGY_MAX, S.energy));
-    D.energyFill.style.width = (e / ENERGY_MAX * 100).toFixed(1) + '%';
-    D.energyVal.textContent = String(Math.round(e));
+    const w = (e / ENERGY_MAX * 100).toFixed(1) + '%';
+    if (D.energyFill.style.width !== w) D.energyFill.style.width = w;
+    setText(D.energyVal, String(Math.round(e)));
     D.energyBar.classList.toggle('is-low', e < ENERGY_LOW);
     D.energyBar.setAttribute('aria-valuenow', String(Math.round(e)));
-    D.hearts.innerHTML = heartsHtml(S.hearts);
-    D.score.textContent = String(computeScore());
-    D.level.textContent = String(S.level.level);
-    D.dist.textContent = distance() + 'm';
-    D.streak.style.display = S.streak > 1 ? '' : 'none';
-    D.streak.querySelector('b').textContent = String(S.streak);
+    if (D.lastHearts !== S.hearts) {           // only touch the hearts when they change, so CSS animations can run
+      D.heartEls.forEach((el, i) => el.classList.toggle('is-off', i >= S.hearts));
+      D.lastHearts = S.hearts;
+    }
+    setText(D.score, String(computeScore()));
+    setText(D.level, String(S.level.level));
+    setText(D.dist, distance() + 'm');
+    D.streak.classList.toggle('is-hidden', !(S.streak > 1));
+    setText(D.streakVal, String(S.streak));
   }
+  function refreshBest() { if (S && D) setText(D.bestEl, 'Best ' + S.best); }
 
-  /** Distance in metres, accumulated across levels of the same run. */
-  function distance() { return Math.floor((S.distBase + S.maxX) / 10); }
+  /** Distance in metres from the spawn point, accumulated across levels of the same run. */
+  function distance() { return Math.max(0, Math.floor((S.distBase + S.maxX - START_X) / 10)); }
   function computeScore() { return distance() + S.orbs * 25 + S.questionPts; }
 
   /* ---- Overlays (intro / pause / game over / level complete) ---- */
@@ -329,34 +341,47 @@
     hideOverlay();
     S.mode = 'play';
     banner('Level ' + S.level.level + ' — ¡Vamos!', 1.6);
+    reapplyHeld();
   }
 
   function togglePause() {
     if (!S) return;
     if (S.mode === 'play') { S.mode = 'pause'; clearInput(); showOverlay(pausePanel()); }
-    else if (S.mode === 'pause') { S.mode = 'play'; hideOverlay(); S.lastT = 0; }
+    else if (S.mode === 'pause') { S.mode = 'play'; hideOverlay(); S.lastT = 0; reapplyHeld(); }
+  }
+
+  /** A run is over (restart / leaving): persist it once if the learner actually played. */
+  function endRun() {
+    if (!S || S.saved || S.mode === 'intro') return;
+    if (S.maxX <= START_X && S.asked === 0) return;   // never moved, never answered: nothing to record
+    saveBest();
   }
 
   function restartRun(level) {
     closeQuestion();
     hideOverlay();
+    endRun();
     S = Object.assign(newRun(level), { lastT: 0 });
     resizeCanvas();
     updateHud();
+    refreshBest();
     S.mode = 'play';
     banner('Level ' + level + ' — ¡Vamos!', 1.6);
+    reapplyHeld();
   }
 
   function nextLevel() {
     if (!S || S.mode !== 'complete') return;
-    const keep = { orbs: S.orbs, questionPts: S.questionPts, asked: S.asked, correct: S.correct, streak: S.streak, hearts: Math.min(HEARTS, S.hearts + 1), recent: S.recent, distBase: S.distBase + S.maxX };
+    const keep = { orbs: S.orbs, questionPts: S.questionPts, asked: S.asked, correct: S.correct, streak: S.streak, hearts: Math.min(HEARTS, S.hearts + 1), recent: S.recent, distBase: S.distBase + S.maxX - START_X, best: S.best };
     const lvl = S.level.level + 1;
     hideOverlay();
     S = Object.assign(newRun(lvl), keep, { lastT: 0 });
     resizeCanvas();
     updateHud();
+    refreshBest();
     S.mode = 'play';
     banner('Level ' + lvl + ' — longer road, more gates', 2);
+    reapplyHeld();
   }
 
   function saveBest() {
@@ -365,7 +390,7 @@
     const score = computeScore();
     const isNew = Progress.setBest(ID, score, { lastLevel: S.level.level });
     S.best = Progress.best(ID);
-    if (D) D.bestEl.textContent = 'Best ' + S.best;
+    refreshBest();
     return isNew;
   }
 
@@ -387,6 +412,7 @@
     UI.confetti({ x: r.left + r.width / 2, y: r.top + r.height * 0.35, count: 140 });
     // The run continues on "Next level"; the score is persisted at game over or on unmount.
     S.best = Math.max(Progress.best(ID), computeScore());
+    refreshBest();
     setTimeout(() => { if (S && S.mode === 'complete') showOverlay(completePanel()); }, 600);
   }
 
@@ -397,6 +423,7 @@
     const entry = Progress.pickOne({ pool: Vocab.active(), exclude: S.recent });
     S.recent.push(entry.id);
     if (S.recent.length > 3) S.recent.shift();
+    carryRecent = S.recent.slice();
     return entry;
   }
 
@@ -453,6 +480,7 @@
     S.mode = 'play';
     S.lastT = 0;
     updateHud();
+    reapplyHeld();
   }
 
   function closeQuestion() {
@@ -488,6 +516,7 @@
     S.mode = 'play';
     banner('Back to the checkpoint', 1.4);
     updateHud();
+    reapplyHeld();
   }
 
   /* ------------------------------------------------------------
@@ -508,7 +537,21 @@
   /* ------------------------------------------------------------
      Input — keyboard (document) + on-screen touch buttons
      ------------------------------------------------------------ */
-  function clearInput() { if (S) { S.input.left = S.input.right = S.input.jump = false; S.player.jumpHeld = false; } for (const b of [D && D.btnL, D && D.btnR, D && D.btnJ]) if (b) b.classList.remove('is-down'); }
+  function clearInput() {
+    if (S) { S.input.left = S.input.right = S.input.jump = false; S.player.jumpHeld = false; S.player.buffer = 0; }
+    for (const b of [D && D.btnL, D && D.btnR, D && D.btnJ]) if (b) b.classList.remove('is-down');
+  }
+  /** Keys / touch buttons that are still physically held when play resumes keep working without a re-press. */
+  function reapplyHeld() {
+    if (!S || S.mode !== 'play') return;
+    for (const act of ['left', 'right']) {
+      const btn = act === 'left' ? D && D.btnL : D && D.btnR;
+      const touchDown = !!(btn && btn._active && btn._active.size);
+      if (held[act] || touchDown) { press(act, true); if (touchDown) btn.classList.add('is-down'); }
+    }
+    const jumpTouch = !!(D && D.btnJ && D.btnJ._active && D.btnJ._active.size);
+    if (held.jump || jumpTouch) { S.player.jumpHeld = true; if (jumpTouch) D.btnJ.classList.add('is-down'); } // held, but no new jump is buffered
+  }
 
   function typingTarget() {
     const a = document.activeElement;
@@ -530,20 +573,27 @@
     if (e.metaKey || e.ctrlKey || e.altKey) return;
     const act = keyAction(e);
     if (!act) return;
+    e.preventDefault();                       // game keys never scroll the page, whatever the mode
+    if (act !== 'pause' && !e.repeat) held[act] = true;
     if (act === 'pause') {
-      if (S.mode === 'play' || S.mode === 'pause') { e.preventDefault(); togglePause(); }
+      if (S.mode === 'play' || S.mode === 'pause') togglePause();
       return;
     }
-    if (S.mode === 'intro' && (act === 'jump' || act === 'right')) { e.preventDefault(); startPlay(); return; }
-    if (S.mode !== 'play') return;
-    e.preventDefault();
     if (e.repeat) return;
-    press(act, true);
+    switch (S.mode) {
+      case 'intro': if (act === 'jump' || act === 'right') startPlay(); return;
+      case 'pause': if (act === 'jump') togglePause(); return;
+      case 'over': if (act === 'jump') restartRun(1); return;
+      case 'complete': if (act === 'jump') nextLevel(); return;
+      case 'play': press(act, true); return;
+      default: return;
+    }
   }
   function onKeyUp(e) {
-    if (!S) return;
     const act = keyAction(e);
-    if (act && act !== 'pause') press(act, false);
+    if (!act || act === 'pause') return;
+    held[act] = false;
+    if (S) press(act, false);
   }
   /** Shared by keyboard and touch. Jump presses are buffered so a slightly early press still jumps. */
   function press(act, down) {
@@ -558,6 +608,7 @@
 
   function bindTouch(btn, act) {
     const active = new Set();
+    btn._active = active;
     const down = (e) => {
       e.preventDefault();
       if (!S) return;
@@ -611,7 +662,6 @@
       p.vx = Math.max(-RUN_SPEED, Math.min(RUN_SPEED, p.vx));
       p.dir = move;
       p.run += dt * Math.abs(p.vx) / 28;
-      S.energy = Math.max(0, S.energy - ENERGY_DRAIN * dt);
     } else {
       const f = (p.onGround ? FRICTION : FRICTION * 0.35) * dt;
       if (Math.abs(p.vx) <= f) p.vx = 0; else p.vx -= Math.sign(p.vx) * f;
@@ -634,6 +684,7 @@
 
     // --- move X and resolve ---
     const walls = solids();
+    const x0 = p.x;
     p.x += p.vx * dt;
     if (p.x < 0) { p.x = 0; p.vx = 0; }
     for (const s of walls) {
@@ -641,6 +692,8 @@
       if (p.vx > 0) p.x = s.x - p.w; else if (p.vx < 0) p.x = s.x + s.w; else p.x = (p.x + p.w / 2 < s.x + s.w / 2) ? s.x - p.w : s.x + s.w;
       p.vx = 0;
     }
+    // energy drains only while the hero actually moves (not while pushing a wall or a locked gate)
+    if (move && Math.abs(p.x - x0) > 0.01) S.energy = Math.max(0, S.energy - ENERGY_DRAIN * dt);
     // --- move Y and resolve ---
     p.wasOnGround = p.onGround;
     p.prevVy = p.vy;
@@ -993,9 +1046,9 @@
      ------------------------------------------------------------ */
   function onVisibility() { if (document.hidden && S && S.mode === 'play') togglePause(); }
   function onResize() { resizeCanvas(); }
-  function onBlur() { clearInput(); }
+  function onBlur() { held.left = held.right = held.jump = false; clearInput(); }
 
-  PQ.Games.register({
+  const GAME = {
     id: ID,
     name: 'Energy Run',
     tagline: 'Run, jump and spell to keep your energy up. Word gates block the way!',
@@ -1003,6 +1056,8 @@
     accent: 'var(--c-amber)',
     order: 1,
     mount(root) {
+      if (S || D) GAME.unmount();           // idempotent: a second mount never leaves a loop running
+      held.left = held.right = held.jump = false;
       S = Object.assign(newRun(1), { lastT: 0 });
       D = buildDom(root);
       bindTouch(D.btnL, 'left');
@@ -1027,13 +1082,13 @@
       window.removeEventListener('resize', onResize);
       window.removeEventListener('blur', onBlur);
       closeQuestion();
-      // leaving mid-run still counts: keep a record of a better score
-      if (S && !S.saved && (S.mode === 'play' || S.mode === 'pause' || S.mode === 'dead' || S.mode === 'complete') && computeScore() > Progress.best(ID)) saveBest();
+      endRun();                              // leaving mid-run (even mid-question) still counts
       hideOverlay();
       if (D && D.shell) D.shell.remove();
       S = null; D = null;
     },
-  });
+  };
+  PQ.Games.register(GAME);
 
   /* ------------------------------------------------------------
      Debug hooks for tests
@@ -1060,6 +1115,7 @@
       S.cam.x = Math.max(0, S.player.x - 200);
     },
     kill() { if (S && S.mode === 'play') die(); },
+    get held() { return held; },
     press(act, down) { press(act, down); },
     score() { return S ? computeScore() : 0; },
     generate(level) { return generateLevel(level); },

@@ -23,6 +23,7 @@
 @keyframes g-platformer-heartbeat { 0%, 100% { transform: scale(1); } 12% { transform: scale(1.14); } 24% { transform: scale(1); } }
 .g-platformer-hud .hud-item .val { font-variant-numeric: tabular-nums; }
 .g-platformer-streak { animation: g-platformer-flame 0.9s ease-in-out infinite; }
+.g-platformer-streak.is-hidden { display: none; }
 @keyframes g-platformer-flame { 0%, 100% { transform: translateY(0) scale(1); } 50% { transform: translateY(-1px) scale(1.06); } }
 
 /* ---------- Stage ---------- */
@@ -56,11 +57,17 @@
 @media (max-width: 640px) {
   .g-platformer .game-topbar .row { gap: 6px; }
   .g-platformer-tag { display: none; }
-  .g-platformer-hud { padding: 10px 12px; gap: 8px 14px; }
-  .g-platformer-energy { flex-basis: 100%; }
-  .g-platformer-hud .hud-item { font-size: 0.82rem; }
-  .g-platformer-hud .hud-item .val { font-size: 1rem; }
+  /* Fixed two-row grid: energy on top, then hearts · score · level · dist · streak. Nothing reflows mid-game. */
+  .g-platformer-hud { display: grid; grid-template-columns: auto minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) auto; align-items: center; padding: 10px 12px; gap: 8px 6px; }
+  .g-platformer-energy { grid-column: 1 / -1; min-width: 0; }
+  .g-platformer-hud .hud-item { font-size: 0.82rem; min-width: 0; }
+  .g-platformer-hud .hud-item:not(.g-platformer-energy) { flex-direction: column; gap: 0; align-items: center; }
+  .g-platformer-hud .hud-item:not(.g-platformer-energy) .label { font-size: 0.6rem; }
+  .g-platformer-hud .hud-item .val { font-size: 1rem; min-width: 4ch; text-align: center; }
   .g-platformer-hud .hud-spacer { display: none; }
+  .g-platformer-hearts { font-size: 1.2rem; }
+  .g-platformer-streak { min-width: 3.6ch; justify-content: center; padding: 4px 8px; font-size: 0.8rem; }
+  .g-platformer-streak.is-hidden { display: inline-flex; visibility: hidden; }
   .g-platformer-legend { grid-template-columns: 1fr; }
   .g-platformer-overlay { padding: var(--sp-3); }
   .g-platformer-overlay .panel { padding: var(--sp-5) var(--sp-4); }
