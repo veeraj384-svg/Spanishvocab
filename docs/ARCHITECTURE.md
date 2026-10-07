@@ -16,6 +16,8 @@ js/pages.js             registers the 'words' and 'stats' pages
 js/games/<id>.js        one game per file; registers itself with PQ.Games.register(...)
 tests/helpers.js        Playwright launcher (collects console errors), SITE = file:// url of index.html
 tests/<id>.test.js      one test per module, run with `node tests/<id>.test.js`
+tests/browser.test.js   whole-site test (every route, every game, churn, leaks, overflow)
+tests/run-all.js        runs every test file in order
 ```
 
 ## Vocabulary entries (`window.VOCAB`)
@@ -55,6 +57,7 @@ tests/<id>.test.js      one test per module, run with `node tests/<id>.test.js`
 | `UI.toast(msg, 'ok'│'bad'│'warn')`, `UI.confetti({x,y,count})`, `UI.ring(frac,label,size)`, `UI.masteryDots(id)`, `UI.fmtTime(sec)` | widgets |
 | `UI.accentBar(input, {mount?, hint?})` | adds á é í ó ú ñ ü ¿ ¡ buttons + backtick accent trick to an input |
 | `Sound.play(name)` | `correct wrong accent jump coin energy gate hurt win lose tick click levelup shoot explode` |
+| `Sound.tone(freq, dur, type?, vol?, when?, slideTo?)` | one pitched tone (for combo pitch ramps); silent when muted |
 | `Speech.say(text)`, `Speech.enabled()` | pronunciation (Web Speech API) |
 | `Rand.pick(arr)`, `Rand.shuffle(arr)`, `Rand.int(a,b)`, `Rand.chance(p)`, `Rand.seeded(seed)` | randomness |
 | `Settings.get/set` | `cats` (array│null), `sound`, `speech` |
@@ -76,6 +79,13 @@ ctl.el, ctl.answered, ctl.submit(), ctl.destroy()   // ALWAYS destroy() when lea
 It renders typed / choice / meaning / accent questions, grades, shows feedback (letter diff for
 accent mistakes), plays sounds and records progress. For a forced question (platformer energy),
 put `ctl.el` inside `UI.modal({closable:false, content: ctl.el})`.
+
+Details worth knowing:
+* The Enter that submits a typed answer never also triggers Continue, and Continue fires once.
+* Its document-level shortcuts (Enter to confirm/continue, 1–4 to choose) are ignored while a
+  modal that does not contain the widget is on top (e.g. a game's quit dialog).
+* Asking a new question into the same `mount` container destroys the previous widget.
+* `UI.h(..., { style: { '--accent': '…' } })` sets CSS custom properties correctly.
 
 ## Game module contract
 
@@ -114,8 +124,12 @@ Rules:
 
 ## Pages contract (`js/pages.js`)
 
-`PQ.Pages.register('words', (root, ctx, route) => { ... })` and `'stats'` the same way. `root` is
-`<main id="app">`, already emptied. Wrap content in `UI.h('div.page.container')`.
+`PQ.Pages.register('words', (root, ctx, route) => { ... })` and `'stats'` the same way, or pass
+`{ mount(root, ctx, route), unmount() }` to get a cleanup hook. `root` is `<main id="app">`,
+already emptied. Wrap content in `UI.h('div.page.container')`. The router calls the page's
+`unmount()` (and a game's) before rendering the next route and then dispatches a window
+`pq:unmount` event, so page-owned listeners can be removed either way. Toggling sound anywhere
+(`Sound.toggle()` / `Settings.set('sound', …)`) repaints the header button via `pq:settings`.
 
 ## Testing
 
