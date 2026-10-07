@@ -1,0 +1,243 @@
+/* ============================================================
+   PALABRA QUEST — Accent Hunter  (css/games/accent.css)
+   Every selector is prefixed with .g-accent. Reuses the shared
+   tokens and the .card / .hud / .bar / .stat / .kbd components.
+   ============================================================ */
+
+.g-accent { --accent: var(--c-lav); }
+
+/* ---------- Top bar ---------- */
+.g-accent .game-title { flex-wrap: wrap; row-gap: 6px; }
+.g-accent-title-text { white-space: nowrap; }
+.g-accent-quit { margin-left: auto; }
+.g-accent-modechip {
+  display: inline-flex; align-items: center; gap: 4px; margin-left: 4px; padding: 4px 10px; border-radius: 999px;
+  background: var(--surface-2); border: 1px solid var(--border); color: var(--accent);
+  font-family: var(--font-body); font-size: 0.75rem; font-weight: 700; letter-spacing: 0.02em; white-space: nowrap;
+}
+
+/* ---------- Start screen ---------- */
+.g-accent-hero { display: grid; grid-template-columns: 1.6fr 1fr; gap: var(--sp-6); align-items: center; overflow: hidden; overflow: clip; }
+.g-accent-hero::before {
+  content: ''; position: absolute; top: -45%; left: -8%; width: 380px; height: 380px; border-radius: 50%;
+  background: var(--c-lav); opacity: 0.14; filter: blur(80px); pointer-events: none;
+}
+.g-accent-hero::after {
+  content: 'á é í ó ú ñ'; position: absolute; right: 26px; top: 10px; font-family: var(--font-display); font-weight: 900;
+  font-size: 1.6rem; letter-spacing: 0.22em; color: var(--c-lav); opacity: 0.22; pointer-events: none; user-select: none;
+}
+.g-accent-hero-text { position: relative; }
+.g-accent-hero h2 { margin-bottom: 8px; font-size: clamp(1.6rem, 3.4vw, 2.25rem); }
+.g-accent-hero p { margin: 0; max-width: 52ch; }
+.g-accent-hero-stats { position: relative; display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.g-accent-hero-stats .stat { text-align: center; }
+
+.g-accent-modes { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--sp-4); }
+.g-accent-mode {
+  position: relative; display: grid; grid-template-columns: auto 1fr; grid-template-rows: auto auto; gap: 6px 14px; align-items: start; text-align: left;
+  padding: 18px; border-radius: var(--r-lg); background: var(--surface); border: 1px solid var(--border); color: var(--text);
+  overflow: hidden; overflow: clip; box-shadow: var(--shadow-sm); font: inherit; cursor: pointer;
+  transition: transform var(--t-med) var(--ease), border-color var(--t-med), box-shadow var(--t-med);
+}
+.g-accent-mode::before {
+  content: ''; position: absolute; top: -70px; right: -50px; width: 190px; height: 190px; border-radius: 50%;
+  background: var(--accent); opacity: 0.12; filter: blur(46px); transition: opacity var(--t-med); pointer-events: none;
+}
+.g-accent-mode:hover, .g-accent-mode:focus-visible { transform: translateY(-3px); border-color: var(--border-strong); box-shadow: var(--shadow-md); }
+.g-accent-mode:hover::before { opacity: 0.28; }
+.g-accent-mode:active { transform: translateY(0) scale(0.99); }
+.g-accent-mode-icon {
+  grid-row: 1 / 3; width: 48px; height: 48px; border-radius: 14px; display: grid; place-items: center; font-size: 1.45rem;
+  background: var(--surface-2); border: 1px solid var(--border); position: relative;
+}
+.g-accent-mode-body { display: flex; flex-direction: column; min-width: 0; position: relative; }
+.g-accent-mode-name { display: flex; align-items: center; gap: 8px; font-family: var(--font-display); font-weight: 800; font-size: 1.15rem; line-height: 1.2; }
+.g-accent-mode-desc { color: var(--text-2); font-size: 0.9rem; margin-top: 3px; line-height: 1.45; }
+.g-accent-mode-best {
+  position: relative; grid-column: 2; justify-self: start; white-space: nowrap; font-size: 0.78rem; font-weight: 700; color: var(--accent);
+  padding: 5px 10px; border-radius: 999px; background: rgba(0,0,0,0.25); border: 1px solid var(--border);
+}
+.g-accent-mode-best b { font-family: var(--font-display); font-size: 0.95rem; }
+.g-accent-key {
+  display: inline-grid; place-items: center; min-width: 20px; height: 20px; padding: 0 5px; border-radius: 6px;
+  background: var(--surface-3); border: 1px solid var(--border-strong); border-bottom-width: 2px;
+  font-family: var(--font-mono); font-size: 0.68rem; font-weight: 500; color: var(--muted);
+}
+
+/* Keyboard hints (hidden on touch devices, where a tap hint shows instead) */
+.g-accent-keys { display: flex; justify-content: space-between; gap: 8px 20px; flex-wrap: wrap; padding: 0 4px; }
+.g-accent-keys .kbd { margin: 0 1px; }
+.g-accent-touchhint { display: none; }
+.g-accent.is-touch .g-accent-keys > span:not(.g-accent-touchhint) { display: none; }
+.g-accent.is-touch .g-accent-touchhint { display: inline; }
+@media (pointer: coarse) {
+  .g-accent-keys > span:not(.g-accent-touchhint) { display: none; }
+  .g-accent-touchhint { display: inline; }
+}
+
+/* ---------- Round: HUD ---------- */
+.g-accent-hud { gap: var(--sp-5); }
+.g-accent-hud .hud-item .label { margin: 0; }
+.g-accent-scorewrap .val { display: inline-block; min-width: 2ch; }
+.g-accent-scorewrap.is-bump .val { animation: g-accent-bump 0.5s var(--ease-bounce); }
+.g-accent-combo {
+  display: inline-flex; align-items: center; gap: 7px; padding: 3px 10px 3px 8px; border-radius: 999px;
+  background: var(--surface-2); border: 1px solid var(--border); color: var(--muted);
+  font-family: var(--font-display); font-weight: 800; font-size: 0.95rem; line-height: 1.3;
+  transition: background var(--t-med), color var(--t-med), border-color var(--t-med), box-shadow var(--t-med);
+}
+.g-accent-combo b { font-weight: 900; }
+.g-accent-combo-n { font-family: var(--font-body); font-weight: 700; font-size: 0.75rem; opacity: 0.8; }
+.g-accent-combo-n::before { content: '🔥'; margin-right: 3px; filter: grayscale(1); opacity: 0.6; }
+.g-accent-combo.is-on { color: #1a1200; border-color: transparent; }
+.g-accent-combo.is-on .g-accent-combo-n::before { filter: none; opacity: 1; }
+.g-accent-combo.is-x2 { background: var(--grad-primary); box-shadow: var(--glow-amber); }
+.g-accent-combo.is-x3 { background: var(--grad-rose); color: #fff; box-shadow: var(--glow-rose); animation: g-accent-glow 1.2s ease-in-out infinite; }
+.g-accent-combo.is-x4 { background: var(--grad-lav); color: #fff; box-shadow: 0 0 0 1px rgba(167,139,250,0.5), 0 8px 30px rgba(167,139,250,0.5); animation: g-accent-glow 0.8s ease-in-out infinite; }
+.g-accent-combo.is-pop { animation: g-accent-pop 0.55s var(--ease-bounce); }
+.g-accent-time { min-width: 3ch; text-align: right; font-variant-numeric: tabular-nums; transition: color var(--t-med); }
+.g-accent-time.is-low { color: var(--c-rose); }
+.g-accent-time.is-tick { animation: g-accent-tick 0.3s var(--ease-bounce); }
+
+/* Blitz time bar */
+.g-accent-timer {
+  height: 14px; border-radius: 999px; background: rgba(0,0,0,0.4); border: 1px solid var(--border-strong); overflow: hidden; position: relative;
+}
+.g-accent-timer-fill {
+  height: 100%; width: 100%; transform-origin: left center; border-radius: inherit;
+  background: linear-gradient(90deg, var(--c-mint), var(--c-lav) 55%, var(--c-amber)); box-shadow: 0 0 14px rgba(167,139,250,0.5);
+  transition: background var(--t-med), box-shadow var(--t-med);
+}
+.g-accent-timer::after {
+  content: ''; position: absolute; inset: 0; pointer-events: none;
+  background: repeating-linear-gradient(90deg, transparent 0 calc(100% / 6 - 2px), rgba(0,0,0,0.3) calc(100% / 6 - 2px) calc(100% / 6));
+}
+.g-accent-timer.is-low { border-color: rgba(255,92,122,0.6); box-shadow: 0 0 18px rgba(255,92,122,0.35); }
+.g-accent-timer.is-low .g-accent-timer-fill { background: var(--grad-rose); box-shadow: 0 0 16px rgba(255,92,122,0.7); animation: pulse 0.6s ease-in-out infinite; }
+.g-accent-progress .bar-fill { transition: width var(--t-slow) var(--ease); box-shadow: 0 0 12px rgba(167,139,250,0.45); }
+
+/* ---------- Round: stage ---------- */
+.g-accent-stage { position: relative; min-height: 380px; padding: var(--sp-8); overflow: hidden; overflow: clip; }
+.g-accent-stage::before {
+  content: ''; position: absolute; left: 0; right: 0; top: 0; height: 3px;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent); opacity: 0.85;
+}
+.g-accent-stage::after {
+  content: ''; position: absolute; width: 440px; height: 440px; right: -170px; bottom: -230px; border-radius: 50%;
+  background: var(--accent); opacity: 0.08; filter: blur(80px); pointer-events: none;
+}
+.g-accent-stage.is-shake { animation: g-accent-shake 0.45s var(--ease); }
+.g-accent-mount { position: relative; z-index: 1; }
+.g-accent-mount .quiz { animation: g-accent-slide var(--t-slow) var(--ease) both; }
+.g-accent-mount .quiz-kind { color: var(--accent); }
+.g-accent-mount .quiz-prompt { text-align: center; }
+.g-accent-mount .quiz[data-kind="accent"] .quiz-prompt > span:first-child {
+  display: inline-block; font-size: clamp(2.1rem, 6vw, 3.2rem); letter-spacing: 0.04em; line-height: 1.1;
+  animation: g-accent-wordpop 0.6s var(--ease-bounce) both;
+}
+.g-accent-mount .quiz[data-kind="choice"] .quiz-prompt { font-size: clamp(1.6rem, 4vw, 2.4rem); animation: g-accent-wordpop 0.6s var(--ease-bounce) both; }
+.g-accent-mount .quiz-letters { gap: 10px; }
+.g-accent-mount .quiz-letter { width: 56px; height: 66px; font-size: 1.75rem; }
+.g-accent-mount .quiz-letter.is-on { background: rgba(167,139,250,0.22); border-color: var(--c-lav); color: #fff; box-shadow: 0 0 16px rgba(167,139,250,0.35); transform: translateY(-3px); }
+.g-accent-mount .quiz-letter.g-accent-cursor {
+  outline: 2px solid var(--accent); outline-offset: 3px; box-shadow: 0 0 18px rgba(167,139,250,0.45); transform: translateY(-3px);
+}
+.g-accent-mount .quiz-letter.g-accent-cursor::after {
+  content: ''; position: absolute; left: 50%; bottom: -12px; width: 6px; height: 6px; border-radius: 50%; background: var(--accent);
+  transform: translateX(-50%); animation: g-accent-blink 1s ease-in-out infinite;
+}
+.g-accent-mount .quiz-letter { position: relative; }
+.g-accent-mount .quiz-actions { justify-content: center; }
+.g-accent-mount .quiz-actions .btn-primary { min-width: 130px; }
+.g-accent-mount .quiz-feedback { text-align: center; }
+.g-accent-mount .quiz-option { font-size: 1.25rem; }
+
+/* Particle layer */
+.g-accent-fx { position: absolute; inset: 0; z-index: 2; pointer-events: none; overflow: hidden; overflow: clip; }
+.g-accent-float {
+  position: absolute; transform: translate(-50%, -50%); pointer-events: none; white-space: nowrap;
+  font-family: var(--font-display); font-weight: 900; font-size: 1.9rem; line-height: 1; letter-spacing: -0.01em;
+  color: var(--c-amber); text-shadow: 0 2px 18px rgba(246,196,83,0.55);
+  animation: g-accent-float 1.3s var(--ease) both;
+}
+.g-accent-float.is-ok { color: var(--c-mint); text-shadow: 0 2px 18px rgba(56,217,196,0.55); }
+.g-accent-float.is-bad { color: var(--c-rose); text-shadow: 0 2px 18px rgba(255,92,122,0.5); font-size: 1.4rem; animation-name: g-accent-float-bad; }
+.g-accent-float.is-time { color: var(--c-amber); font-size: 1.1rem; }
+.g-accent-float.is-go { font-size: 2.6rem; background: var(--grad-text); -webkit-background-clip: text; background-clip: text; color: transparent; text-shadow: none; animation: g-accent-go 1.3s var(--ease) both; }
+.g-accent-spark {
+  position: absolute; width: 8px; height: 8px; border-radius: 50%; pointer-events: none;
+  background: hsl(var(--hue, 40) 95% 65%); box-shadow: 0 0 10px hsl(var(--hue, 40) 95% 65%);
+  animation: g-accent-spark 0.85s var(--ease) both;
+}
+
+/* ---------- End screen ---------- */
+.g-accent-end { text-align: center; overflow: hidden; overflow: clip; }
+.g-accent-end::before {
+  content: ''; position: absolute; top: -40%; left: 50%; width: 520px; height: 520px; border-radius: 50%; transform: translateX(-50%);
+  background: var(--accent); opacity: 0.1; filter: blur(90px); pointer-events: none;
+}
+.g-accent-end > * { position: relative; }
+.g-accent-end h2 { margin-bottom: 4px; }
+.g-accent-final { display: flex; align-items: baseline; justify-content: center; gap: 10px; margin: var(--sp-2) 0; }
+.g-accent-final-score { font-family: var(--font-display); font-size: clamp(3rem, 8vw, 4.5rem); font-weight: 900; line-height: 1; letter-spacing: -0.02em; background: var(--grad-text); -webkit-background-clip: text; background-clip: text; color: transparent; font-variant-numeric: tabular-nums; }
+.g-accent-final-label { color: var(--muted); font-weight: 600; }
+.g-accent-newbest {
+  display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; border-radius: 999px; margin-top: 4px;
+  background: rgba(246,196,83,0.15); border: 1px solid rgba(246,196,83,0.5); color: var(--c-amber); font-weight: 800; box-shadow: var(--glow-amber);
+}
+.g-accent-end .stat-grid { text-align: center; }
+.g-accent-missed-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-top: var(--sp-4); text-align: left; }
+.g-accent-missed-head h3 { margin: 0; }
+.g-accent-missed { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; text-align: left; }
+.g-accent-miss {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 14px; border-radius: 14px;
+  background: var(--surface); border: 1px solid var(--border); border-left: 3px solid var(--c-amber);
+}
+.g-accent-miss[data-status="wrong"] { border-left-color: var(--c-rose); }
+.g-accent-miss-main { min-width: 0; }
+.g-accent-miss-es { font-family: var(--font-display); font-weight: 800; font-size: 1.3rem; letter-spacing: 0.02em; }
+.g-accent-miss-side { display: flex; align-items: center; gap: 10px; flex-shrink: 0; flex-wrap: wrap; justify-content: flex-end; }
+.g-accent-miss-typed s { color: var(--c-rose); text-decoration-thickness: 2px; }
+.g-accent-miss-tag { padding: 3px 9px; border-radius: 999px; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; background: rgba(246,196,83,0.15); color: var(--c-amber); border: 1px solid rgba(246,196,83,0.4); }
+.g-accent-miss[data-status="wrong"] .g-accent-miss-tag { background: rgba(255,92,122,0.15); color: var(--c-rose); border-color: rgba(255,92,122,0.4); }
+.g-accent-clean { color: var(--c-mint); font-weight: 600; margin: var(--sp-2) 0 0; }
+.g-accent-actions { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-top: var(--sp-6); }
+
+/* ---------- Animations ---------- */
+@keyframes g-accent-bump { 0% { transform: scale(1); } 35% { transform: scale(1.35); color: var(--c-amber); } 100% { transform: scale(1); } }
+@keyframes g-accent-pop { 0% { transform: scale(1); } 40% { transform: scale(1.25) rotate(-4deg); } 100% { transform: scale(1); } }
+@keyframes g-accent-glow { 0%, 100% { filter: brightness(1); } 50% { filter: brightness(1.25); } }
+@keyframes g-accent-tick { 0% { transform: scale(1); } 40% { transform: scale(1.3); } 100% { transform: scale(1); } }
+@keyframes g-accent-shake { 10%, 90% { transform: translateX(-2px); } 20%, 80% { transform: translateX(3px); } 30%, 50%, 70% { transform: translateX(-5px) rotate(-0.3deg); } 40%, 60% { transform: translateX(5px) rotate(0.3deg); } }
+@keyframes g-accent-slide { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+@keyframes g-accent-wordpop { 0% { opacity: 0; transform: scale(0.6); } 60% { transform: scale(1.08); } 100% { opacity: 1; transform: scale(1); } }
+@keyframes g-accent-blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.25; } }
+@keyframes g-accent-float { 0% { opacity: 0; transform: translate(-50%, -30%) scale(0.6); } 20% { opacity: 1; transform: translate(-50%, -60%) scale(1.15); } 100% { opacity: 0; transform: translate(-50%, -220%) scale(1); } }
+@keyframes g-accent-float-bad { 0% { opacity: 0; transform: translate(-50%, -50%) scale(0.7); } 20% { opacity: 1; transform: translate(-50%, -50%) scale(1.1); } 100% { opacity: 0; transform: translate(-50%, 40%) scale(0.9); } }
+@keyframes g-accent-go { 0% { opacity: 0; transform: translate(-50%, -50%) scale(0.4); } 25% { opacity: 1; transform: translate(-50%, -50%) scale(1.2); } 60% { opacity: 1; transform: translate(-50%, -50%) scale(1); } 100% { opacity: 0; transform: translate(-50%, -140%) scale(1); } }
+@keyframes g-accent-spark { 0% { opacity: 1; transform: translate(-50%, -50%) scale(1); } 100% { opacity: 0; transform: translate(calc(-50% + var(--dx, 0px)), calc(-50% + var(--dy, -60px))) scale(0.2); } }
+
+/* ---------- Responsive ---------- */
+@media (max-width: 900px) {
+  .g-accent-modes { grid-template-columns: 1fr; }
+  .g-accent-hero { grid-template-columns: 1fr; }
+  .g-accent-hero::after { display: none; }
+}
+@media (max-width: 640px) {
+  .g-accent-hero-stats { grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .g-accent-hero-stats .stat { padding: 10px 6px; }
+  .g-accent-hero-stats .stat .stat-val { font-size: 1.2rem; }
+  .g-accent-hud { gap: 10px 14px; padding: 10px 12px; }
+  .g-accent-hud .hud-item { font-size: 0.82rem; }
+  .g-accent-hud .hud-item .val { font-size: 1.05rem; }
+  .g-accent-accwrap { display: none; }
+  .g-accent-stage { min-height: 320px; padding: var(--sp-5) var(--sp-4); }
+  .g-accent-mount .quiz-letters { gap: 7px; }
+  .g-accent-mount .quiz-letter { width: 44px; height: 54px; font-size: 1.4rem; }
+  .g-accent-mount .quiz-letter.is-space { width: 16px; }
+  .g-accent-mount .quiz-actions .btn { flex: 1 1 auto; }
+  .g-accent-float { font-size: 1.5rem; }
+  .g-accent-miss { flex-direction: column; align-items: flex-start; }
+  .g-accent-miss-side { justify-content: flex-start; }
+  .g-accent-actions .btn { flex: 1 1 100%; }
+}

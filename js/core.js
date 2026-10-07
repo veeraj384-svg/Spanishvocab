@@ -672,6 +672,8 @@
       o.connect(g).connect(ctx.destination);
       o.start(t); o.stop(t + dur + 0.02);
     },
+    /** Public pitched tone (respects the mute setting): Sound.tone(freq, dur, type?, vol?, when?, slideToFreq?) */
+    tone(freq, dur, type, vol, when, slide) { if (!Sound.enabled()) return; try { Sound._tone(freq, dur, type, vol, when, slide); } catch (e) { /* audio not available */ } },
     play(name) {
       if (!Sound.enabled()) return;
       try {
@@ -759,6 +761,12 @@
 
       let selected = []; // accent kind
       let input = null;
+      /** True when a modal that does NOT contain this widget is on top (e.g. a game's quit dialog). */
+      const blockedByModal = () => {
+        const backs = document.querySelectorAll('.modal-backdrop');
+        if (!backs.length) return false;
+        return !backs[backs.length - 1].contains(root);
+      };
 
       const finish = (status, extra) => {
         if (answered || destroyed) return;
@@ -783,7 +791,7 @@
           // The keystroke that submitted the answer is still bubbling: ignore events older than now.
           const armedAt = performance.now();
           const onKey = (e) => {
-            if (e.key !== 'Enter' || e.timeStamp <= armedAt) return;
+            if (e.key !== 'Enter' || e.timeStamp <= armedAt || blockedByModal()) return;
             const ae = document.activeElement;
             if (ae && ae !== btn && ae.tagName === 'BUTTON' && root.contains(ae)) return; // let a focused button (e.g. Hear it) handle Enter itself
             e.preventDefault(); e.stopPropagation(); document.removeEventListener('keydown', onKey); cont();
@@ -871,7 +879,7 @@
         };
         body.appendChild(grid);
         const onKey = (e) => {
-          if (answered) return;
+          if (answered || blockedByModal()) return;
           const n = parseInt(e.key, 10);
           if (n >= 1 && n <= q.options.length && !e.metaKey && !e.ctrlKey && !e.altKey) { e.preventDefault(); choose(n - 1); }
         };
@@ -912,7 +920,7 @@
         };
         actions.appendChild(UI.h('button.btn.btn-primary', { type: 'button', onclick: confirm }, 'Confirm'));
         actions.appendChild(UI.h('button.btn.btn-outline', { type: 'button', onclick: () => { if (answered) return; selected = []; tiles.forEach((t, i) => { if (t instanceof HTMLButtonElement) { t.textContent = q.letters[i]; t.setAttribute('aria-pressed', 'false'); t.classList.remove('is-on'); } }); confirm(); } }, 'No accents needed'));
-        const onKey = (e) => { if (!answered && e.key === 'Enter') { e.preventDefault(); confirm(); } };
+        const onKey = (e) => { if (!answered && e.key === 'Enter' && !blockedByModal()) { e.preventDefault(); confirm(); } };
         document.addEventListener('keydown', onKey);
         root._cleanup.push(() => document.removeEventListener('keydown', onKey));
         root._submit = confirm;
@@ -1100,7 +1108,7 @@
       const refreshXp = () => {
         const pill = document.getElementById('xpPill'); if (!pill) return;
         const lp = Progress.levelProgress();
-        pill.innerHTML = '<span class="lvl">' + lp.level + '</span><span>' + lp.xp + ' XP</span>';
+        pill.innerHTML = '<span class="lvl">' + lp.level + '</span><span class="xp-text">' + lp.xp + ' XP</span>';
         pill.title = 'Level ' + lp.level + ' · ' + Math.round(lp.frac * 100) + '% to next level';
       };
       window.addEventListener('pq:progress', refreshXp);

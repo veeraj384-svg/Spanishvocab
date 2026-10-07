@@ -403,6 +403,13 @@ p { margin: 0 0 var(--sp-4); }
 }
 @media (max-width: 640px) {
   :root { --header-h: 60px; }
+  .site-header .container { gap: var(--sp-2); }
+  .nav { gap: 0; }
+  .nav a { padding: 6px 8px; font-size: 0.84rem; }
+  .header-tools { gap: 4px; }
+  .xp-pill { padding: 4px 8px 4px 5px; font-size: 0.78rem; gap: 5px; }
+  .xp-pill .lvl { width: 20px; height: 20px; font-size: 0.68rem; }
+  .btn-icon { width: 36px; height: 36px; }
   .grid-2, .grid-3 { grid-template-columns: 1fr; }
   .nav a { padding: 8px 10px; font-size: 0.88rem; }
   .brand span.brand-text { display: none; }
@@ -412,6 +419,13 @@ p { margin: 0 0 var(--sp-4); }
   .word-row { grid-template-columns: 1fr; gap: 4px; }
   .modal { padding: var(--sp-5); border-radius: var(--r-lg); }
   .page { padding-top: var(--sp-5); }
+}
+@media (max-width: 400px) {
+  .container { width: min(100% - 2 * var(--sp-3), var(--container)); }
+  .nav a { padding: 6px 7px; font-size: 0.8rem; }
+  .xp-pill .xp-text { display: none; }
+  .xp-pill { padding: 3px; }
+  .brand-mark { width: 32px; height: 32px; }
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; }
