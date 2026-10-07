@@ -42,6 +42,11 @@ npx http-server . -p 8080
 ## Tests
 
 ```
+node tests/run-all.js            # everything below, in order
 node tests/core.test.js          # pure logic tests (normalization, accent checks, SRS)
-node tests/browser.test.js       # Playwright smoke test of every page and game
+node tests/quizui.test.js        # the shared question widget in a real browser
+node tests/<game>.test.js        # one Playwright test per game / page module
+node tests/browser.test.js       # whole-site test: every route, every game, leaks, overflow
 ```
+
+Browser tests use the globally installed Playwright (`npm i -g playwright` + Chromium).
