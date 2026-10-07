@@ -34,7 +34,7 @@
 
   const RATINGS = [
     { id: 'again', n: 1, label: 'Again', status: 'wrong',   icon: '↺', hint: 'Blanked on it — see it again soon', sound: 'wrong',   color: 'var(--c-rose)' },
-    { id: 'hard',  n: 2, label: 'Hard',  status: 'accent',  icon: '´', hint: 'Shaky, or the accents were off',    sound: 'accent',  color: 'var(--c-amber)' },
+    { id: 'hard',  n: 2, label: 'Hard',  status: 'accent',  icon: '≈', hint: 'Shaky, or the accents were off',    sound: 'accent',  color: 'var(--c-amber)' },
     { id: 'good',  n: 3, label: 'Good',  status: 'correct', icon: '✓', hint: 'Got it with a little effort',       sound: 'correct', color: 'var(--c-mint)' },
     { id: 'easy',  n: 4, label: 'Easy',  status: 'correct', icon: '⚡', hint: 'Instant recall · +5 bonus XP',     sound: 'coin',    color: 'var(--c-sky)', bonus: EASY_BONUS },
   ];
@@ -98,6 +98,12 @@
   }
   function focusEl(el) { if (el) { try { el.focus({ preventScroll: true }); } catch (e) { /* ignore */ } } }
   function closeModal() { if (view && view.modal) { const m = view.modal; view.modal = null; m.close(); } }
+  /** Drop a pending rate → next-card transition (quitting / ending mid-flip must never fire it later). */
+  function cancelTransition() {
+    if (!state) return;
+    if (state.nextTimer) { clearTimeout(state.nextTimer); if (view) view.timeouts.delete(state.nextTimer); state.nextTimer = 0; }
+    state.animating = false;
+  }
   function stopSpeech() { try { if (Speech.available()) window.speechSynthesis.cancel(); } catch (e) { /* ignore */ } }
 
   /** Seconds in the session, excluding time spent in a hidden tab. */
@@ -124,8 +130,11 @@
     if (!state || !view || view.modal || e.metaKey || e.ctrlKey || e.altKey || e.repeat) return;
     const t = e.target;
     const tag = t && t.tagName;
-    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || (t && t.isContentEditable)) return;
-    const onButton = tag === 'BUTTON' || tag === 'A';
+    // Esc leaves from anywhere in a session — even while typing a recall attempt
+    if (e.key === 'Escape' && state.screen === 'session') { e.preventDefault(); confirmQuit(); return; }
+    const textInput = tag === 'TEXTAREA' || tag === 'SELECT' || (t && t.isContentEditable) || (tag === 'INPUT' && !/^(checkbox|radio|button)$/i.test(t.type || 'text'));
+    if (textInput) return;
+    const onButton = tag === 'BUTTON' || tag === 'A' || tag === 'INPUT';   // a focused checkbox keeps its native Space
 
     if (state.screen === 'start') {
       const deck = { 1: 'due', 2: 'weak', 3: 'all' }[e.key];
@@ -133,7 +142,6 @@
       return;
     }
     if (state.screen !== 'session') return;
-    if (e.key === 'Escape') { e.preventDefault(); confirmQuit(); return; }
     if (e.key === ' ' || e.key === 'Spacebar') {
       if (onButton) return;
       e.preventDefault(); flip();
@@ -144,8 +152,8 @@
       e.preventDefault();
       const cur = state.current;
       const sug = cur && cur.revealed && !cur.rated ? suggestedRating(cur) : null;
-      if (sug && performance.now() - cur.revealedAt > ENTER_GUARD_MS) rate(sug);
-      else flip();
+      if (sug) { if (performance.now() - cur.revealedAt > ENTER_GUARD_MS) rate(sug); return; } // inside the guard: ignore, never flip the grading away
+      flip();
       return;
     }
     const n = parseInt(e.key, 10);
@@ -176,10 +184,9 @@
         break;
       case 'category':
         cat = opts.cat || null;
-        // Prefer the learner's active filter; if it excludes this category, use the whole category (still sheet vocab).
+        // Only words the learner's category filter allows (Vocab.active); an excluded category falls back to the whole active list.
         pool = active.filter((e) => e.cat === cat);
-        if (!pool.length) pool = Vocab.byCategory(cat);
-        if (!pool.length) { deck = DECKS.all; cat = null; pool = active; }
+        if (!pool.length) { UI.toast('That category is filtered out on Home — dealing from all active words instead.', 'warn'); deck = DECKS.all; cat = null; pool = active; }
         break;
       case 'review': {
         pool = uniqById((opts.entries || []).map((e) => (typeof e === 'string' ? Vocab.byId(e) : e)));
@@ -412,14 +419,16 @@
     updateProgress();
 
     state.animating = true;
-    later(() => {
+    state.nextTimer = later(() => {
       if (els.card) els.card.classList.add('is-out');
-      later(nextCard, OUT_MS);
+      state.nextTimer = later(nextCard, OUT_MS);
     }, RATE_HOLD_MS);
     return item;
   }
 
   function nextCard() {
+    if (!state || state.screen !== 'session') return;   // the session ended while the card was leaving
+    state.nextTimer = 0;
     state.animating = false;
     state.index++;
     if (state.index >= state.cards.length) { endSession('complete'); return; }
@@ -432,6 +441,11 @@
     el.style.setProperty('--rate', r.color);
     els.stage.querySelectorAll('.g-flash-float').forEach((old) => old.remove());
     els.stage.appendChild(el);
+    if (els.card) {   // sit in the card's top-right corner, whatever the stage width
+      el.style.right = 'auto';
+      el.style.left = Math.max(0, els.card.offsetLeft + els.card.offsetWidth - el.offsetWidth - 16) + 'px';
+      el.style.top = (els.card.offsetTop + 14) + 'px';
+    }
     later(() => el.remove(), 1100);
   }
 
@@ -467,7 +481,7 @@
     const counts = h('div.g-flash-counts', { role: 'group', 'aria-label': 'Ratings so far' });
     RATINGS.forEach((r) => {
       const b = h('b', null, '0');
-      const c = h('span.g-flash-count', { dataset: { rating: r.id }, title: r.label }, h('i', { 'aria-hidden': 'true' }), b, h('span.g-flash-count-label', null, r.label));
+      const c = h('span.g-flash-count', { dataset: { rating: r.id }, title: r.label, 'aria-label': r.label }, h('i', { 'aria-hidden': 'true' }), b, h('span.g-flash-count-label', null, r.label), h('span.g-flash-count-short', { 'aria-hidden': 'true' }, r.label.charAt(0)));
       c.style.setProperty('--rate', r.color);
       els.counts[r.id] = b; els.countEls[r.id] = c;
       counts.appendChild(c);
@@ -499,8 +513,9 @@
     shell.appendChild(els.rateHint);
 
     // Options: active recall + auto-pronounce (remembered)
-    const recallInput = h('input', { type: 'checkbox', checked: s.recall, disabled: s.dir !== 'en-es', onchange: (e) => { setRecall(!!e.target.checked); Sound.play('click'); } });
-    const sayInput = h('input', { type: 'checkbox', checked: s.autoSay, onchange: (e) => { s.autoSay = !!e.target.checked; savePref('autoSay', s.autoSay); Sound.play('click'); } });
+    const refocus = () => later(() => { if (state && state.screen === 'session') focusEl(els.input && !els.input.disabled && finePointer() ? els.input : els.card); }, 0);
+    const recallInput = h('input', { type: 'checkbox', checked: s.recall, disabled: s.dir !== 'en-es', onchange: (e) => { e.target.blur(); setRecall(!!e.target.checked); Sound.play('click'); refocus(); } });
+    const sayInput = h('input', { type: 'checkbox', checked: s.autoSay, onchange: (e) => { e.target.blur(); s.autoSay = !!e.target.checked; savePref('autoSay', s.autoSay); Sound.play('click'); refocus(); } });
     shell.appendChild(h('div.g-flash-options', null,
       h('label.toggle.g-flash-recall-toggle', { title: s.dir === 'en-es' ? 'Type the spelling before you flip' : 'Active recall needs English → Spanish' }, recallInput, h('span.track'), h('span', null, '✍️ Active recall')),
       Speech.available() ? h('label.toggle.g-flash-say-toggle', { title: 'Pronounce the word when the card flips' }, sayInput, h('span.track'), h('span', null, '🔊 Auto-pronounce')) : null,
@@ -546,15 +561,25 @@
         : 'Leave this deck? Nothing is lost.'),
       h('div.row', null,
         rated ? h('button.btn.btn-mint', { type: 'button', onclick: () => { closeModal(); endSession('quit'); } }, 'Finish now') : null,
-        h('button.btn.btn-outline', { type: 'button', onclick: () => { closeModal(); showStart(); } }, 'Back to decks'),
+        h('button.btn.btn-outline', { type: 'button', onclick: () => { closeModal(); cancelTransition(); showStart(); } }, 'Back to decks'),
         h('button.btn.btn-ghost', { type: 'button', onclick: closeModal }, 'Keep going')));
-    view.modal = UI.modal({ title: 'Put the deck down?', content, closable: true, onClose: () => { if (view) view.modal = null; } });
+    view.modal = UI.modal({
+      title: 'Put the deck down?', content, closable: true,
+      onClose: () => {
+        if (!view) return;
+        view.modal = null;
+        // "Keep going" / Esc: put the keyboard back on the card (or the recall input)
+        later(() => { if (state && state.screen === 'session') focusEl(els.input && !els.input.disabled && finePointer() ? els.input : els.card); }, 40);
+      },
+    });
   }
 
   /* ------------------------------------------------------------
      Session end
      ------------------------------------------------------------ */
   function endSession(reason) {
+    if (!state || state.screen !== 'session') return;   // idempotent: a late timer or a second click must not end it twice
+    cancelTransition();
     closeModal(); stopSpeech();
     const s = state;
     s.screen = 'end';
@@ -642,6 +667,7 @@
      Start screen — deck picker
      ------------------------------------------------------------ */
   function showStart() {
+    cancelTransition();
     closeModal(); stopSpeech();
     state = { screen: 'start' };
     els = {};
@@ -724,11 +750,12 @@
 
   function catChips() {
     const wrap = h('span.chip-group.g-flash-cats', { role: 'group', 'aria-label': 'Categories' });
+    const active = Vocab.active();
     Vocab.categories().forEach((c) => {
-      const n = Vocab.byCategory(c.id).length;
-      const chip = h('button.chip', { type: 'button', dataset: { cat: c.id }, title: c.es }, c.icon + ' ' + catLabel(c.id) + ' · ' + n);
+      const n = active.filter((e) => e.cat === c.id).length;   // respects the category filter chosen on Home
+      const chip = h('button.chip', { type: 'button', dataset: { cat: c.id }, disabled: n ? null : true, title: n ? c.es : 'Filtered out on Home' }, c.icon + ' ' + catLabel(c.id) + ' · ' + n);
       chip.style.setProperty('--cat', c.color);
-      chip.addEventListener('click', () => { Sound.play('click'); startSession('category', { cat: c.id }); });
+      if (n) chip.addEventListener('click', () => { Sound.play('click'); startSession('category', { cat: c.id }); });
       wrap.appendChild(chip);
     });
     return wrap;

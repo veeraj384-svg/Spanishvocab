@@ -112,7 +112,7 @@
 @keyframes g-flash-pop { 0% { transform: scale(1); } 40% { transform: scale(1.18); } 100% { transform: scale(1); } }
 
 /* ---------- The card ---------- */
-.g-flash-stage { position: relative; padding: 6px 0 2px; }
+.g-flash-stage { position: relative; padding: 6px 0 2px; overflow-x: clip; } /* the slide-in/out animations must never widen the page */
 .g-flash-card {
   position: relative; width: min(100%, 660px); margin: 0 auto; perspective: 1500px; cursor: pointer; outline: none;
   border-radius: var(--r-xl); -webkit-tap-highlight-color: transparent;
@@ -282,6 +282,7 @@
   .g-flash-hud { padding: 10px 12px; }
   .g-flash-count { padding: 3px 9px 3px 8px; font-size: 0.74rem; gap: 5px; }
   .g-flash-count-label { display: none; }
+  .g-flash-count-short { display: inline; font-size: 0.7rem; font-weight: 700; opacity: 0.8; }
   .g-flash-card-inner { min-height: 300px; }
   .g-flash-face { padding: 54px 16px 18px; }
   .g-flash-cat { font-size: 0.68rem; padding: 3px 8px; }
@@ -289,7 +290,7 @@
   .g-flash-prompt.is-es { font-size: clamp(1.6rem, 7.5vw, 2.2rem); }
   .g-flash-es { font-size: clamp(1.7rem, 8vw, 2.4rem); }
   .g-flash-recall .accent-bar { gap: 4px; }
-  .g-flash-recall .accent-key { min-width: 28px; height: 32px; font-size: 0.95rem; padding: 0 3px; }
+  .g-flash-recall .accent-key { min-width: 34px; height: 40px; font-size: 1rem; padding: 0 4px; }
   .g-flash-rate { gap: 6px; }
   .g-flash-rate-btn { padding: 12px 4px 8px; }
   .g-flash-rate-key { display: none; }
@@ -305,3 +306,8 @@
   .g-flash-card.is-in, .g-flash-card.is-out, .g-flash-fan i, .g-flash-rate-btn.is-suggested { animation: none; }
   .g-flash-face::before { transition: none; }
 }
+
+/* Review fixes */
+@media (min-width: 641px) { .g-flash-count-short { display: none; } }
+.g-flash-card, .g-flash-rate-btn, .g-flash-say, .g-flash-recall .accent-key, .g-flash-deck, .g-flash-cats .chip { touch-action: manipulation; }
+.g-flash-cats .chip:disabled { opacity: 0.45; cursor: not-allowed; }

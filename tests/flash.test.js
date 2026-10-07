@@ -241,8 +241,9 @@ async function desktop() {
   await page.keyboard.press('2');
   await page.waitForSelector('.g-flash-session .g-flash-card');
   s = await snap(page);
-  const weakest = await page.evaluate(() => PQ.Progress.weakest(12, { includeUnseen: true, pool: PQ.Vocab.active() }).map((e) => e.id).sort().join());
-  assert(s.deck === 'weak' && s.n === 12 && s.cards.slice().sort().join() === weakest, 'weakest deck = Progress.weakest(12): ' + JSON.stringify(s.cards));
+  // Progress.weakest breaks ties at random, so check rank rather than identity: no dealt card is stronger than a word left out.
+  const rank = await page.evaluate((ids) => { const box = (id) => PQ.Progress.box(id); const inDeck = new Set(ids); const out = PQ.Vocab.active().filter((e) => !inDeck.has(e.id)); return { maxIn: Math.max.apply(null, ids.map(box)), minOut: out.length ? Math.min.apply(null, out.map((e) => box(e.id))) : 99, allActive: ids.every((id) => PQ.Vocab.active().some((e) => e.id === id)) }; }, s.cards);
+  assert(s.deck === 'weak' && s.n === 12 && rank.allActive && rank.maxIn <= rank.minOut, 'weakest deck holds the lowest boxes: ' + JSON.stringify(rank) + ' ' + JSON.stringify(s.cards));
   assert((await page.locator('.g-flash-input').count()) === 1, 'recall input present (remembered preference)');
   // Pause accounting while hidden
   await page.evaluate(() => { Object.defineProperty(document, 'hidden', { configurable: true, get: () => true }); document.dispatchEvent(new Event('visibilitychange')); });
