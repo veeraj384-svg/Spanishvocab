@@ -298,15 +298,23 @@
       const cur = Progress.xpForLevel(lvl), next = Progress.xpForLevel(lvl + 1);
       return { level: lvl, xp: Progress._d.xp, cur, next, frac: Math.min(1, (Progress._d.xp - cur) / (next - cur)) };
     },
-    /** Game high scores: Progress.best('platformer') / Progress.setBest('platformer', 1200, extra). */
+    /**
+     * Game high scores: Progress.best('platformer') / Progress.setBest('platformer', 1200, extra, onBest).
+     *  - counts a play and updates `best` when `score` beats it
+     *  - `extra` is merged into the game's record on EVERY call (per-mode bests, last-run info, …)
+     *  - `onBest` is merged ONLY when this score is a new best (metadata of the best run, e.g. the wave reached)
+     *  - `lastScore` / `lastAt` always describe the most recent run
+     * Returns true when the score is a new best.
+     */
     best(gameId) { return (Progress._d.games[gameId] || {}).best || 0; },
     gameStats(gameId) { return Object.assign({ best: 0, plays: 0 }, Progress._d.games[gameId] || {}); },
-    setBest(gameId, score, extra) {
+    setBest(gameId, score, extra, onBest) {
       const g = Progress._d.games[gameId] || (Progress._d.games[gameId] = { best: 0, plays: 0 });
       g.plays++;
       const isNew = score > g.best;
-      if (isNew) g.best = score;
+      if (isNew) { g.best = score; if (onBest) Object.assign(g, onBest); }
       if (extra) Object.assign(g, extra);
+      g.lastScore = score; g.lastAt = Date.now();
       Progress._save();
       return isNew;
     },
