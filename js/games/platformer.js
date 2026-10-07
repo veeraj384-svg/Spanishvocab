@@ -199,7 +199,7 @@
     const d = {};
     d.shell = UI.h('div.game-shell.g-platformer');
     // Top bar
-    d.bestEl = UI.h('span.g-platformer-best', null, 'Best ' + Progress.best(ID));
+    d.bestEl = UI.h('span.g-platformer-best' + (Progress.best(ID) ? '' : '.hidden'), null, 'Best ' + Progress.best(ID));
     d.pauseBtn = UI.h('button.btn.btn-sm.btn-outline', { type: 'button', title: 'Pause (P)', onclick: () => { Sound.play('click'); togglePause(); } }, '⏸ Pause');
     d.shell.appendChild(UI.h('div.game-topbar', null,
       UI.h('div.game-title', null, UI.h('span.icon', null, '⚡'), UI.h('span', null, 'Energy Run', UI.h('span.g-platformer-tag', null, 'run · jump · spell to recharge'))),
@@ -234,7 +234,8 @@
     d.btnL = UI.h('button.touch-btn', { type: 'button', 'aria-label': 'Move left' }, '◀');
     d.btnR = UI.h('button.touch-btn', { type: 'button', 'aria-label': 'Move right' }, '▶');
     d.btnJ = UI.h('button.touch-btn.g-platformer-jump', { type: 'button', 'aria-label': 'Jump' }, '⤒');
-    d.touch = UI.h('div.touch-controls.g-platformer-touch', null, UI.h('div.tc-group', null, d.btnL, d.btnR), UI.h('div.tc-group', null, d.btnJ));
+    d.btnP = UI.h('button.touch-btn.g-platformer-touch-pause', { type: 'button', 'aria-label': 'Pause', onclick: () => { Sound.play('click'); togglePause(); } }, '⏸');
+    d.touch = UI.h('div.touch-controls.g-platformer-touch', null, UI.h('div.tc-group', null, d.btnL, d.btnR), UI.h('div.tc-group', null, d.btnP, d.btnJ));
     d.shell.appendChild(d.touch);
     d.shell.appendChild(UI.h('div.g-platformer-help.small.muted', { html: '<span class="kbd">←</span> <span class="kbd">→</span> run &nbsp;·&nbsp; <span class="kbd">Space</span> jump &nbsp;·&nbsp; <span class="kbd">P</span> pause &nbsp;·&nbsp; moving drains ⚡, spelling recharges it' }));
     root.appendChild(d.shell);
@@ -262,7 +263,11 @@
     D.streak.classList.toggle('is-hidden', !(S.streak > 1));
     setText(D.streakVal, String(S.streak));
   }
-  function refreshBest() { if (S && D) setText(D.bestEl, 'Best ' + S.best); }
+  function refreshBest() {
+    if (!S || !D) return;
+    setText(D.bestEl, 'Best ' + S.best);
+    if (S.best > 0 && D.bestEl.classList.contains('hidden')) { D.bestEl.classList.remove('hidden'); D.bestEl.classList.add('anim-pop'); }
+  }
 
   /** Distance in metres from the spawn point, accumulated across levels of the same run. */
   function distance() { return Math.max(0, Math.floor((S.distBase + S.maxX - START_X) / 10)); }
@@ -273,12 +278,16 @@
     hideOverlay();
     D.overlay = UI.h('div.game-overlay.g-platformer-overlay', null, panel);
     D.stage.appendChild(D.overlay);
+    if (S) S.overlayAt = performance.now();           // keyboard shortcuts on the panel arm shortly after it appears
+    const primary = panel.querySelector('.btn-primary');
+    if (primary) setTimeout(() => { if (D && D.overlay && primary.isConnected) { try { primary.focus({ preventScroll: true }); } catch (e) { /* ignore */ } } }, 50);
   }
+  /** True once an overlay has been visible long enough for a mashed jump key not to skip it. */
+  function overlayArmed() { return !!(D && D.overlay && S && performance.now() - (S.overlayAt || 0) > 400); }
   function hideOverlay() { if (D && D.overlay) { D.overlay.remove(); D.overlay = null; } }
 
   function introPanel() {
     const start = UI.h('button.btn.btn-primary.btn-lg', { type: 'button', onclick: () => { Sound.play('click'); startPlay(); } }, '▶ Start');
-    setTimeout(() => { try { start.focus({ preventScroll: true }); } catch (e) { /* ignore */ } }, 50);
     return UI.h('div.panel.g-platformer-intro', null,
       UI.h('div.eyebrow', null, 'Energy Run · Level ' + S.level.level),
       UI.h('h2', null, 'Run on ', UI.h('span.grad-text', null, 'word power')),
@@ -353,7 +362,7 @@
   /** A run is over (restart / leaving): persist it once if the learner actually played. */
   function endRun() {
     if (!S || S.saved || S.mode === 'intro') return;
-    if (S.maxX <= START_X && S.asked === 0) return;   // never moved, never answered: nothing to record
+    if (S.maxX <= START_X && S.asked === 0 && S.distBase === 0) return;   // never moved, never answered: nothing to record
     saveBest();
   }
 
@@ -397,6 +406,7 @@
   function gameOver() {
     S.mode = 'over';
     clearInput();
+    updateHud();
     const isNew = saveBest();
     Sound.play('lose');
     showOverlay(gameOverPanel(isNew));
@@ -410,8 +420,11 @@
     burst(S.level.flag.x, GROUND_Y - 60, 40, [C.amber, C.mint, C.lav, C.rose]);
     const r = D.stage.getBoundingClientRect();
     UI.confetti({ x: r.left + r.width / 2, y: r.top + r.height * 0.35, count: 140 });
-    // The run continues on "Next level"; the score is persisted at game over or on unmount.
-    S.best = Math.max(Progress.best(ID), computeScore());
+    updateHud();
+    // The run continues on "Next level", but the score is persisted right away (a closed tab must not lose it);
+    // the play itself is counted once, at game over / restart / leaving.
+    Progress.touchBest(ID, computeScore(), { lastLevel: S.level.level });
+    S.best = Progress.best(ID);
     refreshBest();
     setTimeout(() => { if (S && S.mode === 'complete') showOverlay(completePanel()); }, 600);
   }
@@ -564,6 +577,7 @@
       case 'ArrowRight': case 'KeyD': return 'right';
       case 'Space': case 'ArrowUp': case 'KeyW': return 'jump';
       case 'KeyP': case 'Escape': return 'pause';
+      case 'ArrowDown': case 'PageDown': case 'PageUp': return 'scroll';   // never scroll the game out of view
       default: return null;
     }
   }
@@ -574,6 +588,7 @@
     const act = keyAction(e);
     if (!act) return;
     e.preventDefault();                       // game keys never scroll the page, whatever the mode
+    if (act === 'scroll') return;
     if (act !== 'pause' && !e.repeat) held[act] = true;
     if (act === 'pause') {
       if (S.mode === 'play' || S.mode === 'pause') togglePause();
@@ -582,16 +597,16 @@
     if (e.repeat) return;
     switch (S.mode) {
       case 'intro': if (act === 'jump' || act === 'right') startPlay(); return;
-      case 'pause': if (act === 'jump') togglePause(); return;
-      case 'over': if (act === 'jump') restartRun(1); return;
-      case 'complete': if (act === 'jump') nextLevel(); return;
+      case 'pause': if (act === 'jump' && overlayArmed()) togglePause(); return;
+      case 'over': if (act === 'jump' && overlayArmed()) restartRun(1); return;
+      case 'complete': if (act === 'jump' && overlayArmed()) nextLevel(); return;
       case 'play': press(act, true); return;
       default: return;
     }
   }
   function onKeyUp(e) {
     const act = keyAction(e);
-    if (!act || act === 'pause') return;
+    if (!act || act === 'pause' || act === 'scroll') return;
     held[act] = false;
     if (S) press(act, false);
   }
@@ -778,7 +793,14 @@
   function resizeCanvas() {
     if (!S || !D) return;
     const w = Math.max(200, Math.round(D.stage.clientWidth));
-    const h = w < 640 ? Math.round(Math.max(300, Math.min(380, w * 0.92))) : Math.round(Math.max(300, Math.min(480, w * 0.5625)));
+    let h = w < 640 ? Math.round(Math.max(300, Math.min(380, w * 0.92))) : Math.round(Math.max(300, Math.min(480, w * 0.5625)));
+    // Short touch viewports (landscape phones): compact chrome, touch buttons overlaid on the stage, stage sized to fit.
+    const vh = window.innerHeight || 0;
+    const short = !!(vh && vh < 560 && D.shell.classList.contains('g-platformer-is-touch'));
+    D.shell.classList.toggle('is-short', short);
+    document.body.classList.toggle('pq-short-game', short);
+    if (short) { h = Math.max(200, Math.min(h, vh - 150)); if (D.touch.parentNode !== D.stage) D.stage.appendChild(D.touch); }
+    else if (D.touch.parentNode !== D.shell) D.shell.insertBefore(D.touch, D.stage.nextSibling);
     const dpr = Math.min(2, window.devicePixelRatio || 1);
     if (D.canvas.width !== w * dpr || D.canvas.height !== h * dpr) {
       D.canvas.width = Math.round(w * dpr); D.canvas.height = Math.round(h * dpr);
@@ -1045,6 +1067,7 @@
      Mount / unmount + registration
      ------------------------------------------------------------ */
   function onVisibility() { if (document.hidden && S && S.mode === 'play') togglePause(); }
+  function onPageHide() { endRun(); }   // the tab is closing / going to the bfcache: record the run now
   function onResize() { resizeCanvas(); }
   function onBlur() { held.left = held.right = held.jump = false; clearInput(); }
 
@@ -1068,6 +1091,7 @@
       document.addEventListener('visibilitychange', onVisibility);
       window.addEventListener('resize', onResize);
       window.addEventListener('blur', onBlur);
+      window.addEventListener('pagehide', onPageHide);
       resizeCanvas();
       updateHud();
       showOverlay(introPanel());
@@ -1081,9 +1105,11 @@
       document.removeEventListener('visibilitychange', onVisibility);
       window.removeEventListener('resize', onResize);
       window.removeEventListener('blur', onBlur);
+      window.removeEventListener('pagehide', onPageHide);
       closeQuestion();
       endRun();                              // leaving mid-run (even mid-question) still counts
       hideOverlay();
+      document.body.classList.remove('pq-short-game');
       if (D && D.shell) D.shell.remove();
       S = null; D = null;
     },

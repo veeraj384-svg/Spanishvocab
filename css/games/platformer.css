@@ -88,3 +88,18 @@
   .g-platformer-overlay .panel .btn-lg { padding: 11px 18px; font-size: 0.95rem; }
   .g-platformer-overlay .panel .row { gap: 8px; }
 }
+
+/* Review fixes */
+.g-platformer-best.hidden { display: none; }
+.g-platformer-touch-pause { display: none; }
+
+/* Short touch viewports (landscape phones): no top bar, compact HUD, touch buttons floating over the stage */
+body.pq-short-game .page { padding-top: 8px; }
+.g-platformer.is-short { gap: 8px; }
+.g-platformer.is-short .game-topbar, .g-platformer.is-short .g-platformer-help { display: none; }
+.g-platformer.is-short .g-platformer-hud { padding: 6px 10px; gap: 6px 10px; }
+.g-platformer.is-short .g-platformer-touch-pause { display: grid; }
+.g-platformer.is-short .g-platformer-intro p, .g-platformer.is-short .g-platformer-legend { display: none; }
+.g-platformer-stage > .g-platformer-touch { position: absolute; left: 0; right: 0; bottom: 8px; z-index: 4; padding: 0 10px; display: flex; pointer-events: none; }
+.g-platformer-stage > .g-platformer-touch .touch-btn { pointer-events: auto; opacity: 0.85; width: 54px; height: 54px; font-size: 1.4rem; }
+.g-platformer-stage > .g-platformer-touch .g-platformer-jump { width: 66px !important; }

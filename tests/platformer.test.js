@@ -141,9 +141,12 @@ async function holdKey(page, key, ms) {
       assert(a2.status === 'accent', 'accent-only mistake graded as accent (kind=' + qinfo.kind + '), got ' + a2.status);
       assert(/d-accent|accent-char|Correct spelling/.test(a2.feedbackHtml), 'accent feedback shows correct spelling');
       assert(e4 >= 30 && e4 < 60, 'accent gives +30: ' + e4);
-    } else {
+    } else if (qinfo.kind === 'typed') {
       // word without accents: stripping changes nothing → counts as correct
       assert(a2.status === 'correct', 'unaccented word typed correctly');
+    } else {
+      // multiple choice about an unaccented word: the helper picks a wrong option
+      assert(a2.status !== 'correct', 'unaccented choice question answered wrongly on purpose, got ' + a2.status);
     }
     assert(await mode(page) === 'play', 'resumes after accent answer');
 
@@ -307,7 +310,11 @@ async function holdKey(page, key, ms) {
       assert(mx1 > mx0 + 50, 'touch moved the player: ' + mx0 + ' → ' + mx1);
       assert(jumped, 'touch jump button jumps');
       assert(await dbg(page, () => PQ.debug.platformer.state.input.right) === false, 'touch release stops movement');
-      // question modal fits on mobile
+      // question modal fits on mobile (first put the hero back on the start pad so a long hold under CPU load cannot have killed it)
+      await page.waitForFunction(() => { const s = PQ.debug.platformer.state; return s && (s.mode === 'play' || s.mode === 'dead'); }, null, { timeout: 3000 });
+      await page.waitForFunction(() => PQ.debug.platformer.state.mode === 'play', null, { timeout: 4000 });
+      await dbg(page, () => { const s = PQ.debug.platformer.state; s.player.x = 100; s.player.y = 310; s.player.vx = 0; s.player.vy = 0; s.hearts = 3; });
+      await page.waitForTimeout(120);
       await dbg(page, () => PQ.debug.platformer.setEnergy(0));
       await page.waitForSelector('.modal-backdrop .quiz', { timeout: 3000 });
       const mw = await page.$eval('.modal-backdrop .modal', (m) => m.getBoundingClientRect().width);
@@ -354,8 +361,10 @@ async function holdKey(page, key, ms) {
       await page.keyboard.down('ArrowRight'); await page.waitForTimeout(500);
       assert(await mode(page) === 'play' && (await dbg(page, () => PQ.debug.platformer.state.player.x)) > 100, 'held → at intro moves the hero');
       await page.keyboard.up('ArrowRight');
-      // Space on the pause overlay resumes and never scrolls the page
+      // Space on the pause overlay: ignored for the first 400ms (mashed keys), then resumes; never scrolls the page
       await page.keyboard.press('KeyP'); await page.waitForTimeout(80); await page.keyboard.press('Space'); await page.waitForTimeout(80);
+      assert(await mode(page) === 'pause', 'overlay shortcut not armed yet');
+      await page.waitForTimeout(400); await page.keyboard.press('Space'); await page.waitForTimeout(80);
       assert((await dbg(page, () => window.scrollY)) === 0 && await mode(page) === 'play', 'Space resumes without scrolling');
       // Restart from the pause panel persists the run and counts a play
       await page.keyboard.press('KeyP'); await page.waitForTimeout(80);
