@@ -970,7 +970,12 @@
   };
   PQ.Games = Games;
 
-  const Pages = { _list: {}, register(id, fn) { Pages._list[id] = fn; }, get(id) { return Pages._list[id]; } };
+  /** Pages.register(id, fn) or Pages.register(id, { mount(root, ctx, route), unmount() }) */
+  const Pages = {
+    _list: {},
+    register(id, def) { Pages._list[id] = typeof def === 'function' ? { mount: def } : def; },
+    get(id) { return Pages._list[id]; },
+  };
   PQ.Pages = Pages;
 
   const Router = {
@@ -987,6 +992,8 @@
       const cur = Router._current;
       Router._current = null;
       if (cur && cur.game && typeof cur.game.unmount === 'function') { try { cur.game.unmount(); } catch (e) { console.error('unmount failed', e); } }
+      if (cur && cur.page && typeof cur.page.unmount === 'function') { try { cur.page.unmount(); } catch (e) { console.error('page unmount failed', e); } }
+      window.dispatchEvent(new CustomEvent('pq:unmount', { detail: cur ? { game: cur.game ? cur.game.id : null, page: cur.pageId || null } : null }));
       document.querySelectorAll('.modal-backdrop').forEach((m) => m.remove());
       document.body.classList.remove('in-game');
     },
@@ -1011,9 +1018,10 @@
         catch (e) { console.error('Game mount failed', e); mountEl.appendChild(UI.h('div.card', null, UI.h('h3', null, 'This game hit an error'), UI.h('p.muted', null, String(e && e.message || e)), UI.h('a.btn', { href: '#/' }, '← Back home'))); }
         return;
       }
-      const pageFn = Pages.get(r.page) || Pages.get('home');
+      const pageDef = Pages.get(r.page) || Pages.get('home');
       document.title = (r.page === 'home' ? 'Palabra Quest' : Text.cap(r.page) + ' · Palabra Quest');
-      try { pageFn(root, Router.ctx(), r); }
+      Router._current = { page: pageDef, pageId: Pages.get(r.page) ? r.page : 'home' };
+      try { pageDef.mount(root, Router.ctx(), r); }
       catch (e) { console.error('Page render failed', e); root.appendChild(UI.h('div.page.container', null, UI.h('h2', null, 'Something went wrong'), UI.h('p.muted', null, String(e && e.message || e)))); }
     },
     start(rootEl) {
@@ -1116,7 +1124,8 @@
       const sb = document.getElementById('soundBtn');
       if (sb) {
         const paint = () => { sb.textContent = Sound.enabled() ? '🔊' : '🔇'; sb.setAttribute('aria-pressed', Sound.enabled() ? 'true' : 'false'); sb.title = Sound.enabled() ? 'Mute sounds' : 'Unmute sounds'; };
-        sb.addEventListener('click', () => { Sound.toggle(); paint(); if (Sound.enabled()) Sound.play('click'); });
+        sb.addEventListener('click', () => { Sound.toggle(); if (Sound.enabled()) Sound.play('click'); });
+        window.addEventListener('pq:settings', (e) => { if (!e.detail || e.detail.key === 'sound') paint(); });
         paint();
       }
       Router.start(root);
