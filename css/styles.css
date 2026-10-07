@@ -428,6 +428,17 @@ p { margin: 0 0 var(--sp-4); }
   .xp-pill { padding: 3px; }
   .brand-mark { width: 32px; height: 32px; }
 }
+/* Short windows (laptops at 720–768px, landscape tablets): compact overlay panels so their buttons stay inside the stage */
+@media (max-height: 780px) {
+  .game-overlay { padding: 12px; }
+  .game-overlay .panel { padding: var(--sp-5) var(--sp-5); }
+  .game-overlay .panel h2 { font-size: 1.35rem; margin-bottom: 4px; }
+  .game-overlay .panel .big { font-size: 2.3rem; margin: 6px 0; }
+  .game-overlay .panel .stat-grid { margin: 10px 0; gap: 8px; }
+  .game-overlay .panel .stat { padding: 8px; }
+  .game-overlay .panel .stat .stat-val { font-size: 1.2rem; }
+  .game-overlay .panel p { margin-bottom: 10px; }
+}
 /* Touch targets: nothing interactive under 40px on touch screens */
 @media (pointer: coarse) {
   .btn-sm { min-height: 40px; }

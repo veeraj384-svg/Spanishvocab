@@ -3,7 +3,7 @@
 const { launch, assert, SITE } = require('./helpers');
 const path = require('path');
 
-const SHOTS = process.env.PQ_SHOTS || '/tmp/claude-0/-home-user-Spanishvocab/a02e9093-c152-5782-8ad7-edac27261f74/scratchpad';
+const SHOTS = process.env.PQ_SHOTS || require('os').tmpdir();
 const shot = async (page, name) => { await page.waitForTimeout(400); await page.screenshot({ path: path.join(SHOTS, name), fullPage: false }).catch(() => {}); };
 
 const dbg = (page, fn) => page.evaluate(fn);
