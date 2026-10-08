@@ -457,3 +457,7 @@ p { margin: 0 0 var(--sp-4); }
 .hero-text p { font-size: 1.1rem; max-width: 52ch; }
 .hero-stats { animation: pop var(--t-slow) var(--ease-bounce) both; }
 @media (max-width: 900px) { .hero { grid-template-columns: 1fr; } }
+
+/* Home: reset link */
+.home-reset { color: var(--muted); }
+.home-reset:hover { color: var(--c-rose); background: rgba(255, 92, 122, 0.1); }

@@ -1138,8 +1138,31 @@
             UI.h('div.small.muted', null, 'Solid after 3 correct in a row, mastered after 5'))),
         UI.h('div', { style: { marginTop: '14px' } },
           UI.h('div.row-between.small', null, UI.h('span', null, 'Level ' + lp.level), UI.h('span.muted', null, (lp.xp - lp.cur) + ' / ' + (lp.next - lp.cur) + ' XP')),
-          UI.h('div.bar', { style: { marginTop: '6px' } }, UI.h('div.bar-fill', { style: { width: Math.round(lp.frac * 100) + '%' } })))));
+          UI.h('div.bar', { style: { marginTop: '6px' } }, UI.h('div.bar-fill', { style: { width: Math.round(lp.frac * 100) + '%' } }))),
+        UI.h('div.row-between', { style: { marginTop: '12px' } },
+          UI.h('a.small.muted', { href: '#/stats' }, 'Full progress →'),
+          UI.h('button.btn.btn-ghost.btn-sm.home-reset', { type: 'button', onclick: confirmReset }, 'Reset progress'))));
     page.appendChild(hero);
+
+    /** Wipe everything on this device, after a confirmation. */
+    function confirmReset() {
+      let modal = null;
+      const cancel = UI.h('button.btn.btn-outline', { type: 'button', onclick: () => modal.close() }, 'Keep my progress');
+      const ok = UI.h('button.btn.btn-danger', { type: 'button', onclick: () => {
+        Progress.reset();
+        Settings.set('cats', null);
+        modal.close();
+        UI.toast('Progress reset', 'warn');
+        Router.render();
+      } }, 'Yes, reset everything');
+      modal = UI.modal({
+        title: 'Reset all progress?',
+        content: UI.h('div.stack', null,
+          UI.h('p.text-2', { style: { margin: 0 } }, 'This clears every word’s mastery, your XP and level, streaks and all game high scores on this device. It cannot be undone.'),
+          UI.h('div.row', null, cancel, ok)),
+      });
+      setTimeout(() => { try { cancel.focus({ preventScroll: true }); } catch (e) { /* ignore */ } }, 30);
+    }
 
     // Games grid
     page.appendChild(UI.h('div.page-head', { style: { marginTop: '40px' } }, UI.h('div', null, UI.h('div.eyebrow', null, 'Play'), UI.h('h2', null, 'Games'))));
