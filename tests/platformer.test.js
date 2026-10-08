@@ -97,7 +97,7 @@ async function holdKey(page, key, ms) {
     const grounded = await dbg(page, () => PQ.debug.platformer.state.player.onGround);
     assert(vy < 0 || !grounded, 'space makes the player jump (vy=' + vy + ')');
     const afterJ = await dbg(page, () => ({ e: PQ.debug.platformer.state.energy, orbs: PQ.debug.platformer.state.orbs }));
-    assert(afterJ.e <= before.e - 3 + 4 * (afterJ.orbs - before.orbs) + 0.01, 'jump costs 3 energy: ' + JSON.stringify(before) + ' → ' + JSON.stringify(afterJ));
+    assert(afterJ.e <= before.e - 4 + 1 * (afterJ.orbs - before.orbs) + 0.01, 'jump costs 4 energy: ' + JSON.stringify(before) + ' → ' + JSON.stringify(afterJ));
     await page.waitForTimeout(700);
     // picked up the starter orbs while running
     const orbs = await dbg(page, () => PQ.debug.platformer.state.orbs);
@@ -125,7 +125,7 @@ async function holdKey(page, key, ms) {
     const a1 = await answer(page, 'correct');
     assert(a1.status === 'correct', 'answered correctly, got ' + a1.status + ' ' + JSON.stringify(a1.info) + ' FB=' + a1.feedbackHtml.replace(/<[^>]+>/g, ''));
     const e3 = await dbg(page, () => PQ.debug.platformer.state.energy);
-    assert(e3 >= 60, 'correct answer gives +60 energy: ' + e3);
+    assert(e3 >= 40 && e3 < 60, 'correct answer gives +40 energy: ' + e3);
     assert(await mode(page) === 'play', 'game resumes after answer');
     assert(await dbg(page, () => PQ.debug.platformer.state.streak) === 1, 'streak incremented');
 
@@ -140,7 +140,7 @@ async function holdKey(page, key, ms) {
     if (qinfo.kind === 'accent' || qinfo.hasAccent) {
       assert(a2.status === 'accent', 'accent-only mistake graded as accent (kind=' + qinfo.kind + '), got ' + a2.status);
       assert(/d-accent|accent-char|Correct spelling/.test(a2.feedbackHtml), 'accent feedback shows correct spelling');
-      assert(e4 >= 30 && e4 < 60, 'accent gives +30: ' + e4);
+      assert(e4 >= 18 && e4 < 40, 'accent gives +18: ' + e4);
     } else if (qinfo.kind === 'typed') {
       // word without accents: stripping changes nothing → counts as correct
       assert(a2.status === 'correct', 'unaccented word typed correctly');
@@ -156,7 +156,7 @@ async function holdKey(page, key, ms) {
     const a3 = await answer(page, 'wrong');
     assert(a3.status !== 'correct', 'wrong answer not graded correct: ' + a3.status);
     const e5 = await dbg(page, () => PQ.debug.platformer.state.energy);
-    assert(e5 >= 15, 'wrong answer still gives energy: ' + e5);
+    assert(e5 >= 8 && e5 < 18, 'wrong answer still gives a little energy: ' + e5);
     assert(await dbg(page, () => PQ.debug.platformer.state.streak) === 0, 'streak reset on mistake');
     assert(await mode(page) === 'play', 'resumes after wrong answer');
 

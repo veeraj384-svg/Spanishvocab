@@ -51,8 +51,8 @@
 
   const MODES = {
     blitz: { id: 'blitz', name: 'Blitz 60s',          icon: '⚡', key: '1', accent: 'var(--c-amber)', desc: 'Sixty seconds on the clock. Every correct answer adds +2s.' },
-    zen:   { id: 'zen',   name: 'Zen',                icon: '🧘', key: '2', accent: 'var(--c-mint)',  desc: 'No clock. Fifteen words — take your time and get them right.' },
-    spot:  { id: 'spot',  name: 'Spot the spelling',  icon: '🔍', key: '3', accent: 'var(--c-lav)',   desc: 'Pick the correctly spelled word among accent traps. Twelve rounds.' },
+    zen:   { id: 'zen',   name: 'Zen',                icon: '🧘', key: '2', accent: 'var(--c-mint)',  desc: 'No timer. Fifteen words.' },
+    spot:  { id: 'spot',  name: 'Spot the spelling',  icon: '🔍', key: '3', accent: 'var(--c-lav)',   desc: 'Pick the right spelling out of four. Twelve words.' },
   };
   const QUESTION_LABEL = { blitz: 'Words', zen: 'Word', spot: 'Question' };
 
@@ -210,7 +210,7 @@
     renderRound();
     if (mode.id === 'blitz') { startLoop(); paintTimer(); }
     nextQuestion();
-    floatText(mode.id === 'blitz' ? '¡Vamos!' : mode.id === 'zen' ? 'Tranquilo…' : '¡Ojo!', 'is-go');
+    floatText(mode.id === 'zen' ? 'Take your time' : 'Go', 'is-go');
   }
 
   function nextQuestion() {
@@ -269,7 +269,7 @@
       state.combo = 0;
       state.mult = 1;
       replayClass(els.stage, 'is-shake');
-      floatText(r.status === 'accent' ? 'accent!' : 'miss', 'is-bad');
+      floatText(r.status === 'accent' ? 'accent' : 'miss', 'is-bad');
       state.missed.push({ id: entry.id, entry, status: r.status, expected: r.expected || q.canonical, input: describeInput(q, r.input) });
     }
     state.answers.push({ id: entry.id, entry, kind: q.kind, status: r.status, points, input: r.input, expected: r.expected || q.canonical });
@@ -547,8 +547,8 @@
     shell.appendChild(h('div.card.card-glass.g-accent-hero', null,
       h('div.g-accent-hero-text', null,
         h('div.eyebrow', null, 'Accent Hunter'),
-        h('h2', null, 'Hunt down every ', h('span.grad-text', null, 'accent'), '.'),
-        h('p.text-2', null, 'Each word shows up with its accents stripped. Tap the letters that need an accent or ñ — or call “No accents needed”. Chain correct answers to grow your multiplier.')),
+        h('h2', null, 'Where does the ', h('span.grad-text', null, 'accent'), ' go?'),
+        h('p.text-2', null, 'Each word appears without its accents. Tap the letters that need one (or ñ), or say no accents are needed. Correct answers in a row raise your multiplier.')),
       h('div.g-accent-hero-stats', null,
         stat(fmt(gs.best), 'Best score'),
         stat(String(gs.plays || 0), gs.plays === 1 ? 'Round played' : 'Rounds played'),
@@ -647,14 +647,14 @@
     const shell = shellEl(mode);
     shell.appendChild(topbar(mode, h('a.btn.btn-ghost.btn-sm', { href: '#/' }, '← All games')));
 
-    const title = s.reason === 'time' ? '¡Se acabó el tiempo!' : s.reason === 'quit' ? 'Round ended' : s.mode === 'zen' ? 'Zen complete' : 'All spotted!';
+    const title = s.reason === 'time' ? 'Time is up' : s.reason === 'quit' ? 'Round ended' : 'Round complete';
     const pct = Math.round(s.accuracy * 100) + '%';
     const panel = h('div.card.card-glass.g-accent-end', null,
       h('div.eyebrow', null, mode.icon + ' ' + mode.name),
       h('h2', null, title),
       h('div.g-accent-final', null, els.score = h('div.g-accent-final-score', null, '0'), h('div.g-accent-final-label', null, 'points')),
       s.newBest
-        ? h('div.g-accent-newbest.anim-pop', null, '🏆 New best for ' + mode.name + '!')
+        ? h('div.g-accent-newbest.anim-pop', null, 'New best for ' + mode.name)
         : h('div.small.muted.g-accent-prevbest', null, 'Best in this mode: ' + fmt(modeBests()[s.mode] || 0)),
       h('div.stat-grid', null,
         stat(fmt(Progress.best(ID)), 'Best overall'),
@@ -702,7 +702,7 @@
   PQ.Games.register({
     id: ID,
     name: 'Accent Hunter',
-    tagline: 'Tap the letters that need an accent — fast.',
+    tagline: 'Tap where the accents go.',
     icon: '🎯',
     accent: 'var(--c-lav)',
     order: 3,

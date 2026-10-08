@@ -52,7 +52,7 @@ async function run(viewport, touch) {
     await page.waitForSelector('.modal-backdrop .quiz', { timeout: 4000 });
     const pq = await page.evaluate(() => { const q = PQ.debug.platformer.state.question.ctl.question; return { kind: q.kind, canonical: q.canonical, needs: q.needs, options: q.options, cat: q.entry.cat, id: q.entry.id }; });
     await answerQuestion(page, pq, '.modal-backdrop');
-    assert(await page.evaluate(() => PQ.debug.platformer.state.mode === 'play' && PQ.debug.platformer.state.energy >= 60), label + ': energy recharged after a correct answer');
+    assert(await page.evaluate(() => PQ.debug.platformer.state.mode === 'play' && PQ.debug.platformer.state.energy >= 40), label + ': energy recharged after a correct answer');
     assert(await page.evaluate(() => !document.querySelector('.modal-backdrop')), label + ': question modal closed');
 
     // ---- spell: category filter restricts the round; XP pill updates ----

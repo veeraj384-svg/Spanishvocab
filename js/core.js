@@ -382,9 +382,9 @@
     summary(pool) {
       pool = pool || Vocab.all();
       const boxes = [0, 0, 0, 0, 0, 0];
-      let seen = 0, mastered = 0, sum = 0;
-      pool.forEach((e) => { const w = Progress.word(e.id); boxes[w.box]++; if (w.n) seen++; if (w.box >= MAX_BOX) mastered++; sum += w.box; });
-      return { total: pool.length, seen, mastered, boxes, avg: pool.length ? sum / (pool.length * MAX_BOX) : 0 };
+      let seen = 0, mastered = 0, solid = 0, sum = 0;
+      pool.forEach((e) => { const w = Progress.word(e.id); boxes[w.box]++; if (w.n) seen++; if (w.box >= MAX_BOX) mastered++; if (w.box >= 3) solid++; sum += w.box; });
+      return { total: pool.length, seen, mastered, solid, boxes, avg: pool.length ? sum / (pool.length * MAX_BOX) : 0 };
     },
     reset() { Progress._d = { words: {}, xp: 0, sessions: 0, games: {}, bestStreak: 0, totalAnswers: 0, totalCorrect: 0 }; Progress._save(); },
     MAX_BOX,
@@ -743,19 +743,46 @@
     _voice: undefined,
     available() { return 'speechSynthesis' in window && typeof SpeechSynthesisUtterance !== 'undefined'; },
     enabled() { return Speech.available() && Settings.get('speech') !== false; },
-    voice() {
-      if (!Speech.available()) return null;
-      const voices = window.speechSynthesis.getVoices() || [];
-      const es = voices.filter((v) => /^es([-_]|$)/i.test(v.lang));
-      const pref = es.find((v) => /es[-_]ES/i.test(v.lang)) || es.find((v) => /es[-_]MX|es[-_]US/i.test(v.lang)) || es[0];
-      return pref || null;
+    /**
+     * Voice quality depends entirely on the device: the browser only exposes the voices the OS
+     * installed. Score them so the most natural one wins (neural / "Natural" / "Premium" /
+     * Google cloud voices first, robotic eSpeak last) unless the learner picked one in Settings.
+     */
+    score(v) {
+      let s = 0;
+      const name = (v.name || '') + ' ' + (v.voiceURI || '');
+      if (/natural|neural|premium|enhanced|online|wavenet|journey|studio/i.test(name)) s += 10;
+      if (/google/i.test(name)) s += 6;
+      if (/siri|m[oó]nica|paulina|jorge|juan|lucia|elvira|alvaro|dalia|sabina|helena|laura|pablo|esperanza/i.test(name)) s += 3;
+      if (/es[-_]ES/i.test(v.lang)) s += 4; else if (/es[-_](MX|US|419)/i.test(v.lang)) s += 3;
+      if (v.localService === false) s += 2;
+      if (/espeak|compact|novelty|whisper|bad news|bells|cellos|zarvox|trinoids/i.test(name)) s -= 20;
+      return s;
     },
-    say(text) {
+    /** Spanish voices on this device, best first. */
+    voices() {
+      if (!Speech.available()) return [];
+      const all = window.speechSynthesis.getVoices() || [];
+      return all.filter((v) => /^es([-_]|$)/i.test(v.lang)).sort((a, b) => Speech.score(b) - Speech.score(a));
+    },
+    voice() {
+      const list = Speech.voices();
+      if (!list.length) return null;
+      const wanted = Settings.get('voiceURI');
+      return (wanted && list.find((v) => v.voiceURI === wanted)) || list[0];
+    },
+    rate() { const r = Number(Settings.get('speechRate')); return r > 0 ? r : 0.8; },
+    say(text, opts) {
       if (!Speech.enabled()) return false;
+      opts = opts || {};
       try {
-        const u = new SpeechSynthesisUtterance(String(text).replace(/…/g, ''));
-        u.lang = 'es-ES'; u.rate = 0.9;
-        const v = Speech.voice(); if (v) u.voice = v;
+        const u = new SpeechSynthesisUtterance(String(text).replace(/…/g, '').replace(/[¿¡]/g, ''));
+        const v = Speech.voice();
+        u.lang = v ? v.lang : 'es-ES';
+        if (v) u.voice = v;
+        u.rate = opts.rate || Speech.rate();   // slower than normal speech: every syllable and accent should be audible
+        u.pitch = 1;
+        u.volume = 1;
         window.speechSynthesis.cancel();
         window.speechSynthesis.speak(u);
         return true;
@@ -818,7 +845,7 @@
         const elapsed = Math.max(0, (performance.now() - t0 - hiddenTotal) / 1000);
         const result = Object.assign({ status, xp: rec.xp, box: rec.box, levelUp: rec.levelUp, question: q, elapsed, usedHint }, extra || {});
         Sound.play(status === 'correct' ? 'correct' : status === 'accent' ? 'accent' : 'wrong');
-        if (rec.levelUp) setTimeout(() => { Sound.play('levelup'); UI.toast('Level up! You are now level ' + rec.level, 'ok'); }, 350);
+        if (rec.levelUp) setTimeout(() => { Sound.play('levelup'); UI.toast('Level ' + rec.level + ' reached', 'ok'); }, 350);
         UI.clear(actions); // Check / Hint / Confirm are no longer meaningful once graded
         showFeedback(result);
         if (opts.onAnswer) opts.onAnswer(result);
@@ -849,19 +876,19 @@
         let fb;
         if (r.status === 'correct') {
           fb = UI.h('div.quiz-feedback.ok', null,
-            UI.h('div.fb-title', null, Rand.pick(['¡Perfecto!', '¡Excelente!', '¡Muy bien!', '¡Genial!', '¡Correcto!']) + '  +' + r.xp + ' XP'),
+            UI.h('div.fb-title', null, 'Correct · +' + r.xp + ' XP'),
             UI.h('div.fb-answer', { html: Text.highlightAccents(q.kind === 'meaning' ? q.entry.es : canon) }),
             q.kind !== 'meaning' ? UI.h('div.fb-note', null, q.entry.en + (q.entry.note ? ' · ' + q.entry.note : '')) : UI.h('div.fb-note', null, q.entry.en));
         } else if (r.status === 'accent') {
           const typed = q.kind === 'accent' ? null : (r.input || '');
           fb = UI.h('div.quiz-feedback.accent', null,
-            UI.h('div.fb-title', null, 'So close — check the accents!'),
+            UI.h('div.fb-title', null, 'Right letters, wrong accents'),
             typed != null ? UI.h('div', { html: Text.diffHtml(typed, r.expected || canon) }) : UI.h('div.fb-answer', { html: Text.highlightAccents(canon) }),
             UI.h('div.fb-note', { html: 'Correct spelling: <b>' + Text.highlightAccents(r.expected || canon) + '</b>' + (q.entry.note ? ' · ' + Text.esc(q.entry.note) : '') }));
         } else {
           const typed = (q.kind === 'typed') ? (r.input || '') : null;
           fb = UI.h('div.quiz-feedback.bad', null,
-            UI.h('div.fb-title', null, 'Not quite.'),
+            UI.h('div.fb-title', null, 'Not quite'),
             typed ? UI.h('div', { html: Text.diffHtml(typed, r.expected || canon) }) : null,
             UI.h('div.fb-answer', { html: Text.highlightAccents(q.kind === 'meaning' ? q.entry.es + '  =  ' + q.entry.en : canon) }),
             UI.h('div.fb-note', null, (q.kind === 'meaning' ? '' : q.entry.en) + (q.entry.note ? ' · ' + q.entry.note : '')));
@@ -1096,8 +1123,8 @@
     const hero = UI.h('section.hero', null,
       UI.h('div.hero-text', null,
         UI.h('div.eyebrow', null, Vocab.meta().list),
-        UI.h('h1', null, 'Master every ', UI.h('span.grad-text', null, 'accent'), ' in Unidad 1.'),
-        UI.h('p.text-2', null, 'Spelling and accent drills disguised as games. Weak words come back more often until they stick.'),
+        UI.h('h1', null, 'Practice your ', UI.h('span.grad-text', null, 'Unidad 1'), ' words'),
+        UI.h('p.text-2', null, 'Spelling and accents, in short games. The words you miss come back more often.'),
         UI.h('div.row', { style: { marginTop: '18px' } },
           UI.h('a.btn.btn-primary.btn-lg', { href: '#/play/' + (Games.all()[0] ? Games.all()[0].id : 'spell') }, '▶ Start playing'),
           UI.h('a.btn.btn-outline.btn-lg', { href: '#/words' }, 'Browse the ' + Vocab.all().length + ' words'))),
@@ -1105,17 +1132,17 @@
         UI.h('div.row-between', null,
           UI.ring(summary.avg, Math.round(summary.avg * 100) + '%', 110),
           UI.h('div.stack', { style: { gap: '6px', flex: '1', minWidth: '140px' } },
-            UI.h('div.small.muted', null, 'Overall mastery'),
-            UI.h('div', null, UI.h('b', null, summary.mastered), ' / ' + summary.total + ' words mastered'),
-            UI.h('div.small.text-2', null, summary.seen + ' words practiced'),
-            UI.h('div.small.text-2', null, 'Best streak: ' + Progress.bestStreak()))),
+            UI.h('div.small.muted', null, 'Overall progress'),
+            UI.h('div', null, UI.h('b', null, summary.seen), ' of ' + summary.total + ' words practiced'),
+            UI.h('div.small.text-2', null, UI.h('b', null, summary.solid), ' solid · ', UI.h('b', null, summary.mastered), ' mastered'),
+            UI.h('div.small.muted', null, 'Solid = right 3 times in a row · mastered = 5'))),
         UI.h('div', { style: { marginTop: '14px' } },
           UI.h('div.row-between.small', null, UI.h('span', null, 'Level ' + lp.level), UI.h('span.muted', null, (lp.xp - lp.cur) + ' / ' + (lp.next - lp.cur) + ' XP')),
           UI.h('div.bar', { style: { marginTop: '6px' } }, UI.h('div.bar-fill', { style: { width: Math.round(lp.frac * 100) + '%' } })))));
     page.appendChild(hero);
 
     // Games grid
-    page.appendChild(UI.h('div.page-head', { style: { marginTop: '40px' } }, UI.h('div', null, UI.h('div.eyebrow', null, 'Play'), UI.h('h2', null, 'Choose your game'))));
+    page.appendChild(UI.h('div.page-head', { style: { marginTop: '40px' } }, UI.h('div', null, UI.h('div.eyebrow', null, 'Play'), UI.h('h2', null, 'Games'))));
     const grid = UI.h('div.grid.grid-3');
     const games = Games.all();
     if (!games.length) grid.appendChild(UI.h('div.card', null, 'No games loaded yet.'));
@@ -1130,8 +1157,8 @@
 
     // Weak words + category filter
     const lower = UI.h('div.grid.grid-2', { style: { marginTop: '32px' } });
-    const weakCard = UI.h('div.card', null, UI.h('div.eyebrow', null, 'Needs work'), UI.h('h3', null, 'Your trickiest words'));
-    if (!weakest.length) weakCard.appendChild(UI.h('p.muted', null, 'Play a round and your weakest words will show up here.'));
+    const weakCard = UI.h('div.card', null, UI.h('div.eyebrow', null, 'Review'), UI.h('h3', null, 'Words you keep missing'));
+    if (!weakest.length) weakCard.appendChild(UI.h('p.muted', null, 'After a round or two, the words you miss most will show up here.'));
     else weakest.forEach((e) => weakCard.appendChild(UI.h('div.word-row', { style: { marginBottom: '8px' } }, UI.h('span.es', { html: Text.highlightAccents(e.es) }), UI.h('span.en', null, e.en), UI.masteryDots(e.id))));
     lower.appendChild(weakCard);
 

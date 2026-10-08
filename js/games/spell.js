@@ -39,9 +39,9 @@
 
   const MODES = {
     quick:    { id: 'quick',    name: 'Quick 10',     icon: '⚡', accent: 'var(--c-mint)',  key: '1', desc: 'Ten words, weighted toward the ones you keep missing.' },
-    weak:     { id: 'weak',     name: 'Weak words',   icon: '🎯', accent: 'var(--c-lav)',   key: '2', desc: 'Your ten shakiest words, weakest first.' },
+    weak:     { id: 'weak',     name: 'Weak words',   icon: '🎯', accent: 'var(--c-lav)',   key: '2', desc: 'Your ten weakest words.' },
     marathon: { id: 'marathon', name: 'Marathon',     icon: '♾️', accent: 'var(--c-rose)',  key: '3', desc: 'Keep going until you miss three. Accent slips count.' },
-    category: { id: 'category', name: 'By category',  icon: '🗂️', accent: 'var(--c-amber)', key: '4', desc: 'Sweep one whole group from the sheet, every word once.' },
+    category: { id: 'category', name: 'By category',  icon: '🗂️', accent: 'var(--c-amber)', key: '4', desc: 'One whole group from the sheet, every word once.' },
     retry:    { id: 'retry',    name: 'Retry missed', icon: '🔁', accent: 'var(--c-sky)',   key: '',  desc: 'Only the words you just missed, typed out in full.' },
   };
   // Short category labels for chips (the sheet titles are long sentences).
@@ -79,7 +79,7 @@
   function modeDesc(modeId) {
     const n = roundSize(modeId);
     if (modeId === 'quick') return Text.cap(numWord(n)) + (n === 1 ? ' word' : ' words') + ', weighted toward the ones you keep missing.';
-    if (modeId === 'weak') return 'Your ' + numWord(n) + (n === 1 ? ' shakiest word.' : ' shakiest words, weakest first.');
+    if (modeId === 'weak') return 'Your ' + numWord(n) + (n === 1 ? ' weakest word.' : ' weakest words.');
     return MODES[modeId].desc;
   }
   /** Label of a round for the mode chip / end screen: the category name, "Quick 4" under a filter, else the mode name. */
@@ -320,7 +320,7 @@
     later(() => Sound.play('hurt'), 260);
     const left = state.lives;
     const lives = left === 1 ? '1 life left' : left + ' lives left';
-    UI.toast(status === 'accent' ? '´ Accent slip — so close! ' + (left ? lives : 'That was the last life.') : '✗ Missed. ' + (left ? lives : 'That was the last life.'), status === 'accent' ? 'warn' : 'bad');
+    UI.toast(status === 'accent' ? 'Accent slip. ' + (left ? lives : 'That was the last life.') : '✗ Missed. ' + (left ? lives : 'That was the last life.'), status === 'accent' ? 'warn' : 'bad');
   }
 
   /** "+N" float over the stage + score bump / count-up. */
@@ -376,7 +376,7 @@
     const win = answered > 0 && s.accuracy >= 0.8;
     later(() => Sound.play(win ? 'win' : answered ? 'lose' : 'click'), 120);
     if (win) later(() => UI.confetti({ count: s.accuracy >= 1 ? 190 : 130 }), 260);
-    if (s.newBest && answered) later(() => UI.toast('🏆 New best score!', 'ok'), 700);
+    if (s.newBest && answered) later(() => UI.toast('New best score', 'ok'), 700);
   }
 
   function confirmQuit() {
@@ -385,17 +385,17 @@
     const done = naturalEnd(); // every question is already answered: only the results are left, nothing to discard
     const content = h('div.stack', null,
       h('p.text-2', { style: { margin: 0 } }, done
-        ? 'Every answer is in: ' + fmt(state.score) + ' points. Ready to see how it went?'
+        ? 'Every answer is in: ' + fmt(state.score) + ' points. See the results?'
         : answered
-          ? 'Finish now and bank your ' + fmt(state.score) + ' points, or leave this round? Every answer is already saved to your word progress.'
-          : 'Leave this round? Nothing is lost.'),
+          ? 'Finish now with ' + fmt(state.score) + ' points, or leave? Your answers are already saved.'
+          : 'Leave this round?'),
       h('div.row', null,
         done ? h('button.btn.btn-mint', { type: 'button', onclick: () => { closeModal(); endRound(done); } }, '🏁 See results')
           : answered ? h('button.btn.btn-mint', { type: 'button', onclick: () => { closeModal(); endRound('quit'); } }, 'Finish now') : null,
         done ? null : h('button.btn.btn-outline', { type: 'button', onclick: () => { closeModal(); showStart(); } }, 'Back to start'),
         h('button.btn.btn-ghost', { type: 'button', onclick: closeModal }, done ? 'Not yet' : 'Keep playing')));
     view.modal = UI.modal({
-      title: done ? 'All done!' : 'Leave the forge?', content, closable: true,
+      title: done ? 'All done' : 'Leave this round?', content, closable: true,
       onClose: () => { if (!view) return; view.modal = null; refocusQuestion(); later(refocusQuestion, 40); },
     });
   }
@@ -427,9 +427,9 @@
     // Hero
     shell.appendChild(h('div.card.card-glass.g-spell-hero', null,
       h('div.g-spell-hero-text', null,
-        h('div.eyebrow', null, 'Typing drill · accents required'),
-        h('h2', null, 'See the English. ', h('span.grad-text', null, 'Forge the Spanish.')),
-        h('p.text-2', null, 'Type each word with every accent in place. Streaks multiply your points, hints halve them, and the words you miss come back until they stick.')),
+        h('div.eyebrow', null, 'Typing drill'),
+        h('h2', null, 'See the English, ', h('span.grad-text', null, 'type the Spanish')),
+        h('p.text-2', null, 'Accents included. Streaks multiply your points, hints halve them, and the words you miss come back.')),
       h('div.g-spell-hero-stats', null,
         stat(fmt(stats.best), 'Best'),
         stat(fmt(stats.plays), stats.plays === 1 ? 'Round' : 'Rounds'),
@@ -570,11 +570,11 @@
     if (r.total === Infinity) {
       const left = r.pool.length - s.used.size;
       els.progLabel.textContent = 'Question ' + s.index;
-      els.progRight.textContent = left ? left + ' words left in the deck' : 'last word of the deck!';
+      els.progRight.textContent = left ? left + ' words left in the deck' : 'last word';
     } else {
       const left = r.total - s.index;
       els.progLabel.textContent = 'Question ' + Math.min(s.index, r.total) + ' of ' + r.total;
-      els.progRight.textContent = left > 0 ? left + ' to go' : 'last one!';
+      els.progRight.textContent = left > 0 ? left + ' to go' : 'last one';
     }
     els.bar.style.width = Math.round(100 * done / max) + '%';
     els.barWrap.setAttribute('aria-valuemax', String(max));
@@ -590,11 +590,11 @@
     const correct = answered - s.missed.length;
     const pct = Math.round(s.accuracy * 100);
     const headline = !answered ? 'No answers this time.'
-      : s.accuracy >= 1 ? '¡Perfecto! A flawless forge.'
-      : s.accuracy >= 0.8 ? '¡Excelente! Well forged.'
-      : s.accuracy >= 0.5 ? 'Good work — keep hammering.'
-      : 'Tough round — the forge remembers.';
-    const reason = { lives: 'Out of lives', swept: 'You swept the whole deck!', quit: 'Finished early', complete: roundLabel(s.round) + ' · complete' }[s.reason] || 'Round complete';
+      : s.accuracy >= 1 ? 'Every word right.'
+      : s.accuracy >= 0.8 ? 'Nearly all of them.'
+      : s.accuracy >= 0.5 ? 'More than half.'
+      : 'A hard round. Those words will come back.';
+    const reason = { lives: 'Out of lives', swept: 'Whole deck done', quit: 'Finished early', complete: roundLabel(s.round) + ' · complete' }[s.reason] || 'Round complete';
 
     const shell = h('div.game-shell.g-spell.g-spell-endwrap');
     shell.style.setProperty('--accent', MODES[s.mode].accent);
@@ -657,7 +657,7 @@
   PQ.Games.register({
     id: ID,
     name: 'Spell Forge',
-    tagline: 'See the English, type the Spanish — every accent counts.',
+    tagline: 'See the English, type the Spanish.',
     icon: '✍️',
     accent: 'var(--c-mint)',
     order: 2,

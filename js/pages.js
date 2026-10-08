@@ -166,7 +166,7 @@
     const box = rec.modal && rec.modal.el ? rec.modal.el.getBoundingClientRect() : null;
     UI.confetti(box ? { x: box.left + box.width / 2, y: box.top + Math.min(box.height * 0.35, 220), count: 70 } : { count: 70 });
     if (r.box >= Progress.MAX_BOX) {
-      later(() => { Sound.play('win'); UI.toast('¡Dominado! "' + entry.base + '" is mastered', 'ok', 2600); }, 650);
+      later(() => { Sound.play('win'); UI.toast('"' + entry.base + '" is now mastered', 'ok', 2600); }, 650);
     }
   }
 
@@ -383,8 +383,8 @@
     page.appendChild(UI.h('div.page-head.pg-head', null,
       UI.h('div.pg-head-text', null,
         UI.h('div.eyebrow', null, 'Progress'),
-        UI.h('h2', null, 'Your journey so far'),
-        UI.h('p', null, 'Every word climbs through six boxes. Box 5 means it is mastered — slips send it back down.'))));
+        UI.h('h2', null, 'Your progress'),
+        UI.h('p', null, 'Each word moves up a box when you get it right and down when you miss it. Box 5 is mastered.'))));
 
     const data = UI.h('div.pg-data');
     page.appendChild(data);
@@ -516,10 +516,11 @@
       const toggleRow = (cls, input, title, sub) => UI.h('label.toggle.pg-toggle.' + cls, null, input, UI.h('span.track'),
         UI.h('span.pg-toggle-text', null, UI.h('b', null, title), UI.h('span.small.muted', null, sub)));
       soundInput.addEventListener('change', () => { Sound.toggle(); if (Sound.enabled()) Sound.play('click'); });
-      speechInput.addEventListener('change', () => { Settings.set('speech', speechInput.checked); if (speechInput.checked) Speech.say('¡Hola!'); Sound.play('click'); });
+      speechInput.addEventListener('change', () => { Settings.set('speech', speechInput.checked); if (speechInput.checked) Speech.say('educación física'); Sound.play('click'); });
       card.appendChild(UI.h('div.pg-toggles', null,
         toggleRow('pg-toggle-sound', soundInput, 'Sound effects', 'Clicks, chimes and fanfares'),
         toggleRow('pg-toggle-speech', speechInput, 'Pronunciation', Speech.available() ? 'Hear words with the 🔊 buttons' : 'Not supported in this browser')));
+      if (Speech.available()) card.appendChild(buildVoicePicker());
 
       const chips = focusChips();
       card.appendChild(UI.h('div.pg-settings-block', null,
@@ -549,6 +550,35 @@
       return card;
     }
 
+    /** Voice + speed for pronunciation. The voices come from the device, so the list differs per browser / OS. */
+    function buildVoicePicker() {
+      const select = UI.h('select.select.pg-voice-select', { 'aria-label': 'Pronunciation voice' });
+      const speed = UI.h('select.select.pg-voice-speed', { 'aria-label': 'Pronunciation speed' },
+        UI.h('option', { value: '0.65' }, 'Slow'), UI.h('option', { value: '0.8' }, 'Normal'), UI.h('option', { value: '0.95' }, 'Quick'));
+      speed.value = String(Speech.rate());
+      const note = UI.h('p.small.muted.pg-voice-note');
+      const fill = () => {
+        const voices = Speech.voices();
+        UI.clear(select);
+        select.appendChild(UI.h('option', { value: '' }, voices.length ? 'Best available (' + voices[0].name + ')' : 'No Spanish voice installed'));
+        voices.forEach((v) => select.appendChild(UI.h('option', { value: v.voiceURI }, v.name + ' · ' + v.lang + (v.localService === false ? ' · online' : ''))));
+        select.value = Settings.get('voiceURI') && voices.some((v) => v.voiceURI === Settings.get('voiceURI')) ? Settings.get('voiceURI') : '';
+        select.disabled = !voices.length;
+        note.textContent = voices.length
+          ? 'Voices come from your device. Ones marked "Natural", "Premium", "Enhanced" or "Google" sound far better than the default robotic ones; on Windows and macOS you can install more Spanish voices in the system speech settings.'
+          : 'Your browser has no Spanish voice installed. On Windows, macOS, iOS or Android, add a Spanish voice in the system speech / text-to-speech settings and reload.';
+      };
+      fill();
+      if (window.speechSynthesis && window.speechSynthesis.addEventListener) on(window.speechSynthesis, 'voiceschanged', fill);
+      select.addEventListener('change', () => { Settings.set('voiceURI', select.value || null); Speech.say('educación física'); });
+      speed.addEventListener('change', () => { Settings.set('speechRate', Number(speed.value)); Speech.say('matemáticas'); });
+      const test = UI.h('button.btn.btn-sm.btn-outline', { type: 'button', onclick: () => { if (!Speech.say('ciencias naturales')) UI.toast('Turn pronunciation on first', 'warn'); } }, '🔊 Test');
+      return UI.h('div.pg-settings-block.pg-voice', null,
+        UI.h('div.pg-settings-title', null, 'Pronunciation voice'),
+        UI.h('div.pg-voice-row', null, select, speed, test),
+        note);
+    }
+
     function confirmReset() {
       if (!live || live.confirm) return;
       closePractice();
@@ -558,7 +588,7 @@
         Progress.reset(); // fires pq:progress → render()
         modal.close();
         Sound.play('click');
-        UI.toast('Progress reset — a fresh start!', 'warn');
+        UI.toast('Progress reset', 'warn');
       } }, 'Yes, reset everything');
       modal = UI.modal({
         title: 'Reset all progress?',

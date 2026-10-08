@@ -265,11 +265,11 @@
     return h('div.panel.g-blaster-intro', null,
       h('div.g-blaster-intro-icon', { 'aria-hidden': 'true' }, '☄️'),
       h('h2', null, 'Word Rain'),
-      h('p.text-2', null, 'English meanings are falling on the city. Type the Spanish — accents included — then press Enter or tap Fire to blast them.'),
+      h('p.text-2', null, 'English words fall from the sky. Type the Spanish, accents included, then press Enter or tap Fire.'),
       (window.innerHeight < 480 && (navigator.maxTouchPoints > 0)) ? h('div.small.muted', null, '📱 Rotate your phone upright for the best view') : null,
       h('div.g-blaster-legend', null,
         h('div', null, h('b', null, '⌨️'), 'Type the Spanish word, then Enter'),
-        h('div', null, h('b', null, 'á'), 'An accent slip only cracks a meteor — fix it!'),
+        h('div', null, h('b', null, 'á'), 'A missing accent only cracks the meteor'),
         h('div', null, h('b', null, '♥'), '3 lives · a meteor that lands costs one'),
         h('div', null, h('b', null, '🔥'), 'Chain hits to multiply your points')),
       g.best ? h('div.small.muted.g-blaster-intro-best', null, '🏆 ' + bestLabel()) : null,
@@ -280,7 +280,7 @@
   function pausePanel() {
     return h('div.panel.g-blaster-pause', null,
       h('div.eyebrow', null, 'Paused'),
-      h('h2', null, 'Meteors frozen'),
+      h('h2', null, 'Paused'),
       h('p.text-2', null, 'Score ' + fmt(S.score) + ' · wave ' + S.wave + ' · ' + S.lives + (S.lives === 1 ? ' life' : ' lives') + ' left'),
       h('div.row.g-blaster-actions', null,
         h('button.btn.btn-primary.btn-lg', { type: 'button', onclick: resume }, '▶ Resume'),
@@ -298,12 +298,12 @@
           h('span.en', null, e.en),
           h('span.es', { html: Text.highlightAccents(e.answers[0]) }),
           Speech.enabled() ? h('button.btn.btn-ghost.btn-sm', { type: 'button', title: 'Hear it', onclick: () => Speech.say(e.base) }, '🔊') : null)))
-      : h('p.small.muted', null, 'No word reached the city — flawless typing!');
+      : h('p.small.muted', null, 'Nothing reached the city.');
     return h('div.panel.g-blaster-over', null,
       h('div.eyebrow', null, 'Game over'),
-      h('h2', null, 'The city has fallen'),
+      h('h2', null, 'Out of lives'),
       h('div.big.grad-text', null, fmt(S.score)),
-      S.isNewBest ? h('div.g-blaster-newbest', null, '🏆 New best score!') : h('div.small.muted', null, bestLabel()),
+      S.isNewBest ? h('div.g-blaster-newbest', null, 'New best score') : h('div.small.muted', null, bestLabel()),
       h('div.stat-grid', null,
         statEl('Wave', S.wave),
         statEl('Destroyed', S.hits),
@@ -353,7 +353,7 @@
     S.spawnTimer = SPAWN_FIRST;
     showBanner({
       title: 'Wave ' + n,
-      sub: n === 1 ? 'Type the Spanish · Enter fires' : waveSize(n) + ' meteors incoming',
+      sub: n === 1 ? 'Type the Spanish, then Enter' : waveSize(n) + ' words',
       dur: BANNER_START,
     });
   }
@@ -368,7 +368,7 @@
     const missed = uniqById(S.waveMissed);
     showBanner({
       title: 'Wave ' + S.wave + ' cleared',
-      sub: missed.length ? 'Words to review' : 'Flawless! +' + bonus + ' bonus',
+      sub: missed.length ? 'Words to review' : '+' + bonus + ' bonus',
       missed,
       dur: BANNER_CLEARED,
       after: () => beginWave(S.wave + 1),
@@ -516,7 +516,7 @@
     if (!m.recorded) {
       m.recorded = true;
       const rec = Progress.record(m.entry.id, 'correct');
-      if (rec.levelUp) later(() => { Sound.play('levelup'); UI.toast('Level up! You are now level ' + rec.level, 'ok'); }, 350);
+      if (rec.levelUp) later(() => { Sound.play('levelup'); UI.toast('Level ' + rec.level + ' reached', 'ok'); }, 350);
     }
     Progress.noteStreak(S.combo);
     Sound.play('shoot');
@@ -535,7 +535,7 @@
     if (!m.recorded) { m.recorded = true; Progress.record(m.entry.id, 'accent'); }
     Sound.play('accent');
     flashInput('is-accent');
-    floatText(x, y - m.r, 'accents!', C.amber);
+    floatText(x, y - m.r, 'accents', C.amber);
   }
 
   function missTyped() {
@@ -1072,7 +1072,7 @@
   PQ.Games.register({
     id: ID,
     name: 'Word Rain',
-    tagline: 'Meteors of meaning are falling. Type the Spanish — accents included — to blast them.',
+    tagline: 'Type the Spanish before the words hit the ground.',
     icon: '☄️',
     accent: 'var(--c-rose)',
     order: 4,

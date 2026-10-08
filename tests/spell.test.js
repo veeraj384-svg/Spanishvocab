@@ -335,7 +335,7 @@ async function desktop() {
   await page.evaluate(() => { PQ.Settings.set('cats', ['useful']); PQ.debug.spell.showStart(); });
   assert((await page.locator('.g-spell-mode[data-mode="quick"] .g-spell-mode-name').textContent()).startsWith('Quick 4'), 'Quick card counts the words in play');
   assert((await page.locator('.g-spell-mode[data-mode="quick"] .g-spell-mode-desc').textContent()).startsWith('Four words'), 'Quick description matches the count');
-  assert((await page.locator('.g-spell-mode[data-mode="weak"] .g-spell-mode-desc').textContent()).includes('four shakiest'), 'Weak description matches the count');
+  assert((await page.locator('.g-spell-mode[data-mode="weak"] .g-spell-mode-desc').textContent()).includes('four weakest'), 'Weak description matches the count');
   await page.click('.g-spell-mode[data-mode="quick"]');
   await page.waitForSelector('.g-spell-round .quiz');
   assert((await page.locator('.g-spell-modechip').textContent()).includes('Quick 4') && (await page.locator('.g-spell-progress-label').textContent()).includes('of 4'), 'round chip and progress agree with the copy');

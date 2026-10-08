@@ -250,3 +250,9 @@
 @media (pointer: coarse) { .pg-say { width: 44px; height: 44px; } }
 .pg-toggle:has(input:focus-visible) .track { outline: 2px solid var(--c-amber); outline-offset: 3px; }
 @media (max-width: 640px) { .pg-trouble-row .es { white-space: normal; } }
+
+/* Pronunciation voice picker */
+.pg-voice-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.pg-voice-select { flex: 1 1 260px; min-width: 0; }
+.pg-voice-speed { flex: 0 0 auto; }
+.pg-voice-note { margin: 8px 0 0; }

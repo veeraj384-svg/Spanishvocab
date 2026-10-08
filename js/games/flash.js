@@ -42,9 +42,9 @@
   const SUGGEST = { correct: 'good', accent: 'hard', wrong: 'again' };
 
   const DECKS = {
-    due:      { id: 'due',      name: 'Due today',    icon: '📅', accent: 'var(--c-sky)',   key: '1', desc: 'What your schedule says to review today. Words you have never seen count as due.' },
-    weak:     { id: 'weak',     name: 'Weakest',      icon: '🎯', accent: 'var(--c-rose)',  key: '2', desc: 'Your twelve shakiest words: lowest mastery, most accent slips.' },
-    all:      { id: 'all',      name: 'All words',    icon: '🃏', accent: 'var(--c-amber)', key: '3', desc: 'Up to twenty cards from the whole sheet, weighted toward the weak ones.' },
+    due:      { id: 'due',      name: 'Due today',    icon: '📅', accent: 'var(--c-sky)',   key: '1', desc: 'Words due for review today. Words you have never seen count as due.' },
+    weak:     { id: 'weak',     name: 'Weakest',      icon: '🎯', accent: 'var(--c-rose)',  key: '2', desc: 'Your twelve weakest words.' },
+    all:      { id: 'all',      name: 'All words',    icon: '🃏', accent: 'var(--c-amber)', key: '3', desc: 'Up to twenty cards from the whole sheet.' },
     category: { id: 'category', name: 'By category', icon: '🗂️', accent: 'var(--c-lav)',   key: '',  desc: 'One group from the sheet, every word once.' },
     review:   { id: 'review',   name: 'Review again', icon: '🔁', accent: 'var(--c-mint)',  key: '',  desc: 'Only the cards you rated "Again".' },
   };
@@ -403,7 +403,7 @@
     state.xp += rec.xp;
 
     Sound.play(r.sound);
-    if (rec.levelUp) later(() => { Sound.play('levelup'); UI.toast('Level up! You are now level ' + rec.level, 'ok'); }, 350);
+    if (rec.levelUp) later(() => { Sound.play('levelup'); UI.toast('Level ' + rec.level + ' reached', 'ok'); }, 350);
 
     // Show the result on the card: fresh mastery dots (pop), the pressed button, an XP float.
     const freshBack = UI.masteryDots(cur.entry.id), freshFront = UI.masteryDots(cur.entry.id);
@@ -548,7 +548,7 @@
     const n = s.cards.length, done = s.ratings.length, cur = Math.min(s.index + 1, n);
     const left = n - cur;
     els.progLabel.textContent = 'Card ' + cur + ' of ' + n;
-    els.progRight.textContent = left > 0 ? left + ' to go' : 'last card!';
+    els.progRight.textContent = left > 0 ? left + ' to go' : 'last card';
     els.bar.style.width = Math.round(100 * done / n) + '%';
   }
 
@@ -564,7 +564,7 @@
         h('button.btn.btn-outline', { type: 'button', onclick: () => { closeModal(); cancelTransition(); showStart(); } }, 'Back to decks'),
         h('button.btn.btn-ghost', { type: 'button', onclick: closeModal }, 'Keep going')));
     view.modal = UI.modal({
-      title: 'Put the deck down?', content, closable: true,
+      title: 'Leave this deck?', content, closable: true,
       onClose: () => {
         if (!view) return;
         view.modal = null;
@@ -607,10 +607,10 @@
     const n = s.reviewed;
     const pct = Math.round(s.recallRate * 100);
     const headline = !n ? 'No cards reviewed this time.'
-      : !s.again.length && !s.counts.hard ? '¡Perfecto! Every card came straight back.'
-      : !s.again.length ? '¡Muy bien! Nothing to re-learn.'
-      : s.again.length <= n * 0.3 ? 'Solid session — a few cards to revisit.'
-      : 'Tough deck — the cards you missed are queued up.';
+      : !s.again.length && !s.counts.hard ? 'You knew every card.'
+      : !s.again.length ? 'Nothing to re-learn.'
+      : s.again.length <= n * 0.3 ? 'A few cards to revisit.'
+      : 'The cards you missed are queued up.';
     const reason = { complete: deckLabel(s) + ' · deck complete', quit: 'Finished early' }[s.reason] || 'Session complete';
 
     const shell = h('div.game-shell.g-flash.g-flash-endwrap');
@@ -647,7 +647,7 @@
       });
       panel.appendChild(list);
     } else if (n) {
-      panel.appendChild(h('p.g-flash-clean', null, '✨ Not a single "Again" — this deck is settling in.'));
+      panel.appendChild(h('p.g-flash-clean', null, 'No cards rated "Again".'));
     }
 
     els.again = h('button.btn' + (s.again.length ? '.btn-outline' : '.btn-primary') + '.btn-lg.g-flash-newsession', { type: 'button', onclick: () => { Sound.play('click'); showStart(); } }, '🃏 New session');
@@ -686,9 +686,9 @@
     // Hero
     shell.appendChild(h('div.card.card-glass.g-flash-hero', null,
       h('div.g-flash-hero-text', null,
-        h('div.eyebrow', null, 'Spaced repetition · flashcards'),
-        h('h2', null, 'Flip it. ', h('span.grad-text', null, 'Say it. Rate it.')),
-        h('p.text-2', null, 'Build the memory before the spelling drills. Flip each card, hear the word, then rate how well you knew it — honest ratings bring the weak words back sooner.')),
+        h('div.eyebrow', null, 'Flashcards'),
+        h('h2', null, 'Flip, listen, ', h('span.grad-text', null, 'rate')),
+        h('p.text-2', null, 'Flip a card, hear the word, then rate how well you knew it. Honest ratings bring the weak words back sooner.')),
       h('div.g-flash-hero-side', null,
         h('div.g-flash-fan', { 'aria-hidden': 'true' }, h('i', null, 'é'), h('i', null, 'ñ'), h('i', null, 'á')),
         h('div.g-flash-hero-stats', null,
@@ -767,7 +767,7 @@
   PQ.Games.register({
     id: ID,
     name: 'Memory Deck',
-    tagline: 'Flashcards with pronunciation — flip, rate, remember.',
+    tagline: 'Flashcards with pronunciation.',
     icon: '🃏',
     accent: 'var(--c-sky)',
     order: 5,

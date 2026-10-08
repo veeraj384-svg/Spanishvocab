@@ -33,11 +33,11 @@
   const JUMP_BUFFER = 0.12;
   const PLAYER_W = 30, PLAYER_H = 40;
   const ENERGY_MAX = 100;
-  const ENERGY_DRAIN = 7;        // per second while moving
-  const ENERGY_JUMP = 3;
-  const ENERGY_ORB = 4;
+  const ENERGY_DRAIN = 10;       // per second while moving: a full tank is ~10 s of running
+  const ENERGY_JUMP = 4;
+  const ENERGY_ORB = 1;          // letters are mostly points; spelling is the real fuel
   const ENERGY_LOW = 25;
-  const ENERGY_REWARD = { correct: 60, accent: 30, wrong: 15 };
+  const ENERGY_REWARD = { correct: 40, accent: 18, wrong: 8 };
   const HEARTS = 3;
   const INVULN = 1.6;
   const DEATH_DELAY = 0.9;
@@ -72,7 +72,7 @@
 
     // Safe start pad (no hazards, a few orbs to teach pickups)
     L.platforms.push({ x: 0, y: GROUND_Y, w: 420, h: GROUND_H, ground: true });
-    for (let i = 0; i < 3; i++) orbAt(230 + i * 44, GROUND_Y - 46);
+    for (let i = 0; i < 2; i++) orbAt(230 + i * 44, GROUND_Y - 46);
     x = 420;
 
     let sinceFloat = 0;
@@ -81,7 +81,7 @@
       const gap = Math.round(r(80, maxGap));
       const pitStart = x;
       // orbs in an arc across the pit
-      const n = 3;
+      const n = 2;
       for (let i = 0; i < n; i++) {
         const f = (i + 1) / (n + 1);
         orbAt(pitStart + gap * f, GROUND_Y - 60 - Math.sin(f * Math.PI) * 50);
@@ -111,13 +111,13 @@
         const clash = L.platforms.some((p) => !p.ground && Math.abs(p.y - py) < 40 && px < p.x + p.w + 20 && px + pw > p.x - 20);
         if (!clash) {
           L.platforms.push({ x: px, y: py, w: pw, h: 18, ground: false });
-          const cnt = Math.max(1, Math.floor(pw / 48));
+          const cnt = Math.max(1, Math.floor(pw / 80));
           for (let i = 0; i < cnt; i++) orbAt(px + 24 + i * 44, py - 34);
         }
       } else sinceFloat++;
       // ground orbs: a small row somewhere on the segment
-      if (rng() < 0.6) {
-        const cnt = ri(2, 3);
+      if (rng() < 0.35) {
+        const cnt = 2;
         const ox = x + ri(60, Math.max(61, segW - 60 - cnt * 40));
         for (let i = 0; i < cnt; i++) orbAt(ox + i * 40, GROUND_Y - 44);
       }
@@ -290,20 +290,20 @@
     const start = UI.h('button.btn.btn-primary.btn-lg', { type: 'button', onclick: () => { Sound.play('click'); startPlay(); } }, '▶ Start');
     return UI.h('div.panel.g-platformer-intro', null,
       UI.h('div.eyebrow', null, 'Energy Run · Level ' + S.level.level),
-      UI.h('h2', null, 'Run on ', UI.h('span.grad-text', null, 'word power')),
-      UI.h('p.text-2', null, 'Running and jumping drain your ⚡ energy. When it hits zero you freeze — spell a word correctly to recharge. Glowing word gates block the road: answer to pass.'),
+      UI.h('h2', null, 'Spelling is your ', UI.h('span.grad-text', null, 'fuel')),
+      UI.h('p.text-2', null, 'Running and jumping use energy. When it runs out you stop, and the only way to recharge is to spell a word. Gates block the road until you answer.'),
       UI.h('div.g-platformer-legend', null,
         UI.h('div', null, UI.h('b', null, '← → / A D'), ' run'),
         UI.h('div', null, UI.h('b', null, 'Space / ↑ / W'), ' jump (hold = higher)'),
         UI.h('div', null, UI.h('b', null, 'P / Esc'), ' pause'),
-        UI.h('div', null, UI.h('b', null, 'á é í ó ú ñ'), ' orbs = points + a sip of energy')),
+        UI.h('div', null, UI.h('b', null, 'á é í ó ú ñ'), ' letters are worth points')),
       UI.h('div.row', { style: { justifyContent: 'center', marginTop: '18px' } }, start));
   }
 
   function pausePanel() {
     return UI.h('div.panel', null,
       UI.h('div.eyebrow', null, 'Paused'),
-      UI.h('h2', null, 'Catch your breath'),
+      UI.h('h2', null, 'Paused'),
       UI.h('p.text-2', null, 'Score ' + computeScore() + ' · ' + distance() + 'm · ⚡ ' + Math.round(S.energy)),
       UI.h('div.row', { style: { justifyContent: 'center' } },
         UI.h('button.btn.btn-primary', { type: 'button', onclick: () => { Sound.play('click'); togglePause(); } }, '▶ Resume'),
@@ -322,8 +322,8 @@
 
   function gameOverPanel(isNew) {
     return UI.h('div.panel', null,
-      UI.h('div.eyebrow', null, isNew ? '🏆 New best!' : 'Game over'),
-      UI.h('h2', null, 'Out of hearts'),
+      UI.h('div.eyebrow', null, isNew ? 'New best' : 'Game over'),
+      UI.h('h2', null, 'Out of lives'),
       UI.h('div.big.grad-text', null, String(computeScore())),
       statsGrid({ best: S.best }),
       UI.h('div.row', { style: { justifyContent: 'center' } },
@@ -334,7 +334,7 @@
   function completePanel() {
     return UI.h('div.panel', null,
       UI.h('div.eyebrow', null, 'Level ' + S.level.level + ' complete'),
-      UI.h('h2', null, '¡Meta! 🏁'),
+      UI.h('h2', null, 'Level ' + S.level.level + ' done'),
       UI.h('div.big.grad-text', null, String(computeScore())),
       statsGrid({ best: S.best }),
       UI.h('div.row', { style: { justifyContent: 'center' } },
@@ -349,7 +349,7 @@
     if (!S || S.mode !== 'intro') return;
     hideOverlay();
     S.mode = 'play';
-    banner('Level ' + S.level.level + ' — ¡Vamos!', 1.6);
+    banner('Level ' + S.level.level, 1.4);
     reapplyHeld();
   }
 
@@ -375,7 +375,7 @@
     updateHud();
     refreshBest();
     S.mode = 'play';
-    banner('Level ' + level + ' — ¡Vamos!', 1.6);
+    banner('Level ' + level, 1.4);
     reapplyHeld();
   }
 
@@ -389,7 +389,7 @@
     updateHud();
     refreshBest();
     S.mode = 'play';
-    banner('Level ' + lvl + ' — longer road, more gates', 2);
+    banner('Level ' + lvl + ' · longer, more gates', 2);
     reapplyHeld();
   }
 
@@ -451,8 +451,8 @@
       onResult: (res) => applyAnswer(reason, gate, res),
     });
     const head = reason === 'gate'
-      ? UI.h('div.g-platformer-qhead.is-gate', null, UI.h('span.g-platformer-qicon', null, '🔮'), UI.h('div', null, UI.h('b', null, 'Word gate'), UI.h('span', null, 'Spell it right to open the way')))
-      : UI.h('div.g-platformer-qhead.is-energy', null, UI.h('span.g-platformer-qicon', null, '⚡'), UI.h('div', null, UI.h('b', null, 'Out of energy!'), UI.h('span', null, 'Answer to recharge and keep running')));
+      ? UI.h('div.g-platformer-qhead.is-gate', null, UI.h('span.g-platformer-qicon', null, '🔮'), UI.h('div', null, UI.h('b', null, 'Word gate'), UI.h('span', null, 'Spell it to open the gate')))
+      : UI.h('div.g-platformer-qhead.is-energy', null, UI.h('span.g-platformer-qicon', null, '⚡'), UI.h('div', null, UI.h('b', null, 'Out of energy'), UI.h('span', null, 'Spell the word to recharge')));
     const content = UI.h('div.g-platformer-q', null, head, ctl.el);
     const modal = UI.modal({ closable: false, content });
     S.question = { ctl, modal, reason, gate, entry };
@@ -478,16 +478,16 @@
         S.checkpoint = { x: gate.x + gate.w + 20, y: GROUND_Y - PLAYER_H };
         setTimeout(() => Sound.play('gate'), 150);
         burst(gate.x + gate.w / 2, GROUND_Y - 120, 50, [C.lav, C.mint, C.text]);
-        banner('Gate open! +' + gain + ' ⚡ · +' + (50 * mult) + ' pts' + (mult > 1 ? ' (×' + mult + ')' : ''), 2);
-      } else banner('Recharged +' + gain + ' ⚡', 1.6);
+        banner('Gate open · +' + gain + ' energy · +' + (50 * mult) + ' pts' + (mult > 1 ? ' (×' + mult + ')' : ''), 2);
+      } else banner('+' + gain + ' energy', 1.4);
     } else {
       S.streak = 0;
       burst(p.x + p.w / 2, p.y + p.h / 2, 12, [C.amber2, C.text2]);
       if (gate) {
         gate.cooldown = 1.2;
         p.x = gate.x - p.w - 10; p.vx = 0;
-        banner((status === 'accent' ? 'Almost — mind the accents. ' : 'Not this time. ') + 'Gate still locked, +' + gain + ' ⚡', 2.4);
-      } else banner('+' + gain + ' ⚡ — keep going, you can do it', 2);
+        banner((status === 'accent' ? 'Check the accents. ' : 'Wrong. ') + 'Gate still locked · +' + gain + ' energy', 2.4);
+      } else banner('+' + gain + ' energy', 1.6);
     }
     closeQuestion();
     S.mode = 'play';
@@ -524,7 +524,7 @@
     const cp = S.checkpoint;
     S.player = freshPlayer(cp.x, cp.y);
     S.player.invuln = INVULN;
-    S.energy = Math.max(S.energy, 25);
+    S.energy = Math.max(S.energy, 20);
     S.cam.x = Math.max(0, cp.x - 200);
     S.mode = 'play';
     banner('Back to the checkpoint', 1.4);
@@ -1074,7 +1074,7 @@
   const GAME = {
     id: ID,
     name: 'Energy Run',
-    tagline: 'Run, jump and spell to keep your energy up. Word gates block the way!',
+    tagline: 'A platformer where spelling is your fuel.',
     icon: '⚡',
     accent: 'var(--c-amber)',
     order: 1,
