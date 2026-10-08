@@ -97,7 +97,7 @@ async function desktop() {
   assert((await page.locator('.pg-words .pg-cat:not(.hidden)').count()) === 5, 'five category sections');
   assert((await page.locator('.pg-chip').count()) === 6, 'All + 5 category chips');
   assert((await page.textContent('.pg-words .eyebrow')).trim() === 'Vocabulary', 'eyebrow');
-  assert((await page.textContent('.pg-words h2')).includes('Unidad 1'), 'unit title from Vocab.meta()');
+  assert((await page.textContent('.pg-words h2')).includes('La educación y la escuela'), 'unit title from Vocab.meta()');
   assert((await page.textContent('.pg-chip[data-cat="all"] .pg-chip-count')) === '44', 'All chip count');
   assert((await page.textContent('.pg-chip[data-cat="question"] .pg-chip-count')) === '8', 'question chip count');
   assert((await page.locator('.pg-row[data-id="dificil"] .es .accent-char').count()) === 1, 'accents highlighted');

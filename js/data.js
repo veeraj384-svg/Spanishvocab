@@ -1,5 +1,5 @@
 /* ============================================================
-   VOCABULARY DATA — Unidad 1: La educación y la escuela
+   VOCABULARY DATA — La educación y la escuela (las asignaturas escolares)
    Lista de vocabulario – Las asignaturas escolares
    Transcribed exactly from the class vocab sheet (accents matter!).
 
@@ -86,7 +86,7 @@
   window.VOCAB = Object.freeze(V);
   window.VOCAB_CATEGORIES = Object.freeze(CATEGORIES.map(Object.freeze));
   window.VOCAB_META = Object.freeze({
-    unit: 'Unidad 1. Mi mundo y el mundo hispano: La educación y la escuela',
+    unit: 'La educación y la escuela',
     list: 'Lista de vocabulario – Las asignaturas escolares',
     footnote: 'primero / tercero change to primer / tercer before a masculine noun.',
   });

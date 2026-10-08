@@ -1123,7 +1123,7 @@
     const hero = UI.h('section.hero', null,
       UI.h('div.hero-text', null,
         UI.h('div.eyebrow', null, Vocab.meta().list),
-        UI.h('h1', null, 'Practice your ', UI.h('span.grad-text', null, 'Unidad 1'), ' words'),
+        UI.h('h1', null, 'Practice your ', UI.h('span.grad-text', null, 'Spanish'), ' vocab'),
         UI.h('p.text-2', null, 'Spelling and accents, in short games. The words you miss come back more often.'),
         UI.h('div.row', { style: { marginTop: '18px' } },
           UI.h('a.btn.btn-primary.btn-lg', { href: '#/play/' + (Games.all()[0] ? Games.all()[0].id : 'spell') }, '▶ Start playing'),

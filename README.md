@@ -1,7 +1,7 @@
 # Palabra Quest 🎮
 
 A premium, zero-build website of games for memorizing the **spelling and accents** of the
-Unidad 1 Spanish vocabulary sheet (*La educación y la escuela — Las asignaturas escolares*).
+Spanish vocabulary sheet (*La educación y la escuela — Las asignaturas escolares*).
 
 All 44 words from the sheet are in `js/data.js`. Progress, XP and per-word mastery are stored
 in your browser (`localStorage`), and weak words are served more often until they stick.
