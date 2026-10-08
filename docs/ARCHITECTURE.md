@@ -1,4 +1,4 @@
-# Palabra Quest — architecture & game-module contract
+# Spanish Vocab — architecture & game-module contract
 
 Zero-build static site (plain scripts, no modules, no bundler). Must work from `file://` and on
 Cloudflare Pages. Everything shared lives in `window.PQ` (see `js/core.js`).

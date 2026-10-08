@@ -1,5 +1,5 @@
 /* ============================================================
-   PALABRA QUEST — Energy Run (platformer)
+   SPANISH VOCAB — Energy Run (platformer)
    A canvas side-scroller where ENERGY is the core mechanic:
    running drains it, answering spelling questions recharges it.
    Word gates block the path every ~900px and ask a question.

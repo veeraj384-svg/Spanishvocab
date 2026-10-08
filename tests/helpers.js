@@ -1,4 +1,4 @@
-/* Shared Playwright helpers for Palabra Quest tests.
+/* Shared Playwright helpers for Spanish Vocab tests.
    Usage: const { launch, SITE } = require('./helpers');
    const { browser, page, errors } = await launch({ viewport });  // errors[] collects console errors + pageerrors
 */

@@ -1,5 +1,5 @@
 /* ============================================================
-   PALABRA QUEST — Core engine
+   SPANISH VOCAB — Core engine
    Shared by every game. Exposes window.PQ = {
      Vocab, Text, Progress, Settings, Quiz, QuizUI, UI, Sound,
      Speech, Games, Router, App, Rand
@@ -1086,7 +1086,7 @@
         const game = Games.get(r.param);
         if (!game) { root.appendChild(UI.h('div.page.container', null, UI.h('h2', null, 'Game not found'), UI.h('a.btn', { href: '#/' }, '← Back home'))); return; }
         document.body.classList.add('in-game');
-        document.title = game.name + ' · Palabra Quest';
+        document.title = game.name + ' · Spanish Vocab';
         const page = UI.h('div.page.container.game-page');
         const mountEl = UI.h('div.game-mount');
         page.appendChild(mountEl);
@@ -1097,7 +1097,7 @@
         return;
       }
       const pageDef = Pages.get(r.page) || Pages.get('home');
-      document.title = (r.page === 'home' ? 'Palabra Quest' : Text.cap(r.page) + ' · Palabra Quest');
+      document.title = (r.page === 'home' ? 'Spanish Vocab' : Text.cap(r.page) + ' · Spanish Vocab');
       Router._current = { page: pageDef, pageId: Pages.get(r.page) ? r.page : 'home' };
       try { pageDef.mount(root, Router.ctx(), r); }
       catch (e) { console.error('Page render failed', e); root.appendChild(UI.h('div.page.container', null, UI.h('h2', null, 'Something went wrong'), UI.h('p.muted', null, String(e && e.message || e)))); }

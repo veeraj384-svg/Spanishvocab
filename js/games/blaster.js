@@ -1,5 +1,5 @@
 /* ============================================================
-   PALABRA QUEST — Word Rain  (game id: 'blaster')
+   SPANISH VOCAB — Word Rain  (game id: 'blaster')
    Arcade typing defense. English meanings fall from the sky as
    meteors; type the Spanish spelling — accents included — and
    press Enter to blast them before they reach the city.

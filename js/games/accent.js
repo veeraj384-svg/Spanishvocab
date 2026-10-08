@@ -1,5 +1,5 @@
 /* ============================================================
-   PALABRA QUEST — Accent Hunter  (game id: 'accent')
+   SPANISH VOCAB — Accent Hunter  (game id: 'accent')
    Fast, arcade-style accent placement. The word appears with its
    accents stripped; tap the letters that need an accent / ñ, or
    call "No accents needed".

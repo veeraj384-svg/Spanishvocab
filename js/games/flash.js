@@ -1,5 +1,5 @@
 /* ============================================================
-   PALABRA QUEST — Memory Deck  (game id: 'flash')
+   SPANISH VOCAB — Memory Deck  (game id: 'flash')
    Spaced-repetition flashcards with pronunciation: build the
    memory of each word before the spelling games hammer it in.
 

@@ -1,4 +1,4 @@
-# Palabra Quest 🎮
+# Spanish Vocab 🎮
 
 A premium, zero-build website of games for memorizing the **spelling and accents** of the
 Spanish vocabulary sheet (*La educación y la escuela — Las asignaturas escolares*).

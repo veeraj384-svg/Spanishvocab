@@ -1,5 +1,5 @@
 /* ============================================================
-   PALABRA QUEST — Pages: Words (#/words) and Progress (#/stats)
+   SPANISH VOCAB — Pages: Words (#/words) and Progress (#/stats)
 
    Registers both pages with PQ.Pages as { mount, unmount }. The router
    calls unmount() before rendering the next route; this module keeps a

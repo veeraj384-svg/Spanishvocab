@@ -1,5 +1,5 @@
 /* ============================================================
-   PALABRA QUEST — Spell Forge  (game id: 'spell')
+   SPANISH VOCAB — Spell Forge  (game id: 'spell')
    The core typing drill: see the English, type the Spanish with
    every accent in place.
 
