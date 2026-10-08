@@ -1135,7 +1135,7 @@
             UI.h('div.small.muted', null, 'Overall progress'),
             UI.h('div', null, UI.h('b', null, summary.seen), ' of ' + summary.total + ' words practiced'),
             UI.h('div.small.text-2', null, UI.h('b', null, summary.solid), ' solid · ', UI.h('b', null, summary.mastered), ' mastered'),
-            UI.h('div.small.muted', null, 'Solid = right 3 times in a row · mastered = 5'))),
+            UI.h('div.small.muted', null, 'Solid after 3 correct in a row, mastered after 5'))),
         UI.h('div', { style: { marginTop: '14px' } },
           UI.h('div.row-between.small', null, UI.h('span', null, 'Level ' + lp.level), UI.h('span.muted', null, (lp.xp - lp.cur) + ' / ' + (lp.next - lp.cur) + ' XP')),
           UI.h('div.bar', { style: { marginTop: '6px' } }, UI.h('div.bar-fill', { style: { width: Math.round(lp.frac * 100) + '%' } })))));
