@@ -12,8 +12,8 @@
      meteor lands       −1 life, the correct spelling is shown big in the HUD
      0 lives            game over (score, wave, accuracy, missed words)
 
-   Waves: wave n drops n + 3 meteors, faster and more often each
-   wave, at most 4 on screen, never the same word twice at once.
+   Waves: wave n drops n + 3 meteors, a little faster each wave,
+     at most 3 on screen, never the same word twice at once.
    Words come from Progress.pick on Vocab.active(), weakest first.
    Every meteor records at most one Progress result.
    ============================================================ */
@@ -26,7 +26,7 @@
 
   const ID = 'blaster';
   const LIVES = 3;
-  const MAX_ON_SCREEN = 4;
+  const MAX_ON_SCREEN = 3;
   const MAX_DT = 0.05;          // clamp wall-clock dt (tab switches, hiccups)
   const GROUND = 30;            // px from the canvas bottom to the impact line
   const SPAWN_FIRST = 1.0;      // s between a wave starting and its first meteor
@@ -53,8 +53,8 @@
 
   // Wave tuning: how many meteors, how long one takes to fall, how often they spawn.
   const waveSize = (n) => n + 3;
-  const fallSeconds = (n) => Math.max(5.5, 15 - (n - 1) * 1.1);
-  const spawnEvery = (n) => Math.max(1.3, 3.4 - (n - 1) * 0.25);
+  const fallSeconds = (n) => Math.max(9, 21 - (n - 1) * 1.0);     // a meteor takes 21 s to fall in wave 1, never under 9 s
+  const spawnEvery = (n) => Math.max(2.4, 5 - (n - 1) * 0.2);     // generous gaps between meteors
 
   /* ------------------------------------------------------------
      Module state
@@ -526,7 +526,7 @@
 
   function crackMeteor(m, expected) {
     const { x, y } = meteorPos(m);
-    if (!m.cracked) { m.cracked = true; m.speedMult = 0.5; m.rock.cracks = makeCracks(); }
+    if (!m.cracked) { m.cracked = true; m.speedMult = 0.4; m.rock.cracks = makeCracks(); }
     m.crackAt = S.t;                // every slip re-triggers the crack flash
     m.revealUntil = S.t + REVEAL;
     m.revealText = expected;

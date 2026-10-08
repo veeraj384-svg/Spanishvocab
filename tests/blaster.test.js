@@ -87,7 +87,7 @@ const entry = (id) => VOCAB.find((e) => e.id === id);
       const w1 = await word(page, 'frances');
       assert(w1.acc === w0.acc + 1 && w1.n === w0.n + 1, 'accent slip recorded once');
       const sm = await dbg(page, (id) => PQ.debug.blaster.state.meteors.find((x) => x.id === id).speedMult, fr.id);
-      assert(sm === 0.5, 'cracked meteor slowed 50%');
+      assert(sm === 0.4, 'cracked meteor slowed to 40%');
       assert(await page.$eval('.g-blaster-input', (el) => el.classList.contains('is-accent')), 'input shakes amber on an accent slip');
       assert(await page.$eval('.g-blaster-input', (el) => el.value === ''), 'input cleared after submit');
       assert(await inputFocused(page), 'input still focused after submit');
@@ -208,7 +208,7 @@ const entry = (id) => VOCAB.find((e) => e.id === id);
       // wave 2 falls faster
       await page.waitForFunction(() => PQ.debug.blaster.listMeteors().length > 0, null, { timeout: 5000 });
       const vy2 = await dbg(page, () => PQ.debug.blaster.state.meteors[0].vy);
-      assert(vy2 >= (1 / 13.9) * 0.88 - 1e-6, 'wave 2 meteors use the faster wave-2 fall time: ' + vy2);
+      assert(vy2 >= (1 / 20) * 0.88 - 1e-6, 'wave 2 meteors use the wave-2 fall time: ' + vy2);
       // Bring a few meteors into view (frozen) for the visual check, one of them cracked
       await spawn(page, 'cuantos');
       await spawn(page, 'septimo');
