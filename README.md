@@ -1,9 +1,9 @@
 # Spanish Vocab 🎮
 
 A premium, zero-build website of games for memorizing the **spelling and accents** of the
-Spanish vocabulary sheet (*La educación y la escuela — Las asignaturas escolares*).
+Spanish vocabulary sheet (*Subject pronouns and more*: subject pronouns, question words and everyday phrases).
 
-All 44 words from the sheet are in `js/data.js`. Progress, XP and per-word mastery are stored
+All 31 words from the sheet are in `js/data.js`. Progress, XP and per-word mastery are stored
 in your browser (`localStorage`), and weak words are served more often until they stick.
 
 ## Games

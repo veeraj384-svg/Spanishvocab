@@ -271,7 +271,7 @@ async function holdKey(page, key, ms) {
 
   // ================= MOBILE 390px, touch =================
   {
-    const { browser, page, errors, context } = await launch({ viewport: { width: 390, height: 844 }, touch: true, mobile: true });
+    const { browser, page, errors, context } = await launch({ viewport: { width: 390, height: 831 }, touch: true, mobile: true });
     try {
       await page.goto(SITE + '#/play/platformer');
       await page.waitForSelector('.g-platformer canvas');
@@ -373,7 +373,7 @@ async function holdKey(page, key, ms) {
       assert(gs.plays === 1 && gs.best > 0, 'restart persisted the run: ' + JSON.stringify(gs));
       // the word just asked is not asked again right after a restart; jump buffer does not survive a question;
       // a key still held when the question closes keeps the hero moving
-      await dbg(page, () => PQ.Settings.set('cats', ['useful']));
+      await dbg(page, () => PQ.Settings.set('cats', ['pronoun-s']));
       await page.keyboard.down('ArrowRight'); await page.waitForTimeout(100);
       await dbg(page, () => { PQ.debug.platformer.state.energy = 0; PQ.debug.platformer.state.player.buffer = 0.12; });
       await page.waitForSelector('.modal-backdrop .quiz');
@@ -409,7 +409,7 @@ async function holdKey(page, key, ms) {
   }
   {
     // mobile HUD keeps a fixed height whatever the score / streak
-    const { browser, page, errors } = await launch({ viewport: { width: 390, height: 844 }, touch: true, mobile: true });
+    const { browser, page, errors } = await launch({ viewport: { width: 390, height: 831 }, touch: true, mobile: true });
     try {
       await page.goto(SITE + '#/play/platformer'); await page.waitForSelector('.g-platformer canvas');
       await dbg(page, () => PQ.debug.platformer.start());

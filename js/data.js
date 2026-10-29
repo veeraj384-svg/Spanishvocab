@@ -1,6 +1,5 @@
 /* ============================================================
-   VOCABULARY DATA — La educación y la escuela (las asignaturas escolares)
-   Lista de vocabulario – Las asignaturas escolares
+   VOCABULARY DATA — Subject pronouns and more
    Transcribed exactly from the class vocab sheet (accents matter!).
 
    Entry shape:
@@ -18,67 +17,51 @@
   'use strict';
 
   const CATEGORIES = [
-    { id: 'school',    es: 'Para hablar de tu día escolar',                     en: 'To talk about your school day',                 icon: '🏫', color: '#38d9c4' },
-    { id: 'question',  es: 'Palabras interrogativas',                           en: 'Interrogative words',                          icon: '❓', color: '#a78bfa' },
-    { id: 'adjective', es: 'Adjetivos para describir tus clases y tus profesores', en: 'Adjectives to describe your classes and your teachers', icon: '✨', color: '#f6c453' },
-    { id: 'ordinal',   es: 'Para hablar del orden de las cosas',                en: 'To talk about order of things',                icon: '🔢', color: '#ff7a9a' },
-    { id: 'useful',    es: 'Palabras útiles',                                   en: 'Useful words',                                 icon: '💬', color: '#60a5fa' },
+    { id: 'pronoun-s', es: 'Sujeto personal singular', en: 'Subject pronouns (singular)', icon: '👤', color: '#ff8a2b' },
+    { id: 'pronoun-p', es: 'Sujeto personal plural',   en: 'Subject pronouns (plural)',   icon: '👥', color: '#4da3ff' },
+    { id: 'question',  es: 'Haciendo preguntas',       en: 'Asking questions',             icon: '❓', color: '#ffd23f' },
+    { id: 'random',    es: 'Palabras aleatorias',      en: 'Random words',                 icon: '💬', color: '#ef3b4d' },
   ];
 
   const V = [
-    /* ---------- Para hablar de tu día escolar ---------- */
-    { id: 'almuerzo',    es: 'el almuerzo',        base: 'el almuerzo',        en: 'lunch',                 cat: 'school', answers: ['el almuerzo', 'almuerzo'] },
-    { id: 'clase',       es: 'la clase',           base: 'la clase',           en: 'class',                 cat: 'school', answers: ['la clase', 'clase'] },
-    { id: 'clase-de',    es: 'la clase de …',      base: 'la clase de',        en: '… class',               cat: 'school', answers: ['la clase de', 'clase de'], note: 'e.g. la clase de arte = art class' },
-    { id: 'arte',        es: 'arte',               base: 'arte',               en: 'art',                   cat: 'school', answers: ['arte', 'el arte'] },
-    { id: 'edfisica',    es: 'educación física',   base: 'educación física',   en: 'physical education',    cat: 'school', answers: ['educación física', 'la educación física'] },
-    { id: 'espanol',     es: 'español',            base: 'español',            en: 'Spanish',               cat: 'school', answers: ['español', 'el español'] },
-    { id: 'frances',     es: 'francés',            base: 'francés',            en: 'French',                cat: 'school', answers: ['francés', 'el francés'] },
-    { id: 'csociales',   es: 'ciencias sociales',  base: 'ciencias sociales',  en: 'social studies',        cat: 'school', answers: ['ciencias sociales', 'las ciencias sociales'] },
-    { id: 'ingles',      es: 'inglés',             base: 'inglés',             en: 'English',               cat: 'school', answers: ['inglés', 'el inglés'] },
-    { id: 'tecnologia',  es: 'tecnología',         base: 'tecnología',         en: 'technology / computers', cat: 'school', answers: ['tecnología', 'la tecnología'] },
-    { id: 'matematicas', es: 'matemáticas',        base: 'matemáticas',        en: 'mathematics',           cat: 'school', answers: ['matemáticas', 'las matemáticas'] },
-    { id: 'cnaturales',  es: 'ciencias naturales', base: 'ciencias naturales', en: 'science',               cat: 'school', answers: ['ciencias naturales', 'las ciencias naturales'] },
-    { id: 'horario',     es: 'el horario',         base: 'el horario',         en: 'schedule',              cat: 'school', answers: ['el horario', 'horario'] },
-    { id: 'hora-de',     es: 'en la hora de …',    base: 'en la hora de',      en: 'in the … (class period) hour', cat: 'school', answers: ['en la hora de'], note: 'e.g. en la hora de inglés' },
+    /* ---------- Sujeto personal singular ---------- */
+    { id: 'yo',    es: 'yo',    base: 'yo',    en: 'I',              cat: 'pronoun-s', answers: ['yo'] },
+    { id: 'tu',    es: 'tú',    base: 'tú',    en: 'you (informal)', cat: 'pronoun-s', answers: ['tú'],  note: 'With the accent it means you; without it, tu means your.' },
+    { id: 'el',    es: 'él',    base: 'él',    en: 'he',             cat: 'pronoun-s', answers: ['él'],  note: 'With the accent it means he; without it, el means the.' },
+    { id: 'ella',  es: 'ella',  base: 'ella',  en: 'she',            cat: 'pronoun-s', answers: ['ella'] },
+    { id: 'usted', es: 'usted', base: 'usted', en: 'you (formal)',   cat: 'pronoun-s', answers: ['usted'] },
 
-    /* ---------- Palabras interrogativas ---------- */
-    { id: 'cual',    es: '¿Cuál?',             base: 'cuál',    en: 'Which? / What?', cat: 'question', answers: ['cuál'] },
-    { id: 'porque',  es: '¿Por qué?',          base: 'por qué', en: 'Why?',           cat: 'question', answers: ['por qué'] },
-    { id: 'cuantos', es: '¿Cuántos, cuántas?', base: 'cuántos', en: 'How many?',      cat: 'question', answers: ['cuántos', 'cuántas', 'cuántos cuántas'], forms: { m: 'cuántos', f: 'cuántas' } },
-    { id: 'quien',   es: '¿Quién?',            base: 'quién',   en: 'Who?',           cat: 'question', answers: ['quién'] },
-    { id: 'que',     es: '¿Qué?',              base: 'qué',     en: 'What?',          cat: 'question', answers: ['qué'] },
-    { id: 'como',    es: '¿Cómo?',             base: 'cómo',    en: 'How?',           cat: 'question', answers: ['cómo'] },
-    { id: 'donde',   es: '¿Dónde?',            base: 'dónde',   en: 'Where?',         cat: 'question', answers: ['dónde'] },
-    { id: 'cuando',  es: '¿Cuándo?',           base: 'cuándo',  en: 'When?',          cat: 'question', answers: ['cuándo'] },
+    /* ---------- Sujeto personal plural ---------- */
+    { id: 'nosotros', es: 'nosotros', base: 'nosotros', en: 'we (masculine)',             cat: 'pronoun-p', answers: ['nosotros'] },
+    { id: 'nosotras', es: 'nosotras', base: 'nosotras', en: 'we (feminine)',              cat: 'pronoun-p', answers: ['nosotras'] },
+    { id: 'vosotros', es: 'vosotros', base: 'vosotros', en: 'you (informal, masculine)',  cat: 'pronoun-p', answers: ['vosotros'] },
+    { id: 'vosotras', es: 'vosotras', base: 'vosotras', en: 'you (informal, feminine)',   cat: 'pronoun-p', answers: ['vosotras'] },
+    { id: 'ellos',    es: 'ellos',    base: 'ellos',    en: 'they (masculine)',           cat: 'pronoun-p', answers: ['ellos'] },
+    { id: 'ellas',    es: 'ellas',    base: 'ellas',    en: 'they (feminine)',            cat: 'pronoun-p', answers: ['ellas'] },
+    { id: 'ustedes',  es: 'ustedes',  base: 'ustedes',  en: 'you (two or more people)',   cat: 'pronoun-p', answers: ['ustedes'] },
 
-    /* ---------- Adjetivos para describir tus clases y tus profesores ---------- */
-    { id: 'aburrido',   es: 'aburrido, aburrida',   base: 'aburrido',   en: 'boring',          cat: 'adjective', answers: ['aburrido', 'aburrida', 'aburrido aburrida'],     forms: { m: 'aburrido',  f: 'aburrida' } },
-    { id: 'dificil',    es: 'difícil',              base: 'difícil',    en: 'difficult',       cat: 'adjective', answers: ['difícil'] },
-    { id: 'facil',      es: 'fácil',                base: 'fácil',      en: 'easy',            cat: 'adjective', answers: ['fácil'] },
-    { id: 'divertido',  es: 'divertido, divertida', base: 'divertido',  en: 'fun',             cat: 'adjective', answers: ['divertido', 'divertida', 'divertido divertida'],  forms: { m: 'divertido', f: 'divertida' } },
-    { id: 'util',       es: 'útil',                 base: 'útil',       en: 'useful',          cat: 'adjective', answers: ['útil'] },
-    { id: 'interesante',es: 'interesante',          base: 'interesante',en: 'interesting',     cat: 'adjective', answers: ['interesante'] },
-    { id: 'practico',   es: 'práctico, práctica',   base: 'práctico',   en: 'practical',       cat: 'adjective', answers: ['práctico', 'práctica', 'práctico práctica'],     forms: { m: 'práctico',  f: 'práctica' } },
-    { id: 'favorito',   es: 'favorito, favorita',   base: 'favorito',   en: 'favorite',        cat: 'adjective', answers: ['favorito', 'favorita', 'favorito favorita'],     forms: { m: 'favorito',  f: 'favorita' } },
-    { id: 'simpatico',  es: 'simpático, simpática', base: 'simpático',  en: 'nice / friendly', cat: 'adjective', answers: ['simpático', 'simpática', 'simpático simpática'], forms: { m: 'simpático', f: 'simpática' } },
-    { id: 'estricto',   es: 'estricto, estricta',   base: 'estricto',   en: 'strict',          cat: 'adjective', answers: ['estricto', 'estricta', 'estricto estricta'],     forms: { m: 'estricto',  f: 'estricta' } },
+    /* ---------- Haciendo preguntas ---------- */
+    { id: 'cual',     es: '¿Cuál?',             base: 'cuál',     en: 'Which? / What?', cat: 'question', answers: ['cuál'] },
+    { id: 'porque',   es: '¿Por qué?',          base: 'por qué',  en: 'Why?',           cat: 'question', answers: ['por qué'] },
+    { id: 'cuantos',  es: '¿Cuántos, cuántas?', base: 'cuántos',  en: 'How many?',      cat: 'question', answers: ['cuántos', 'cuántas', 'cuántos cuántas'], forms: { m: 'cuántos', f: 'cuántas' } },
+    { id: 'que',      es: '¿Qué?',              base: 'qué',      en: 'What?',          cat: 'question', answers: ['qué'] },
+    { id: 'como',     es: '¿Cómo?',             base: 'cómo',     en: 'How?',           cat: 'question', answers: ['cómo'] },
+    { id: 'donde',    es: '¿Dónde?',            base: 'dónde',    en: 'Where?',         cat: 'question', answers: ['dónde'] },
+    { id: 'de-donde', es: '¿De dónde?',         base: 'de dónde', en: 'From where?',    cat: 'question', answers: ['de dónde'] },
+    { id: 'quien',    es: '¿Quién?',            base: 'quién',    en: 'Who?',           cat: 'question', answers: ['quién'] },
+    { id: 'cuando',   es: '¿Cuándo?',           base: 'cuándo',   en: 'When?',          cat: 'question', answers: ['cuándo'] },
+    { id: 'alguna-pregunta', es: '¿Alguna pregunta?', base: 'alguna pregunta', en: 'Any questions?', cat: 'question', answers: ['alguna pregunta'] },
 
-    /* ---------- Para hablar del orden de las cosas ---------- */
-    { id: 'primero', es: 'primero, primera', base: 'primero', en: 'first',   cat: 'ordinal', answers: ['primero', 'primera', 'primer', 'primero primera'], forms: { m: 'primero', f: 'primera' }, note: 'Changes to primer before a masculine noun (el primer día).' },
-    { id: 'segundo', es: 'segundo, segunda', base: 'segundo', en: 'second',  cat: 'ordinal', answers: ['segundo', 'segunda', 'segundo segunda'], forms: { m: 'segundo', f: 'segunda' } },
-    { id: 'tercero', es: 'tercero, tercera', base: 'tercero', en: 'third',   cat: 'ordinal', answers: ['tercero', 'tercera', 'tercer', 'tercero tercera'], forms: { m: 'tercero', f: 'tercera' }, note: 'Changes to tercer before a masculine noun (el tercer piso).' },
-    { id: 'cuarto',  es: 'cuarto, cuarta',   base: 'cuarto',  en: 'fourth',  cat: 'ordinal', answers: ['cuarto', 'cuarta', 'cuarto cuarta'],   forms: { m: 'cuarto',  f: 'cuarta' } },
-    { id: 'quinto',  es: 'quinto, quinta',   base: 'quinto',  en: 'fifth',   cat: 'ordinal', answers: ['quinto', 'quinta', 'quinto quinta'],   forms: { m: 'quinto',  f: 'quinta' } },
-    { id: 'sexto',   es: 'sexto, sexta',     base: 'sexto',   en: 'sixth',   cat: 'ordinal', answers: ['sexto', 'sexta', 'sexto sexta'],       forms: { m: 'sexto',   f: 'sexta' } },
-    { id: 'septimo', es: 'séptimo, séptima', base: 'séptimo', en: 'seventh', cat: 'ordinal', answers: ['séptimo', 'séptima', 'séptimo séptima'], forms: { m: 'séptimo', f: 'séptima' } },
-    { id: 'octavo',  es: 'octavo, octava',   base: 'octavo',  en: 'eighth',  cat: 'ordinal', answers: ['octavo', 'octava', 'octavo octava'],   forms: { m: 'octavo',  f: 'octava' } },
-
-    /* ---------- Useful words ---------- */
-    { id: 'necesito',  es: 'Yo necesito',  base: 'yo necesito',  en: 'I need',    cat: 'useful', answers: ['yo necesito', 'necesito'] },
-    { id: 'necesitas', es: 'Tú necesitas', base: 'tú necesitas', en: 'You need',  cat: 'useful', answers: ['tú necesitas', 'necesitas'] },
-    { id: 'tengo',     es: 'Yo tengo',     base: 'yo tengo',     en: 'I have',    cat: 'useful', answers: ['yo tengo', 'tengo'] },
-    { id: 'tienes',    es: 'Tú tienes',    base: 'tú tienes',    en: 'You have',  cat: 'useful', answers: ['tú tienes', 'tienes'] },
+    /* ---------- Palabras aleatorias ---------- */
+    { id: 'hay',          es: 'hay',                 base: 'hay',                en: 'there is, there are', cat: 'random', answers: ['hay'] },
+    { id: 'no-se',        es: 'no sé',               base: 'no sé',              en: "I don't know",        cat: 'random', answers: ['no sé'], note: 'sé (I know) has an accent; se without it is a different word.' },
+    { id: 'termine',      es: 'terminé',             base: 'terminé',            en: "I'm done",            cat: 'random', answers: ['terminé'] },
+    { id: 'que-deberia',  es: '¿Qué debería hacer?', base: 'qué debería hacer',  en: 'What should I do?',   cat: 'random', answers: ['qué debería hacer'] },
+    { id: 'quizas',       es: 'quizás',              base: 'quizás',             en: 'maybe',               cat: 'random', answers: ['quizás'] },
+    { id: 'mayuscula',    es: 'mayúscula',           base: 'mayúscula',          en: 'capital letter',      cat: 'random', answers: ['mayúscula'] },
+    { id: 'despues',      es: 'después',             base: 'después',            en: 'after',               cat: 'random', answers: ['después'] },
+    { id: 'de-nada',      es: 'De nada',             base: 'de nada',            en: "You're welcome",      cat: 'random', answers: ['de nada'] },
+    { id: 'quien-falta',  es: '¿Quién falta?',       base: 'quién falta',        en: 'Who is missing?',     cat: 'random', answers: ['quién falta'] },
   ];
 
   // Freeze to catch accidental mutation by games.
@@ -86,8 +69,8 @@
   window.VOCAB = Object.freeze(V);
   window.VOCAB_CATEGORIES = Object.freeze(CATEGORIES.map(Object.freeze));
   window.VOCAB_META = Object.freeze({
-    unit: 'La educación y la escuela',
-    list: 'Lista de vocabulario – Las asignaturas escolares',
-    footnote: 'primero / tercero change to primer / tercer before a masculine noun.',
+    unit: 'Subject pronouns and more',
+    list: 'Subject pronouns, question words and everyday phrases',
+    footnote: 'tú (you) and él (he) carry an accent; tu (your) and el (the) do not.',
   });
 })();

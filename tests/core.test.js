@@ -20,9 +20,9 @@ let fails = 0, count = 0;
 const t = (name, cond) => { count++; if (!cond) { fails++; console.log('FAIL', name); } };
 
 // --- data integrity ---
-t('44 entries', w.VOCAB.length === 44);
-t('unique ids', new Set(w.VOCAB.map((e) => e.id)).size === 44);
-t('5 categories', w.VOCAB_CATEGORIES.length === 5);
+t('31 entries', w.VOCAB.length === 31);
+t('unique ids', new Set(w.VOCAB.map((e) => e.id)).size === 31);
+t('4 categories', w.VOCAB_CATEGORIES.length === 4);
 w.VOCAB.forEach((e) => {
   t('category exists ' + e.id, !!Vocab.category(e.cat));
   t('answers normalized ' + e.id, e.answers.every((a) => a === Text.normalize(a)));
@@ -30,7 +30,7 @@ w.VOCAB.forEach((e) => {
   if (e.forms) t('forms accepted ' + e.id, e.answers.includes(e.forms.m) && e.answers.includes(e.forms.f));
 });
 // Sheet spot checks (accents exactly as printed)
-['educación física', 'francés', 'inglés', 'tecnología', 'matemáticas', '¿Cuál?', '¿Por qué?', '¿Cuántos, cuántas?', '¿Quién?', '¿Qué?', '¿Cómo?', '¿Dónde?', '¿Cuándo?', 'difícil', 'fácil', 'útil', 'práctico, práctica', 'simpático, simpática', 'séptimo, séptima', 'Tú necesitas', 'Tú tienes', 'el almuerzo', 'el horario', 'ciencias naturales', 'ciencias sociales', 'interesante']
+['yo', 'tú', 'él', 'ella', 'usted', 'nosotros', 'nosotras', 'vosotros', 'vosotras', 'ellos', 'ellas', 'ustedes', '¿Cuál?', '¿Por qué?', '¿Cuántos, cuántas?', '¿Qué?', '¿Cómo?', '¿Dónde?', '¿De dónde?', '¿Quién?', '¿Cuándo?', '¿Alguna pregunta?', 'hay', 'no sé', 'terminé', '¿Qué debería hacer?', 'quizás', 'mayúscula', 'después', 'De nada', '¿Quién falta?']
   .forEach((es) => t('sheet word present: ' + es, w.VOCAB.some((e) => e.es === es)));
 
 // --- Text ---
@@ -39,11 +39,11 @@ t('normalize NFD', Text.normalize('cuál') === 'cuál');
 t('normalize dots', Text.normalize('la clase de ...') === 'la clase de');
 t('normalize spaces', Text.normalize('  Educación   Física ') === 'educación física');
 t('strip', Text.stripAccents('señor único Ñ') === 'senor unico N');
-t('positions', Text.accentPositions('difícil').join() === '3');
+t('positions', Text.accentPositions('después').join() === '5');
 t('toggle', Text.toggleAccent('a') === 'á' && Text.toggleAccent('á') === 'a' && Text.toggleAccent('n') === 'ñ' && Text.toggleAccent('x') === 'x');
 t('esc', Text.esc('<b>&"') === '&lt;b&gt;&amp;&quot;');
-t('diff accent', Text.diffHtml('dificil', 'difícil').includes('d-accent'));
-t('diff missing', Text.diffHtml('dificl', 'difícil').includes('d-fix'));
+t('diff accent', Text.diffHtml('despues', 'después').includes('d-accent'));
+t('diff missing', Text.diffHtml('despus', 'después').includes('d-fix'));
 
 w.VOCAB.forEach((e) => {
   t('correct via es ' + e.id, Text.check(e.es, e.answers).status === 'correct');
@@ -68,42 +68,42 @@ w.VOCAB.forEach((e) => {
   const qt = Quiz.typed(e);
   t('typed hint ' + e.id, typeof qt.hint === 'string' && qt.hint.length > 0);
 });
-t('primer accepted (m)', Text.check('primer', Quiz.typed(Vocab.byId('primero'), { gender: 'm' }).accepted).status === 'correct');
-t('tercer accepted (m)', Text.check('tercer', Quiz.typed(Vocab.byId('tercero'), { gender: 'm' }).accepted).status === 'correct');
-t('tú accent', Text.check('tu necesitas', Vocab.byId('necesitas').answers).status === 'accent');
+t('tú accent', Text.check('no se', Vocab.byId('no-se').answers).status === 'accent');
 t('por que accent', Text.check('¿Por que?', Vocab.byId('porque').answers).status === 'accent');
-t('any() never accent for no-accent word', Array.from({ length: 30 }, () => Quiz.any(Vocab.byId('arte')).kind).every((k) => k !== 'accent'));
-t('variants exclude the word', !Text.accentVariants('difícil').includes('difícil'));
+t('tu vs tú', Text.check('tu', Vocab.byId('tu').answers).status === 'accent' && Text.check('Tú', Vocab.byId('tu').answers).status === 'correct');
+t('el vs él', Text.check('el', Vocab.byId('el').answers).status === 'accent');
+t('any() never accent for no-accent word', Array.from({ length: 30 }, () => Quiz.any(Vocab.byId('ella')).kind).every((k) => k !== 'accent'));
+t('variants exclude the word', !Text.accentVariants('después').includes('después'));
 
 // --- Progress ---
 Progress.reset();
-const r1 = Progress.record('facil', 'correct'); t('xp on correct', r1.xp > 0 && r1.box === 1);
-Progress.record('facil', 'accent'); t('box down on accent', Progress.box('facil') === 0 && Progress.word('facil').acc === 1);
-Progress.record('facil', 'wrong'); t('box floor 0', Progress.box('facil') === 0);
-for (let i = 0; i < 10; i++) Progress.record('util', 'correct');
-t('box cap 5', Progress.box('util') === 5 && Progress.mastery('util') === 1);
+const r1 = Progress.record('quizas', 'correct'); t('xp on correct', r1.xp > 0 && r1.box === 1);
+Progress.record('quizas', 'accent'); t('box down on accent', Progress.box('quizas') === 0 && Progress.word('quizas').acc === 1);
+Progress.record('quizas', 'wrong'); t('box floor 0', Progress.box('quizas') === 0);
+for (let i = 0; i < 10; i++) Progress.record('termine', 'correct');
+t('box cap 5', Progress.box('termine') === 5 && Progress.mastery('termine') === 1);
 const picks = Progress.pick(10); t('pick 10 unique', picks.length === 10 && new Set(picks.map((p) => p.id)).size === 10);
 t('pick exclude', !Progress.pick(5, { exclude: picks.map((p) => p.id) }).some((p) => picks.includes(p)));
-t('pick all', Progress.pick(100).length === 44);
-t('pick pool', Progress.pick(3, { pool: Vocab.byCategory('useful') }).every((p) => p.cat === 'useful'));
+t('pick all', Progress.pick(100).length === 31);
+t('pick pool', Progress.pick(3, { pool: Vocab.byCategory('pronoun-s') }).every((p) => p.cat === 'pronoun-s'));
 t('pick 0', Progress.pick(0).length === 0);
-t('weight favors weak', Progress.weight(Vocab.byId('facil')) > Progress.weight(Vocab.byId('util')));
-t('weakest first', Progress.weakest(1)[0].id === 'facil');
-t('due includes unseen', Progress.due().length >= 42);
+t('weight favors weak', Progress.weight(Vocab.byId('quizas')) > Progress.weight(Vocab.byId('termine')));
+t('weakest first', Progress.weakest(1)[0].id === 'quizas');
+t('due includes unseen', Progress.due().length >= 29);
 t('level curve', Progress.xpForLevel(1) === 0 && Progress.xpForLevel(2) === 100 && Progress.xpForLevel(3) === 300);
 t('setBest', Progress.setBest('x', 10) === true && Progress.setBest('x', 5) === false && Progress.best('x') === 10 && Progress.gameStats('x').plays === 2);
 Progress.setBest('y', 100, { mode: 'a' }, { wave: 3 }); Progress.setBest('y', 20, { mode: 'b' }, { wave: 1 });
 t('touchBest updates best without a play', Progress.touchBest('z', 50, { lvl: 2 }) === true && Progress.gameStats('z').best === 50 && Progress.gameStats('z').plays === 0 && Progress.gameStats('z').lvl === 2 && Progress.touchBest('z', 10) === false);
 t('setBest onBest kept from the best run', Progress.gameStats('y').wave === 3 && Progress.gameStats('y').mode === 'b' && Progress.gameStats('y').lastScore === 20 && Progress.gameStats('y').best === 100);
-const sum = Progress.summary(); t('summary', sum.total === 44 && sum.mastered === 1 && sum.boxes.reduce((a, b) => a + b, 0) === 44);
-w.PQ.Settings.set('cats', ['useful']); t('active respects filter', Vocab.active().length === 4 && Vocab.active().every((e) => e.cat === 'useful'));
-w.PQ.Settings.set('cats', ['nope']); t('active falls back', Vocab.active().length === 44);
+const sum = Progress.summary(); t('summary', sum.total === 31 && sum.mastered === 1 && sum.boxes.reduce((a, b) => a + b, 0) === 31);
+w.PQ.Settings.set('cats', ['pronoun-s']); t('active respects filter', Vocab.active().length === 5 && Vocab.active().every((e) => e.cat === 'pronoun-s'));
+w.PQ.Settings.set('cats', ['nope']); t('active falls back', Vocab.active().length === 31);
 w.PQ.Settings.set('cats', null);
-t('withAccents', Vocab.withAccents().every((e) => Text.hasAccent(e.base)) && Vocab.withAccents().length > 20);
+t('withAccents', Vocab.withAccents().every((e) => Text.hasAccent(e.base)) && Vocab.withAccents().length >= 18);
 Progress.reset();
 const wk1 = Progress.weakest(10, { includeUnseen: true }).map((e) => e.id).join(), wk2 = Progress.weakest(10, { includeUnseen: true }).map((e) => e.id).join();
 t('weakest breaks ties randomly', wk1 !== wk2 || Progress.weakest(10, { includeUnseen: true }).map((e) => e.id).join() !== wk1);
-t('weakest still ranks weak words first', (Progress.record('facil', 'wrong'), Progress.record('facil', 'wrong'), Progress.weakest(1)[0].id === 'facil'));
+t('weakest still ranks weak words first', (Progress.record('quizas', 'wrong'), Progress.record('quizas', 'wrong'), Progress.weakest(1)[0].id === 'quizas'));
 
 console.log(count - fails + '/' + count + ' passed');
 process.exit(fails ? 1 : 0);

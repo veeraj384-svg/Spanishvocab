@@ -35,7 +35,7 @@ async function run(viewport, touch) {
     assert(cards.length === 5, label + ': 5 game cards, got ' + cards.length);
     const startHref = await page.$eval('a.btn-primary.btn-lg', (a) => a.getAttribute('href'));
     assert(GAMES.some((g) => startHref === '#/play/' + g), label + ': Start playing links to a game: ' + startHref);
-    assert(await page.evaluate(() => PQ.Games.all().length === 5 && PQ.Vocab.all().length === 44), label + ': 5 games, 44 words registered');
+    assert(await page.evaluate(() => PQ.Games.all().length === 5 && PQ.Vocab.all().length === 31), label + ': 5 games, 31 words registered');
 
     // ---- every route: no console errors, no horizontal overflow ----
     for (const r of ROUTES) {
@@ -98,7 +98,7 @@ async function run(viewport, touch) {
 
     // ---- words page practice modal ----
     await go(page, '#/words', 400);
-    assert((await page.$$('.word-row')).length === 44, label + ': 44 words listed');
+    assert((await page.$$('.word-row')).length === 31, label + ': 31 words listed');
     await page.click('.word-row button:has-text("Practice")');
     await page.waitForSelector('.modal-backdrop .quiz', { timeout: 4000 });
     const kind = await page.$eval('.modal-backdrop .quiz', (el) => el.getAttribute('data-kind'));
@@ -135,6 +135,6 @@ async function run(viewport, touch) {
 
 (async () => {
   await run({ width: 1280, height: 800 }, false);
-  await run({ width: 390, height: 844 }, true);
+  await run({ width: 390, height: 831 }, true);
   console.log('ALL BROWSER TESTS PASSED');
 })().catch((e) => { console.error(e); process.exit(1); });

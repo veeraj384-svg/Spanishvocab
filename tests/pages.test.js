@@ -92,21 +92,21 @@ async function desktop() {
   await page.waitForSelector('.pg-words .pg-row');
   assert(await page.evaluate(() => typeof PQ.Pages.get('words').mount === 'function' && typeof PQ.Pages.get('stats').mount === 'function' && typeof PQ.Pages.get('words').unmount === 'function'), 'both pages registered');
   assert((await state(page)).id === 'words', 'live page is words');
-  assert((await page.locator('.pg-words .word-row').count()) === 44, 'renders all 44 word rows');
-  assert((await visible(page)).length === 44, '44 visible with no filter');
-  assert((await page.locator('.pg-words .pg-cat:not(.hidden)').count()) === 5, 'five category sections');
-  assert((await page.locator('.pg-chip').count()) === 6, 'All + 5 category chips');
+  assert((await page.locator('.pg-words .word-row').count()) === 31, 'renders all 31 word rows');
+  assert((await visible(page)).length === 31, '31 visible with no filter');
+  assert((await page.locator('.pg-words .pg-cat:not(.hidden)').count()) === 4, 'four category sections');
+  assert((await page.locator('.pg-chip').count()) === 5, 'All + 4 category chips');
   assert((await page.textContent('.pg-words .eyebrow')).trim() === 'Vocabulary', 'eyebrow');
-  assert((await page.textContent('.pg-words h2')).includes('La educación y la escuela'), 'unit title from Vocab.meta()');
-  assert((await page.textContent('.pg-chip[data-cat="all"] .pg-chip-count')) === '44', 'All chip count');
-  assert((await page.textContent('.pg-chip[data-cat="question"] .pg-chip-count')) === '8', 'question chip count');
-  assert((await page.locator('.pg-row[data-id="dificil"] .es .accent-char').count()) === 1, 'accents highlighted');
-  assert((await page.textContent('.pg-row[data-id="primero"] .note')).includes('primer'), 'note rendered');
-  assert((await page.locator('.pg-row .mastery').count()) === 44, 'mastery dots on every row');
-  assert((await page.locator('.pg-row .pg-say').count()) === 44 && (await page.locator('.pg-row .pg-practice-btn').count()) === 44, 'speak + practice on every row');
+  assert((await page.textContent('.pg-words h2')).includes('Subject pronouns and more'), 'unit title from Vocab.meta()');
+  assert((await page.textContent('.pg-chip[data-cat="all"] .pg-chip-count')) === '31', 'All chip count');
+  assert((await page.textContent('.pg-chip[data-cat="question"] .pg-chip-count')) === '10', 'question chip count');
+  assert((await page.locator('.pg-row[data-id="despues"] .es .accent-char').count()) === 1, 'accents highlighted');
+  assert((await page.textContent('.pg-row[data-id="tu"] .note')).includes('your'), 'note rendered');
+  assert((await page.locator('.pg-row .mastery').count()) === 31, 'mastery dots on every row');
+  assert((await page.locator('.pg-row .pg-say').count()) === 31 && (await page.locator('.pg-row .pg-practice-btn').count()) === 31, 'speak + practice on every row');
   const foot = await page.textContent('.pg-footnote');
-  assert(foot.includes('primer') && foot.includes('tercer') && foot.includes('`'), 'footnote: ordinal rule + backtick tip');
-  assert((await page.locator('.pg-cat[data-cat="school"] .pg-cat-head h3').textContent()).includes('Para hablar de tu día escolar'), 'Spanish section title');
+  assert(foot.includes('tú') && foot.includes('él') && foot.includes('`'), 'footnote: accent rule + backtick tip');
+  assert((await page.locator('.pg-cat[data-cat="random"] .pg-cat-head h3').textContent()).includes('Palabras aleatorias'), 'Spanish section title');
   assert(await noOverflow(page), 'no horizontal overflow (desktop words)');
   await page.waitForTimeout(700);
   await shot(page, 'desktop-words');
@@ -116,18 +116,18 @@ async function desktop() {
   await page.keyboard.type('cual');
   let ids = await visible(page);
   assert(ids.length === 1 && ids[0] === 'cual', 'search "cual" matches ¿Cuál? only: ' + ids);
-  assert((await page.textContent('.pg-count')).includes('1 of 44'), 'count label');
+  assert((await page.textContent('.pg-count')).includes('1 of 31'), 'count label');
   assert((await page.locator('.pg-cat:not(.hidden)').count()) === 1, 'empty sections hidden');
   await page.keyboard.press('Escape');
-  assert((await visible(page)).length === 44, 'Escape clears the search');
+  assert((await visible(page)).length === 31, 'Escape clears the search');
   assert(await page.evaluate(() => document.activeElement.classList.contains('pg-search-input')), 'search keeps focus after clearing');
-  await page.keyboard.type('class');
+  await page.keyboard.type('you');
   ids = await visible(page);
-  assert(ids.length === 3 && ids.includes('clase') && ids.includes('clase-de') && ids.includes('hora-de'), 'English search (class, … class, class period): ' + ids);
+  assert(ids.length === 6 && ids.includes('tu') && ids.includes('usted') && ids.includes('vosotros') && ids.includes('vosotras') && ids.includes('ustedes') && ids.includes('de-nada'), 'English search (you …, You\'re welcome): ' + ids);
   await page.keyboard.type('zzz');
   assert((await visible(page)).length === 0 && (await page.locator('.pg-empty:not(.hidden)').count()) === 1, 'empty state');
   await page.click('.pg-empty .btn');
-  assert((await visible(page)).length === 44 && (await page.locator('.pg-empty:not(.hidden)').count()) === 0, 'Clear filters');
+  assert((await visible(page)).length === 31 && (await page.locator('.pg-empty:not(.hidden)').count()) === 0, 'Clear filters');
 
   // "/" focuses the search, Escape on an empty search blurs it
   await page.evaluate(() => document.activeElement.blur());
@@ -140,11 +140,11 @@ async function desktop() {
   // Category chips
   await page.click('.pg-chip[data-cat="question"]');
   ids = await visible(page);
-  assert(ids.length === 8 && (await page.evaluate((ids) => ids.every((id) => PQ.Vocab.byId(id).cat === 'question'), ids)), 'question chip → 8 question words');
+  assert(ids.length === 10 && (await page.evaluate((ids) => ids.every((id) => PQ.Vocab.byId(id).cat === 'question'), ids)), 'question chip → 10 question words');
   assert((await page.getAttribute('.pg-chip[data-cat="question"]', 'aria-pressed')) === 'true', 'chip pressed state');
   assert((await page.locator('.pg-cat:not(.hidden)').count()) === 1, 'one section visible');
   await page.click('.pg-chip[data-cat="all"]');
-  assert((await visible(page)).length === 44, 'All chip restores');
+  assert((await visible(page)).length === 31, 'All chip restores');
 
   // Accents-only toggle
   const accentIds = await page.evaluate(() => PQ.Vocab.withAccents(PQ.Vocab.all()).map((e) => e.id));
@@ -153,65 +153,65 @@ async function desktop() {
   assert(ids.length === accentIds.length && ids.every((id) => accentIds.includes(id)), 'accents only → ' + ids.length + ' words');
   assert((await page.textContent('.pg-chip[data-cat="all"] .pg-chip-count')) === String(accentIds.length), 'chip counts follow the toggle');
   await page.click('.pg-toggle-accents');
-  assert((await visible(page)).length === 44, 'toggle off');
+  assert((await visible(page)).length === 31, 'toggle off');
 
   /* ---------- Practice modal: correct ---------- */
-  await openPractice(page, 'dificil', 'typed');
+  await openPractice(page, 'despues', 'typed');
   assert((await page.locator('.modal .quiz[data-kind="typed"]').count()) === 1, 'typed question in a modal');
-  assert((await page.textContent('.modal .quiz-prompt')).includes('difficult'), 'prompt is the English');
+  assert((await page.textContent('.modal .quiz-prompt')).includes('after'), 'prompt is the English');
   assert((await state(page)).practiceOpen, 'state reports the open practice');
-  await typeAnswer(page, 'difícil');
+  await typeAnswer(page, 'después');
   assert(await page.$('.modal .quiz-feedback.ok'), 'correct feedback');
-  assert(await page.$('.pg-row[data-id="dificil"].flash-ok'), 'row flashes green');
+  assert(await page.$('.pg-row[data-id="despues"].flash-ok'), 'row flashes green');
   await page.keyboard.press('Enter'); // Continue → modal closes
   await modalGone(page);
   assert(!(await state(page)).practiceOpen, 'practice closed after continue');
-  assert((await dotsOn(page, 'dificil')) === 1, 'row mastery dots refreshed');
-  assert((await word(page, 'dificil')).box === 1, 'progress recorded once');
+  assert((await dotsOn(page, 'despues')) === 1, 'row mastery dots refreshed');
+  assert((await word(page, 'despues')).box === 1, 'progress recorded once');
 
   /* ---------- Practice modal: accent-only mistake ---------- */
-  await openPractice(page, 'frances', 'typed');
-  await typeAnswer(page, 'frances');
+  await openPractice(page, 'mayuscula', 'typed');
+  await typeAnswer(page, 'mayuscula');
   assert(await page.$('.modal .quiz-feedback.accent'), 'accent feedback');
-  assert((await page.textContent('.modal .quiz-feedback')).includes('francés'), 'shows the correct spelling');
+  assert((await page.textContent('.modal .quiz-feedback')).includes('mayúscula'), 'shows the correct spelling');
   assert(await page.$('.modal .diff .d-accent'), 'letter diff highlights the accent');
   await page.click('.modal .quiz-actions .btn-primary'); // Got it →
   await modalGone(page);
-  assert((await word(page, 'frances')).acc === 1, 'accent slip recorded');
+  assert((await word(page, 'mayuscula')).acc === 1, 'accent slip recorded');
 
   /* ---------- Practice modal: wrong answer, dismissed with Escape ---------- */
-  await openPractice(page, 'horario', 'typed');
+  await openPractice(page, 'usted', 'typed');
   await typeAnswer(page, 'zzz');
   assert(await page.$('.modal .quiz-feedback.bad'), 'wrong feedback');
-  assert((await page.textContent('.modal .fb-answer')).includes('el horario'), 'shows the canonical answer');
+  assert((await page.textContent('.modal .fb-answer')).includes('usted'), 'shows the canonical answer');
   await page.keyboard.press('Escape');
   await modalGone(page);
-  assert((await word(page, 'horario')).wrong === 1, 'wrong recorded');
-  assert((await dotsOn(page, 'horario')) === 0, 'dots refreshed (box 0)');
+  assert((await word(page, 'usted')).wrong === 1, 'wrong recorded');
+  assert((await dotsOn(page, 'usted')) === 0, 'dots refreshed (box 0)');
 
   /* ---------- The real Practice button (Quiz.any), closed with ✕ before answering ---------- */
   const answersBefore = (await totals(page)).answers;
-  await press(page, '.pg-row[data-id="facil"] .pg-practice-btn');
+  await press(page, '.pg-row[data-id="quizas"] .pg-practice-btn');
   await page.waitForSelector('.modal .quiz');
   const q = await question(page);
-  assert(q.id === 'facil' && ['typed', 'choice', 'accent'].includes(q.kind), 'Quiz.any question: ' + JSON.stringify(q));
-  assert((await page.textContent('.modal .pg-practice-cat')).includes('Adjectives'), 'category label in modal');
+  assert(q.id === 'quizas' && ['typed', 'choice', 'accent'].includes(q.kind), 'Quiz.any question: ' + JSON.stringify(q));
+  assert((await page.textContent('.modal .pg-practice-cat')).includes('Random words'), 'category label in modal');
   await page.click('.modal .modal-close');
   await modalGone(page);
   assert((await totals(page)).answers === answersBefore, 'closing early records nothing');
 
   // Answer with the mouse through the real button as well
-  await press(page, '.pg-row[data-id="facil"] .pg-practice-btn');
+  await press(page, '.pg-row[data-id="quizas"] .pg-practice-btn');
   await page.waitForSelector('.modal .quiz');
   await answerCorrectly(page, false);
   await page.click('.modal .quiz-actions .btn-primary');
   await modalGone(page);
-  assert((await dotsOn(page, 'facil')) === 1, 'facil dots after mouse answer');
+  assert((await dotsOn(page, 'quizas')) === 1, 'facil dots after mouse answer');
 
   // 🔊 is safe to click (speech may be unavailable headless) and pq:progress refreshes dots
-  await press(page, '.pg-row[data-id="espanol"] .pg-say');
-  await page.evaluate(() => PQ.Progress.record('espanol', 'correct'));
-  assert((await dotsOn(page, 'espanol')) === 1, 'dots refresh on pq:progress');
+  await press(page, '.pg-row[data-id="donde"] .pg-say');
+  await page.evaluate(() => PQ.Progress.record('donde', 'correct'));
+  assert((await dotsOn(page, 'donde')) === 1, 'dots refresh on pq:progress');
 
   /* ---------- Progress page ---------- */
   await page.goto(SITE + '#/stats');
@@ -220,16 +220,16 @@ async function desktop() {
   assert((await page.locator('.pg-overview .ring').count()) === 1, 'mastery ring');
   const lvl = await page.evaluate(() => PQ.Progress.level());
   assert((await page.textContent('.pg-level-badge')).trim() === String(lvl), 'level badge');
-  assert((await page.locator('.pg-catbar').count()) === 5, 'five category bars');
+  assert((await page.locator('.pg-catbar').count()) === 4, 'four category bars');
   assert((await page.locator('.pg-box-col').count()) === 6, 'six box columns');
   let counts = await page.$$eval('.pg-box-count', (els) => els.map((e) => +e.textContent));
-  assert(counts.reduce((a, b) => a + b, 0) === 44, 'box counts sum to 44: ' + counts);
+  assert(counts.reduce((a, b) => a + b, 0) === 31, 'box counts sum to 31: ' + counts);
   // dificil, facil, espanol → box 1; frances (accent) + horario (wrong) → box 0
-  assert(counts[1] === 3 && counts[0] === 41, 'box distribution: ' + counts);
+  assert(counts[1] === 3 && counts[0] === 28, 'box distribution: ' + counts);
   assert((await page.textContent('.pg-stat-answers .stat-val')) === '5', 'answers total');
   assert((await page.textContent('.pg-stat-accuracy .stat-val')) === '60%', 'accuracy');
   assert((await page.locator('.pg-trouble .pg-trouble-row').count()) === 1, 'one accent-trouble word');
-  assert((await page.textContent('.pg-trouble .pg-trouble-row .es')).includes('francés'), 'accent trouble shows francés');
+  assert((await page.textContent('.pg-trouble .pg-trouble-row .es')).includes('mayúscula'), 'accent trouble shows francés');
   assert((await page.locator('.pg-trouble .pg-trouble-row .es .accent-char').count()) === 1, 'trouble spelling highlighted');
   assert((await page.locator('.pg-trouble .pg-say').count()) === 1, 'trouble row has 🔊');
   const nGames = await page.evaluate(() => PQ.Games.all().length);
@@ -256,11 +256,11 @@ async function desktop() {
     assert((await page.evaluate(() => PQ.Settings.get('speech'))) === true, 'speech on');
   }
   // Focus chips drive Settings 'cats' and therefore Vocab.active()
-  await press(page, '.pg-focus .chip[data-cat="ordinal"]');
-  assert(JSON.stringify(await page.evaluate(() => PQ.Settings.get('cats'))) === '["ordinal"]', 'cats = [ordinal]');
-  assert((await page.evaluate(() => PQ.Vocab.active().length)) === 8, 'active pool follows the focus');
-  assert((await page.getAttribute('.pg-focus .chip[data-cat="ordinal"]', 'aria-pressed')) === 'true', 'focus chip pressed');
-  await press(page, '.pg-focus .chip[data-cat="ordinal"]');
+  await press(page, '.pg-focus .chip[data-cat="pronoun-p"]');
+  assert(JSON.stringify(await page.evaluate(() => PQ.Settings.get('cats'))) === '["pronoun-p"]', 'cats = [pronoun-p]');
+  assert((await page.evaluate(() => PQ.Vocab.active().length)) === 7, 'active pool follows the focus');
+  assert((await page.getAttribute('.pg-focus .chip[data-cat="pronoun-p"]', 'aria-pressed')) === 'true', 'focus chip pressed');
+  await press(page, '.pg-focus .chip[data-cat="pronoun-p"]');
   assert((await page.evaluate(() => PQ.Settings.get('cats'))) === null, 'cats back to null');
 
   // Reset: cancel, then confirm
@@ -278,21 +278,21 @@ async function desktop() {
   assert((await page.textContent('.pg-stat-answers .stat-val')) === '0', 're-rendered after reset');
   assert((await page.locator('.pg-trouble .pg-empty-inline').count()) === 1, 'accent trouble empty state');
   counts = await page.$$eval('.pg-box-count', (els) => els.map((e) => +e.textContent));
-  assert(counts[0] === 44, 'all words back in box 0');
+  assert(counts[0] === 31, 'all words back in box 0');
 
   // Practice from the accent-trouble list
-  await page.evaluate(() => PQ.Progress.record('ingles', 'accent'));
-  await page.waitForSelector('.pg-trouble .pg-trouble-row[data-id="ingles"]');
-  await press(page, '.pg-trouble .pg-trouble-row[data-id="ingles"] .pg-practice-btn');
+  await page.evaluate(() => PQ.Progress.record('cuando', 'accent'));
+  await page.waitForSelector('.pg-trouble .pg-trouble-row[data-id="cuando"]');
+  await press(page, '.pg-trouble .pg-trouble-row[data-id="cuando"] .pg-practice-btn');
   await page.waitForSelector('.modal .quiz');
-  assert((await question(page)).id === 'ingles', 'practice from trouble list');
+  assert((await question(page)).id === 'cuando', 'practice from trouble list');
   await page.keyboard.press('Escape');
   await modalGone(page);
 
   /* ---------- Unmount / remount cycles ---------- */
   await page.goto(SITE + '#/words');
   await page.waitForSelector('.pg-words .pg-row');
-  assert((await visible(page)).length === 44 && (await page.locator('.pg-stats').count()) === 0, 'words remounted cleanly');
+  assert((await visible(page)).length === 31 && (await page.locator('.pg-stats').count()) === 0, 'words remounted cleanly');
   await page.goto(SITE + '#/stats');
   await page.waitForSelector('.pg-stats .pg-overview');
   assert((await page.locator('.pg-words').count()) === 0 && (await page.locator('.pg-stats').count()) === 1, 'stats remounted cleanly');
@@ -305,7 +305,7 @@ async function desktop() {
   // Navigating away while a practice modal is open must close it and clean up the quiz
   await page.goto(SITE + '#/words');
   await page.waitForSelector('.pg-words .pg-row');
-  await openPractice(page, 'tecnologia', 'typed');
+  await openPractice(page, 'quien', 'typed');
   await page.goto(SITE + '#/stats');
   await page.waitForSelector('.pg-stats .pg-overview');
   assert((await modals(page)) === 0, 'modal closed by navigation');
@@ -326,7 +326,7 @@ async function desktop() {
    Mobile: 390px, touch
    ============================================================ */
 async function mobile() {
-  const { browser, page, errors } = await launch({ viewport: { width: 390, height: 844 }, touch: true, mobile: true });
+  const { browser, page, errors } = await launch({ viewport: { width: 390, height: 831 }, touch: true, mobile: true });
   await page.goto(SITE + '#/words');
   await page.waitForSelector('.pg-words .pg-row');
   await page.evaluate(() => PQ.Progress.reset());
@@ -338,23 +338,23 @@ async function mobile() {
   await shot(page, 'mobile-words', false);
   await shot(page, 'mobile-words-full');
 
-  await page.tap('.pg-chip[data-cat="adjective"]');
+  await page.tap('.pg-chip[data-cat="question"]');
   assert((await visible(page)).length === 10, 'tap chip → 10 adjectives');
   await page.tap('.pg-chip[data-cat="all"]');
-  assert((await visible(page)).length === 44, 'tap All');
+  assert((await visible(page)).length === 31, 'tap All');
   await page.tap('.pg-toggle-accents');
   const nAcc = await page.evaluate(() => PQ.Vocab.withAccents(PQ.Vocab.all()).length);
   assert((await visible(page)).length === nAcc, 'tap accents toggle');
   await page.tap('.pg-toggle-accents');
 
   await page.tap('.pg-search-input');
-  await page.keyboard.type('tecn');
-  assert(JSON.stringify(await visible(page)) === '["tecnologia"]', 'search on mobile');
+  await page.keyboard.type('alguna');
+  assert(JSON.stringify(await visible(page)) === '["alguna-pregunta"]', 'search on mobile');
   await page.tap('.pg-search-clear');
-  assert((await visible(page)).length === 44, 'tap clear');
+  assert((await visible(page)).length === 31, 'tap clear');
 
   // Practice through touch, answering whatever Quiz.any produced
-  await press(page, '.pg-row[data-id="septimo"] .pg-practice-btn', true);
+  await press(page, '.pg-row[data-id="como"] .pg-practice-btn', true);
   await page.waitForSelector('.modal .quiz');
   assert(await noOverflow(page), 'modal fits (mobile)');
   await page.waitForTimeout(350);
@@ -362,16 +362,16 @@ async function mobile() {
   await answerCorrectly(page, true);
   await page.tap('.modal .quiz-actions .btn-primary');
   await modalGone(page);
-  assert((await dotsOn(page, 'septimo')) === 1, 'dots refreshed after touch practice');
-  await press(page, '.pg-row[data-id="septimo"] .pg-say', true);
+  assert((await dotsOn(page, 'como')) === 1, 'dots refreshed after touch practice');
+  await press(page, '.pg-row[data-id="como"] .pg-say', true);
 
   // Forced accent slip through touch on the typed widget
-  await openPractice(page, 'matematicas', 'typed');
+  await openPractice(page, 'que-deberia', 'typed');
   await page.tap('.modal .quiz input');
-  await page.keyboard.type('matematicas');
+  await page.keyboard.type('que deberia hacer');
   await page.tap('.modal .quiz-actions .btn-primary');
   await page.waitForSelector('.modal .quiz-feedback.accent');
-  assert((await page.textContent('.modal .quiz-feedback')).includes('matemáticas'), 'accent feedback on mobile');
+  assert((await page.textContent('.modal .quiz-feedback')).includes('qué debería hacer'), 'accent feedback on mobile');
   await page.tap('.modal .quiz-actions .btn-primary');
   await modalGone(page);
 
@@ -380,23 +380,23 @@ async function mobile() {
   await page.waitForTimeout(750);
   assert(await noOverflow(page), 'no horizontal overflow (mobile stats)');
   assert(await insideViewport(page, '.pg-overview, .pg-boxes, .pg-game, .pg-settings, .pg-catbar, .pg-trouble-row'), 'stats fit the 390px viewport');
-  assert((await page.locator('.pg-trouble .pg-trouble-row[data-id="matematicas"]').count()) === 1, 'accent trouble lists matemáticas');
+  assert((await page.locator('.pg-trouble .pg-trouble-row[data-id="que-deberia"]').count()) === 1, 'accent trouble lists matemáticas');
   await shot(page, 'mobile-stats', false);
   await shot(page, 'mobile-stats-full');
   const soundBefore = await page.evaluate(() => PQ.Sound.enabled());
   await press(page, '.pg-toggle-sound', true);
   assert((await page.evaluate(() => PQ.Sound.enabled())) === !soundBefore, 'tap sound toggle');
   await press(page, '.pg-toggle-sound', true);
-  await press(page, '.pg-focus .chip[data-cat="school"]', true);
-  assert(JSON.stringify(await page.evaluate(() => PQ.Settings.get('cats'))) === '["school"]', 'tap focus chip');
-  await press(page, '.pg-focus .chip[data-cat="school"]', true);
+  await press(page, '.pg-focus .chip[data-cat="random"]', true);
+  assert(JSON.stringify(await page.evaluate(() => PQ.Settings.get('cats'))) === '["random"]', 'tap focus chip');
+  await press(page, '.pg-focus .chip[data-cat="random"]', true);
   await press(page, '.pg-reset', true);
   await page.waitForSelector('.modal .pg-confirm');
   await page.waitForTimeout(350); // let the pop-in animation finish before the screenshot
   await shot(page, 'mobile-confirm', false);
   await page.tap('.pg-reset-confirm');
   await modalGone(page);
-  assert((await totals(page)).answers === 0 && (await page.evaluate(() => PQ.Progress.box('septimo'))) === 0, 'reset from mobile');
+  assert((await totals(page)).answers === 0 && (await page.evaluate(() => PQ.Progress.box('como'))) === 0, 'reset from mobile');
   assert((await page.locator('.pg-trouble .pg-empty-inline').count()) === 1, 'empty state after reset');
 
   assert(errors.length === 0, 'console errors (mobile): ' + errors.join('\n'));

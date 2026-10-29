@@ -16,11 +16,11 @@
   const { Vocab, Text, Progress, Settings, Quiz, QuizUI, UI, Sound, Speech, Games, Pages } = PQ;
 
   const TYPING_TIP = 'Typing tip: type a vowel or <b>n</b>, then press <span class="kbd">`</span> to add its accent (a → á, n → ñ). Every typing game also has an on-screen accent bar.';
-  const BOX_COLORS = ['#ff5c7a', '#ff8a5c', '#f6c453', '#a3e635', '#38d9c4', '#60a5fa'];
+  const BOX_COLORS = ['#ef3b4d', '#ff6a3d', '#ff8a2b', '#ffd23f', '#4da3ff', '#3b82f6'];
   const LEVEL_TITLES = ['Novato', 'Aprendiz', 'Estudiante', 'Explorador', 'Experto', 'Maestro', 'Leyenda'];
   const ALL_CAT = 'all';
   // Short chip labels keep the sticky toolbar to one row of chips; the full sheet title is in the chip's title / aria-label.
-  const SHORT_CAT = { school: 'School day', question: 'Question words', adjective: 'Adjectives', ordinal: 'Ordinals', useful: 'Useful words' };
+  const SHORT_CAT = { 'pronoun-s': 'Pronouns (singular)', 'pronoun-p': 'Pronouns (plural)', question: 'Question words', random: 'Random words' };
 
   /* ------------------------------------------------------------
      Page lifecycle

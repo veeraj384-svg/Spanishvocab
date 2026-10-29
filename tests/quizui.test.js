@@ -13,8 +13,8 @@ const { launch, assert, SITE } = require('./helpers');
   const results = () => page.evaluate(() => window.__r);
 
   // typed: Enter submits, feedback shown, second Enter continues exactly once
-  assert(await ask('facil', 'typed'), 'input focused synchronously');
-  await page.keyboard.type('fácil'); await page.keyboard.press('Enter'); await page.waitForTimeout(60);
+  assert(await ask('quizas', 'typed'), 'input focused synchronously');
+  await page.keyboard.type('quizás'); await page.keyboard.press('Enter'); await page.waitForTimeout(60);
   assert((await results()).length === 0, 'submitting Enter must not also continue');
   assert(await page.$('#m .quiz-feedback.ok'), 'correct feedback shown');
   assert(!(await page.$('#m .quiz-actions button:has-text("Check")')), 'Check button removed after grading');
@@ -22,21 +22,21 @@ const { launch, assert, SITE } = require('./helpers');
   assert(JSON.stringify(await results()) === '["correct"]', 'continue fires exactly once');
 
   // typed accent-only mistake → diff + correct spelling
-  await ask('dificil', 'typed');
-  await page.keyboard.type('dificil'); await page.keyboard.press('Enter'); await page.waitForTimeout(60);
+  await ask('despues', 'typed');
+  await page.keyboard.type('despues'); await page.keyboard.press('Enter'); await page.waitForTimeout(60);
   assert(await page.$('#m .quiz-feedback.accent'), 'accent feedback');
-  assert((await page.textContent('#m .quiz-feedback')).includes('difícil'), 'shows correct spelling');
+  assert((await page.textContent('#m .quiz-feedback')).includes('después'), 'shows correct spelling');
   assert(await page.$('#m .diff .d-accent'), 'diff highlights the accent');
   await page.click('#m .quiz-actions .btn-primary'); await page.waitForTimeout(30);
   assert(JSON.stringify(await results()) === '["accent"]', 'button continue');
 
   // typed wrong
-  await ask('horario', 'typed'); await page.keyboard.type('zzz'); await page.keyboard.press('Enter'); await page.waitForTimeout(60);
+  await ask('usted', 'typed'); await page.keyboard.type('zzz'); await page.keyboard.press('Enter'); await page.waitForTimeout(60);
   assert(await page.$('#m .quiz-feedback.bad'), 'wrong feedback');
-  assert((await page.textContent('#m .fb-answer')).includes('el horario'), 'shows canonical');
+  assert((await page.textContent('#m .fb-answer')).includes('usted'), 'shows canonical');
 
   // empty submit does nothing
-  await ask('horario', 'typed'); await page.keyboard.press('Enter'); await page.waitForTimeout(30);
+  await ask('usted', 'typed'); await page.keyboard.press('Enter'); await page.waitForTimeout(30);
   assert(!(await page.$('#m .quiz-feedback')), 'empty submit ignored');
 
   // hint
@@ -44,7 +44,7 @@ const { launch, assert, SITE } = require('./helpers');
   assert((await page.textContent('#m')).includes('Starts with'), 'hint shown');
 
   // choice via number key
-  await ask('ingles', 'choice');
+  await ask('cuando', 'choice');
   const correctIdx = await page.evaluate(() => window.__c.question.options.findIndex((o) => o.correct));
   await page.keyboard.press(String(correctIdx + 1)); await page.waitForTimeout(60);
   assert(await page.$('#m .quiz-option.is-correct'), 'choice correct');
@@ -53,21 +53,21 @@ const { launch, assert, SITE } = require('./helpers');
   assert(JSON.stringify(await results()) === '["correct"]', 'choice continue');
 
   // choice: accent trap counts as accent-only
-  await ask('ingles', 'choice');
-  const trapIdx = await page.evaluate(() => window.__c.question.options.findIndex((o) => !o.correct && window.PQ.Text.stripAccents(o.text) === 'ingles'));
+  await ask('cuando', 'choice');
+  const trapIdx = await page.evaluate(() => window.__c.question.options.findIndex((o) => !o.correct && window.PQ.Text.stripAccents(o.text) === 'cuando'));
   if (trapIdx >= 0) { await page.click(`#m .quiz-option[data-idx="${trapIdx}"]`); await page.waitForTimeout(30); assert(await page.$('#m .quiz-feedback.accent'), 'accent trap → accent status'); }
 
   // accent kind: toggle tiles, Enter confirms
-  await ask('tecnologia', 'accent');
+  await ask('quien', 'accent');
   const need = await page.evaluate(() => window.__c.question.needs);
   for (const i of need) await page.click(`#m .quiz-letter[data-idx="${i}"]`);
-  assert((await page.textContent('#m .quiz-letters')).includes('í'), 'tile shows accented letter');
+  assert((await page.textContent('#m .quiz-letters')).includes('é'), 'tile shows accented letter');
   await page.keyboard.press('Enter'); await page.waitForTimeout(60);
   assert(await page.$('#m .quiz-feedback.ok'), 'accent placement correct');
-  await ask('arte', 'accent');
+  await ask('ella', 'accent');
   await page.click('#m .quiz-actions button:has-text("No accents needed")'); await page.waitForTimeout(30);
   assert(await page.$('#m .quiz-feedback.ok'), 'no accents needed → correct');
-  await ask('frances', 'accent');
+  await ask('mayuscula', 'accent');
   await page.click('#m .quiz-actions button:has-text("No accents needed")'); await page.waitForTimeout(30);
   assert(await page.$('#m .quiz-feedback.accent') && (await page.$('#m .quiz-letter.is-missed')), 'missed accent marked');
 
@@ -82,7 +82,7 @@ const { launch, assert, SITE } = require('./helpers');
   assert(JSON.stringify(await results()) === '["correct"]', 'autoContinue');
 
   // re-ask in the same mount destroys the previous controller; destroy() removes listeners
-  const destroyed = await page.evaluate(() => { const prev = window.__c; window.PQ.QuizUI.ask(window.PQ.Quiz.typed(window.PQ.Vocab.byId('util')), { mount: document.getElementById('m') }); return prev.destroyed; });
+  const destroyed = await page.evaluate(() => { const prev = window.__c; window.PQ.QuizUI.ask(window.PQ.Quiz.typed(window.PQ.Vocab.byId('termine')), { mount: document.getElementById('m') }); return prev.destroyed; });
   assert(destroyed, 'previous widget destroyed on re-ask');
   await page.evaluate(() => { document.getElementById('m')._pqQuiz.destroy(); });
   assert(await page.evaluate(() => document.getElementById('m').children.length === 0), 'destroy removes widget');
@@ -97,13 +97,13 @@ const { launch, assert, SITE } = require('./helpers');
   assert(await page.evaluate(() => document.getElementById('ab').value === 'espanolá' && document.activeElement.id === 'ab'), 'accent key inserts and keeps focus');
 
   // progress recorded exactly once per answer
-  const n = await page.evaluate(() => window.PQ.Progress.word('facil').n);
+  const n = await page.evaluate(() => window.PQ.Progress.word('quizas').n);
   assert(n === 1, 'facil recorded once, got ' + n);
 
   // the Enter keystroke that creates a question never confirms it; a fresh Enter does
   await page.evaluate(() => {
     window.__r = [];
-    window.addEventListener('keydown', function once(e) { if (e.key === 'Enter') { window.removeEventListener('keydown', once, true); window.__c = window.PQ.QuizUI.ask(window.PQ.Quiz.accent(window.PQ.Vocab.byId('frances')), { mount: document.getElementById('m'), onAnswer: (r) => window.__r.push(r.status) }); } }, true);
+    window.addEventListener('keydown', function once(e) { if (e.key === 'Enter') { window.removeEventListener('keydown', once, true); window.__c = window.PQ.QuizUI.ask(window.PQ.Quiz.accent(window.PQ.Vocab.byId('mayuscula')), { mount: document.getElementById('m'), onAnswer: (r) => window.__r.push(r.status) }); } }, true);
   });
   await page.keyboard.press('Enter'); await page.waitForTimeout(80);
   assert(await page.evaluate(() => window.__r.length === 0 && !document.querySelector('#m .quiz-feedback')), 'stale Enter ignored by a new question');
@@ -111,13 +111,13 @@ const { launch, assert, SITE } = require('./helpers');
   assert(await page.evaluate(() => window.__r.length === 1), 'fresh Enter confirms');
 
   // a dialog on top: focus moves into it (even if opened right after the question), nothing is graded behind it, focus comes back on close
-  await page.evaluate(() => { window.__r = []; window.__c = window.PQ.QuizUI.ask(window.PQ.Quiz.typed(window.PQ.Vocab.byId('facil')), { mount: document.getElementById('m'), onAnswer: (r) => window.__r.push(r.status) }); window.__modal = window.PQ.UI.modal({ title: 'Quit?', content: window.PQ.UI.h('p', null, 'sure?') }); });
+  await page.evaluate(() => { window.__r = []; window.__c = window.PQ.QuizUI.ask(window.PQ.Quiz.typed(window.PQ.Vocab.byId('quizas')), { mount: document.getElementById('m'), onAnswer: (r) => window.__r.push(r.status) }); window.__modal = window.PQ.UI.modal({ title: 'Quit?', content: window.PQ.UI.h('p', null, 'sure?') }); });
   await page.waitForTimeout(80);
   assert(await page.evaluate(() => document.querySelector('.modal-backdrop').contains(document.activeElement)), 'focus moved into the dialog');
   // (ASCII only: Playwright inserts non-keyboard characters like á through an IME path that ignores focus)
-  await page.keyboard.type('facil'); await page.keyboard.press('Enter'); await page.waitForTimeout(60);
+  await page.keyboard.type('quizas'); await page.keyboard.press('Enter'); await page.waitForTimeout(60);
   assert(await page.evaluate(() => window.__r.length === 0 && document.querySelector('#m input').value === ''), 'keystrokes do not reach the question behind a dialog');
-  assert(await page.evaluate(() => { document.querySelector('#m input').value = 'fácil'; window.__c.submit(); return window.__r.length === 0; }), 'submit() is blocked behind a dialog');
+  assert(await page.evaluate(() => { document.querySelector('#m input').value = 'quizás'; window.__c.submit(); return window.__r.length === 0; }), 'submit() is blocked behind a dialog');
   await page.evaluate(() => window.__modal.close()); await page.waitForTimeout(150); // restore happens on the next frame
   assert(await page.evaluate(() => document.activeElement === document.querySelector('#m input')), 'focus restored to the input when the dialog closes');
   await page.keyboard.press('Enter'); await page.waitForTimeout(60);
@@ -146,11 +146,11 @@ const { launch, assert, SITE } = require('./helpers');
   // time in a hidden tab is not counted as thinking time
   const elapsed = await page.evaluate(async () => {
     const m = document.getElementById('m'); let res = null;
-    const c = window.PQ.QuizUI.ask(window.PQ.Quiz.typed(window.PQ.Vocab.byId('util')), { mount: m, onAnswer: (r) => { res = r; } });
+    const c = window.PQ.QuizUI.ask(window.PQ.Quiz.typed(window.PQ.Vocab.byId('termine')), { mount: m, onAnswer: (r) => { res = r; } });
     Object.defineProperty(document, 'hidden', { configurable: true, get: () => true }); document.dispatchEvent(new Event('visibilitychange'));
     await new Promise((r) => setTimeout(r, 350));
     Object.defineProperty(document, 'hidden', { configurable: true, get: () => false }); document.dispatchEvent(new Event('visibilitychange'));
-    m.querySelector('input').value = 'útil'; c.submit(); delete document.hidden; return res.elapsed;
+    m.querySelector('input').value = 'terminé'; c.submit(); delete document.hidden; return res.elapsed;
   });
   assert(elapsed < 0.25, 'hidden time excluded from elapsed, got ' + elapsed);
 

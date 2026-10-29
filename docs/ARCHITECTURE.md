@@ -10,7 +10,7 @@ index.html              shell: header, <main id="app">, loads every css/js file 
 css/styles.css          design tokens + shared components (DO NOT edit from a game module)
 css/pages.css           Words + Progress pages
 css/games/<id>.css      one stylesheet per game, every selector prefixed with .g-<id>
-js/data.js              window.VOCAB (44 entries), VOCAB_CATEGORIES, VOCAB_META  (never edit)
+js/data.js              window.VOCAB (31 entries), VOCAB_CATEGORIES, VOCAB_META  (never edit)
 js/core.js              engine: Text, Vocab, Progress, Settings, Quiz, QuizUI, UI, Sound, Speech, Games, Pages, Router
 js/pages.js             registers the 'words' and 'stats' pages
 js/games/<id>.js        one game per file; registers itself with PQ.Games.register(...)
@@ -25,10 +25,10 @@ tests/run-all.js        runs every test file in order
 ```js
 { id, es, base, en, cat, answers: [canonical, ...alternates], forms?: {m, f}, note? }
 ```
-* `es` – display form exactly as on the sheet (e.g. `"¿Cuál?"`, `"aburrido, aburrida"`).
-* `base` – single canonical spelling used by accent games (`"cuál"`, `"aburrido"`).
+* `es` – display form exactly as on the sheet (e.g. `"¿Cuál?"`, `"¿Cuántos, cuántas?"`).
+* `base` – single canonical spelling used by accent games (`"cuál"`, `"cuántos"`).
 * `answers` – accepted normalized spellings (lowercase, no ¿?¡!).
-* Categories: `school`, `question`, `adjective`, `ordinal`, `useful` (see `PQ.Vocab.categories()`).
+* Categories: `pronoun-s`, `pronoun-p`, `question`, `random` (see `PQ.Vocab.categories()`).
 
 **Only ever quiz words from this list. Never invent vocabulary.**
 

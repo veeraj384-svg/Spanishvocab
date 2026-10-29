@@ -73,18 +73,18 @@ const entry = (id) => VOCAB.find((e) => e.id === id);
       // Freeze the fall so the test controls every impact, and keep one meteor on screen
       // so the wave cannot clear itself before the explicit wave-clear step below.
       await dbg(page, () => PQ.debug.blaster.freeze(true));
-      const blocker = await spawn(page, 'arte');
+      const blocker = await spawn(page, 'ella');
 
       // ---- accent-only mistake, then the fix ----
-      const fr = await spawn(page, 'frances');
-      const w0 = await word(page, 'frances');
-      await typeAnswer(page, 'frances');
+      const fr = await spawn(page, 'mayuscula');
+      const w0 = await word(page, 'mayuscula');
+      await typeAnswer(page, 'mayuscula');
       let list = await meteors(page);
       let m = list.find((x) => x.id === fr.id);
-      assert(m && m.cracked && m.reveal === 'francés', 'accent slip cracks the meteor and reveals the spelling: ' + JSON.stringify(m));
+      assert(m && m.cracked && m.reveal === 'mayúscula', 'accent slip cracks the meteor and reveals the spelling: ' + JSON.stringify(m));
       assert(typeof m.crackAge === 'number' && m.crackAge >= 0 && m.crackAge < 0.5, 'crack flash just started: ' + m.crackAge);
       assert(await page.$eval('.g-blaster-fire', (el) => el.classList.contains('is-firing')), 'Fire button kicks on submit');
-      const w1 = await word(page, 'frances');
+      const w1 = await word(page, 'mayuscula');
       assert(w1.acc === w0.acc + 1 && w1.n === w0.n + 1, 'accent slip recorded once');
       const sm = await dbg(page, (id) => PQ.debug.blaster.state.meteors.find((x) => x.id === id).speedMult, fr.id);
       assert(sm === 0.4, 'cracked meteor slowed to 40%');
@@ -96,14 +96,14 @@ const entry = (id) => VOCAB.find((e) => e.id === id);
       assert(vis.stageTop >= vis.headerBottom && vis.hudTop >= vis.headerBottom - 12 && vis.inputBottom <= vis.vh, 'typing keeps HUD, sky and input on screen at 800px tall: ' + JSON.stringify(vis));
       await shot(page, 'blaster-cracked.png');
       // a second slip on the same meteor must not record again
-      await typeAnswer(page, 'frances');
-      const w1b = await word(page, 'frances');
+      await typeAnswer(page, 'mayuscula');
+      const w1b = await word(page, 'mayuscula');
       assert(w1b.n === w1.n, 'same meteor is never recorded twice (second slip)');
       const score0 = await dbg(page, () => PQ.debug.blaster.state.score);
-      await typeAnswer(page, 'francés');
+      await typeAnswer(page, 'mayúscula');
       list = await meteors(page);
       assert(!list.find((x) => x.id === fr.id), 'correct spelling destroys the cracked meteor');
-      const w2 = await word(page, 'frances');
+      const w2 = await word(page, 'mayuscula');
       assert(w2.n === w1.n && w2.ok === w1.ok, 'destroying an already-recorded meteor does not record again');
       const score1 = await dbg(page, () => PQ.debug.blaster.state.score);
       assert(score1 > score0, 'destroy scores points: ' + score0 + ' → ' + score1);
@@ -126,18 +126,18 @@ const entry = (id) => VOCAB.find((e) => e.id === id);
       assert(!list.find((x) => x.id === cu.id), '¿Cuál? destroys the meteor');
 
       // ---- correct answer (fresh meteor) with the backtick accent trick ----
-      const es = await spawn(page, 'espanol');
-      const e0 = await word(page, 'espanol');
+      const es = await spawn(page, 'donde');
+      const e0 = await word(page, 'donde');
       const sc0 = await dbg(page, () => PQ.debug.blaster.state.score);
-      await page.keyboard.type('espan');
+      await page.keyboard.type('do');
       await page.keyboard.press('`');
-      await page.keyboard.type('ol');
-      assert(await page.$eval('.g-blaster-input', (el) => el.value === 'español'), 'backtick accent trick works in the input');
+      await page.keyboard.type('nde');
+      assert(await page.$eval('.g-blaster-input', (el) => el.value === 'dónde'), 'backtick accent trick works in the input');
       await page.keyboard.press('Enter');
       await page.waitForTimeout(60);
       list = await meteors(page);
       assert(!list.find((x) => x.id === es.id), 'correct answer destroys the meteor');
-      const e1 = await word(page, 'espanol');
+      const e1 = await word(page, 'donde');
       assert(e1.ok === e0.ok + 1 && e1.n === e0.n + 1, 'correct recorded once');
       const sc1 = await dbg(page, () => PQ.debug.blaster.state.score);
       assert(sc1 - sc0 >= 100, 'full points for a fresh meteor: +' + (sc1 - sc0));
@@ -145,8 +145,8 @@ const entry = (id) => VOCAB.find((e) => e.id === id);
       assert(await dbg(page, () => PQ.debug.blaster.state.lasers.length + PQ.debug.blaster.state.particles.length) > 0, 'laser + explosion effects spawned');
 
       // gendered entries accept either form
-      const fav = await spawn(page, 'favorito');
-      await typeAnswer(page, 'favorita');
+      const fav = await spawn(page, 'cuantos');
+      await typeAnswer(page, 'cuántas');
       list = await meteors(page);
       assert(!list.find((x) => x.id === fav.id), 'feminine form accepted');
 
@@ -156,20 +156,20 @@ const entry = (id) => VOCAB.find((e) => e.id === id);
       assert(await mode(page) === 'play', 'empty submit ignored');
 
       // ---- a meteor reaching the city ----
-      assert((await dbg(page, () => PQ.debug.blaster.spawn('hora-de'))).label === 'in the … (class period) hour', 'desktop keeps the full English label');
-      await dbg(page, () => PQ.debug.blaster.submit('en la hora de'));
-      const di = await spawn(page, 'dificil');
-      const d0 = await word(page, 'dificil');
+      assert((await dbg(page, () => PQ.debug.blaster.spawn('ustedes'))).label === 'you (two or more people)', 'desktop keeps the full English label');
+      await dbg(page, () => PQ.debug.blaster.submit('ustedes'));
+      const di = await spawn(page, 'despues');
+      const d0 = await word(page, 'despues');
       await dbg(page, (id) => PQ.debug.blaster.drop(id), di.id);
       await page.waitForTimeout(150);
       const after = await dbg(page, () => { const s = PQ.debug.blaster.state; return { lives: s.lives, combo: s.combo, missed: s.missed.map((e) => e.id), flash: s.flash }; });
       assert(after.lives === 2, 'city hit costs a life: ' + JSON.stringify(after));
-      assert(after.combo === 0 && after.missed.includes('dificil'), 'combo reset and word listed as missed');
+      assert(after.combo === 0 && after.missed.includes('despues'), 'combo reset and word listed as missed');
       assert(after.flash > 0, 'screen flash on a city hit');
-      const d1 = await word(page, 'dificil');
+      const d1 = await word(page, 'despues');
       assert(d1.wrong === d0.wrong + 1 && d1.n === d0.n + 1, 'city hit recorded as wrong');
       const msg = await page.$eval('.g-blaster-hudmsg', (el) => ({ on: el.classList.contains('is-on'), es: el.querySelector('.g-blaster-hudmsg-es').textContent, en: el.querySelector('.g-blaster-hudmsg-en').textContent, speak: !!el.querySelector('.g-blaster-hudmsg-speak') }));
-      assert(msg.on && msg.es === 'difícil' && msg.en === 'difficult' && msg.speak, 'HUD shows the correct spelling with a speaker: ' + JSON.stringify(msg));
+      assert(msg.on && msg.es === 'después' && msg.en === 'after' && msg.speak, 'HUD shows the correct spelling with a speaker: ' + JSON.stringify(msg));
       const hearts = await page.$$eval('.g-blaster-heart', (els) => els.map((e) => e.classList.contains('is-off')));
       assert(JSON.stringify(hearts) === '[false,false,true]', 'hearts show 2 lives');
       await shot(page, 'blaster-hit.png');
@@ -198,7 +198,7 @@ const entry = (id) => VOCAB.find((e) => e.id === id);
       await page.waitForFunction(() => PQ.debug.blaster.state.phase === 'banner' && PQ.debug.blaster.state.wave === 1, null, { timeout: 4000 });
       const banner = await page.$eval('.g-blaster-banner', (el) => ({ on: el.classList.contains('is-on'), title: el.querySelector('.g-blaster-banner-title').textContent, list: Array.from(el.querySelectorAll('.g-blaster-banner-list span')).map((s) => s.textContent) }));
       assert(banner.on && banner.title === 'Wave 1 cleared', 'wave cleared banner: ' + JSON.stringify(banner));
-      assert(banner.list.some((t) => t.includes('difficult') && t.includes('difícil')), 'banner lists the missed word with its spelling');
+      assert(banner.list.some((t) => t.includes('after') && t.includes('después')), 'banner lists the missed word with its spelling');
       const pill = await page.evaluate(() => { const pills = document.querySelectorAll('.g-blaster-banner-list > span'); const ac = document.querySelector('.g-blaster-banner-list .accent-char'); return { pills: pills.length, acBorder: ac ? getComputedStyle(ac).borderTopWidth : null, acPad: ac ? getComputedStyle(ac).paddingLeft : null }; });
       assert(pill.pills === 1 && pill.acBorder === '0px' && pill.acPad === '0px', 'exactly one pill per missed word, accent letter styled inline: ' + JSON.stringify(pill));
       await shot(page, 'blaster-wave-cleared.png');
@@ -211,8 +211,8 @@ const entry = (id) => VOCAB.find((e) => e.id === id);
       assert(vy2 >= (1 / 20) * 0.88 - 1e-6, 'wave 2 meteors use the wave-2 fall time: ' + vy2);
       // Bring a few meteors into view (frozen) for the visual check, one of them cracked
       await spawn(page, 'cuantos');
-      await spawn(page, 'septimo');
-      await dbg(page, () => PQ.debug.blaster.submit('septimo'));
+      await spawn(page, 'como');
+      await dbg(page, () => PQ.debug.blaster.submit('como'));
       await dbg(page, () => { PQ.debug.blaster.state.meteors.forEach((m, i) => { m.fy = 0.2 + i * 0.22; }); });
       await page.waitForTimeout(120);
       await shot(page, 'blaster-play.png');
@@ -262,17 +262,17 @@ const entry = (id) => VOCAB.find((e) => e.id === id);
       // ---- game over ----
       await dbg(page, () => PQ.debug.blaster.setLives(1));
       const scoreFinal = await dbg(page, () => PQ.debug.blaster.state.score);
-      const ut = await spawn(page, 'util');
-      const te = await spawn(page, 'tengo');
-      const u0 = await word(page, 'util');
-      // both land in the same frame: 'tengo' (processed first) takes the last life, 'util' must burst harmlessly
+      const ut = await spawn(page, 'termine');
+      const te = await spawn(page, 'de-nada');
+      const u0 = await word(page, 'termine');
+      // both land in the same frame: 'de-nada' (processed first) takes the last life, 'termine' must burst harmlessly
       await dbg(page, (ids) => { PQ.debug.blaster.drop(ids[0]); PQ.debug.blaster.drop(ids[1]); }, [ut.id, te.id]);
       await page.waitForTimeout(120);
       assert(await mode(page) === 'ending', 'last life → ending');
       const endSt = await dbg(page, (ids) => { const s = PQ.debug.blaster.state; return { lives: s.lives, missed: s.missed.map((e) => e.id), landed: s.meteors.filter((m) => ids.includes(m.id)).length }; }, [ut.id, te.id]);
       assert(endSt.lives === 0 && endSt.landed === 0, 'lives never go below zero and both meteors are gone: ' + JSON.stringify(endSt));
-      assert(endSt.missed.includes('tengo') && !endSt.missed.includes('util'), 'only the meteor that ended the run counts as missed: ' + JSON.stringify(endSt));
-      assert((await word(page, 'util')).n === u0.n, 'a meteor landing after the run ended records nothing');
+      assert(endSt.missed.includes('de-nada') && !endSt.missed.includes('termine'), 'only the meteor that ended the run counts as missed: ' + JSON.stringify(endSt));
+      assert((await word(page, 'termine')).n === u0.n, 'a meteor landing after the run ended records nothing');
       await page.waitForSelector('.g-blaster-over', { timeout: 3000 });
       assert(await mode(page) === 'over', 'game over mode');
       const over = await page.$eval('.g-blaster-over', (el) => ({
@@ -285,7 +285,7 @@ const entry = (id) => VOCAB.find((e) => e.id === id);
       }));
       assert(over.big.replace(/,/g, '') === String(scoreFinal), 'final score shown: ' + over.big);
       assert(over.stats.some((s) => s.startsWith('Wave=2')) && over.stats.some((s) => s.startsWith('Destroyed=')) && over.stats.some((s) => /^Accuracy=\d+%$/.test(s)), 'stats grid: ' + over.stats.join(', '));
-      assert(over.missed.includes('difficult|difícil') && over.missed.includes('I have|yo tengo'), 'missed list with correct spellings: ' + over.missed.join(', '));
+      assert(over.missed.includes('after|después') && over.missed.includes("You're welcome|de nada"), 'missed list with correct spellings: ' + over.missed.join(', '));
       assert(over.newBest && over.retry && over.home, 'new best + retry/home buttons');
       const best = await dbg(page, () => PQ.Progress.gameStats('blaster'));
       assert(best.best === scoreFinal && best.wave === 2 && best.plays === 1, 'best saved with wave: ' + JSON.stringify(best));
@@ -338,7 +338,7 @@ const entry = (id) => VOCAB.find((e) => e.id === id);
 
   // ================= MOBILE 390px, touch =================
   {
-    const { browser, page, errors } = await launch({ viewport: { width: 390, height: 844 }, touch: true, mobile: true });
+    const { browser, page, errors } = await launch({ viewport: { width: 390, height: 831 }, touch: true, mobile: true });
     try {
       await page.goto(SITE + '#/play/blaster');
       await page.waitForSelector('.g-blaster canvas');
@@ -374,32 +374,32 @@ const entry = (id) => VOCAB.find((e) => e.id === id);
       await page.evaluate(() => { PQ.debug.blaster.dom.input.value = ''; });
 
       // type an answer with the keyboard and fire with the touch button
-      const ing = await spawn(page, 'ingles');
-      await page.keyboard.type('ingles');
+      const ing = await spawn(page, 'cuando');
+      await page.keyboard.type('cuando');
       const fb = await (await page.$('.g-blaster-fire')).boundingBox();
       await page.touchscreen.tap(fb.x + fb.width / 2, fb.y + fb.height / 2);
       await page.waitForTimeout(60);
       let ms = await meteors(page);
       let mm = ms.find((x) => x.id === ing.id);
-      assert(mm && mm.cracked && mm.reveal === 'inglés', 'mobile accent slip cracks the meteor');
+      assert(mm && mm.cracked && mm.reveal === 'cuándo', 'mobile accent slip cracks the meteor');
       await shot(page, 'blaster-mobile-play.png');
-      await page.keyboard.type('inglés');
+      await page.keyboard.type('cuándo');
       await page.touchscreen.tap(fb.x + fb.width / 2, fb.y + fb.height / 2);
       await page.waitForTimeout(60);
       ms = await meteors(page);
       assert(!ms.find((x) => x.id === ing.id), 'mobile fire button destroys the meteor');
       // label pills stay inside the canvas on narrow screens
-      const widest = await spawn(page, 'hora-de');
-      assert(widest && widest.label === 'in the … hour', 'narrow canvas drops the parenthetical note from the label: ' + JSON.stringify(widest.label));
+      const widest = await spawn(page, 'ustedes');
+      assert(widest && widest.label === 'you', 'narrow canvas drops the parenthetical note from the label: ' + JSON.stringify(widest.label));
       await page.waitForTimeout(100);
       await shot(page, 'blaster-mobile-long-label.png');
       const wrongR = await dbg(page, () => PQ.debug.blaster.submit('nope'));
       assert(wrongR.status === 'wrong', 'mobile wrong answer');
-      const oc = await spawn(page, 'octavo');
+      const oc = await spawn(page, 'ellos');
       await dbg(page, (id) => { PQ.debug.blaster.state.score = 12345; PQ.debug.blaster.drop(id); }, oc.id);
       await page.waitForTimeout(150);
       const mmsg = await page.$eval('.g-blaster-hudmsg', (el) => ({ on: el.classList.contains('is-on'), es: el.querySelector('.g-blaster-hudmsg-es').textContent }));
-      assert(mmsg.on && mmsg.es === 'octavo', 'mobile HUD teaching moment: ' + JSON.stringify(mmsg));
+      assert(mmsg.on && mmsg.es === 'ellos', 'mobile HUD teaching moment: ' + JSON.stringify(mmsg));
       await oneRow('with a 5-digit score and the teaching row');
       assert(await noOverflow(page), 'no overflow with the HUD message');
       await shot(page, 'blaster-mobile-hit.png');

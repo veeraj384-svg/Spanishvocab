@@ -407,8 +407,6 @@
       if (entry.forms && gender) {
         canonical = entry.forms[gender];
         accepted = [canonical];
-        if (gender === 'm' && entry.answers.includes('primer')) accepted.push('primer');
-        if (gender === 'm' && entry.answers.includes('tercer')) accepted.push('tercer');
         sub = gender === 'm' ? 'masculine form' : 'feminine form';
       } else if (entry.forms) {
         sub = 'either form is fine';
@@ -635,7 +633,7 @@
       canvas.width = window.innerWidth * dpr; canvas.height = window.innerHeight * dpr;
       canvas.style.width = window.innerWidth + 'px'; canvas.style.height = window.innerHeight + 'px';
       ctx.scale(dpr, dpr);
-      const colors = ['#f6c453', '#f28d35', '#38d9c4', '#a78bfa', '#ff5c7a', '#a3e635', '#60a5fa'];
+      const colors = ['#ff8a2b', '#f25f1c', '#4da3ff', '#ffd23f', '#ef3b4d', '#ffd23f', '#3b82f6'];
       const n = opts.count || 120;
       const ox = opts.x == null ? window.innerWidth / 2 : opts.x, oy = opts.y == null ? window.innerHeight * 0.4 : opts.y;
       const ps = Array.from({ length: n }, () => {
@@ -668,7 +666,7 @@
       size = size || 120;
       const r = 50, c = 2 * Math.PI * r;
       const el = UI.h('div.ring', { style: { width: size + 'px', height: size + 'px' } });
-      el.innerHTML = '<svg viewBox="0 0 120 120"><defs><linearGradient id="ringGrad" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f6c453"/><stop offset="1" stop-color="#38d9c4"/></linearGradient></defs>' +
+      el.innerHTML = '<svg viewBox="0 0 120 120"><defs><linearGradient id="ringGrad" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ff8a2b"/><stop offset="1" stop-color="#4da3ff"/></linearGradient></defs>' +
         '<circle class="ring-bg" cx="60" cy="60" r="' + r + '"/><circle class="ring-fg" cx="60" cy="60" r="' + r + '" stroke-dasharray="' + c + '" stroke-dashoffset="' + (c * (1 - Math.max(0, Math.min(1, frac)))) + '"/></svg>' +
         '<div class="ring-label">' + Text.esc(label == null ? Math.round(frac * 100) + '%' : label) + '</div>';
       return el;

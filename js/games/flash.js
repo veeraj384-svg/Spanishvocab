@@ -49,7 +49,7 @@
     review:   { id: 'review',   name: 'Review again', icon: '🔁', accent: 'var(--c-mint)',  key: '',  desc: 'Only the cards you rated "Again".' },
   };
   // Short category labels for chips (the sheet titles are long sentences).
-  const CAT_SHORT = { school: 'School day', question: 'Question words', adjective: 'Adjectives', ordinal: 'Ordinals', useful: 'Useful words' };
+  const CAT_SHORT = { 'pronoun-s': 'Pronouns (singular)', 'pronoun-p': 'Pronouns (plural)', question: 'Question words', random: 'Random words' };
 
   /* ------------------------------------------------------------
      Module state

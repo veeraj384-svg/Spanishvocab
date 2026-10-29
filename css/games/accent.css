@@ -91,7 +91,7 @@
   font-family: var(--font-display); font-weight: 800; font-size: 0.85rem; line-height: 1.2; color: var(--c-mint);
   animation: g-accent-hudfloat 1.2s var(--ease) both;
 }
-.g-accent-hudfloat.is-time { color: var(--c-mint); border-color: rgba(56,217,196,0.5); }
+.g-accent-hudfloat.is-time { color: var(--c-mint); border-color: rgba(77,163,255,0.5); }
 .g-accent-hudfloat.is-combo { color: #1a1200; background: var(--grad-primary); border-color: transparent; box-shadow: var(--glow-amber); }
 .g-accent-time.is-bonus { animation: g-accent-bonus 0.6s var(--ease-bounce); }
 .g-accent-scorewrap .val { display: inline-block; min-width: 2ch; }
@@ -109,7 +109,7 @@
 .g-accent-combo.is-on .g-accent-combo-n::before { filter: none; opacity: 1; }
 .g-accent-combo.is-x2 { background: var(--grad-primary); box-shadow: var(--glow-amber); }
 .g-accent-combo.is-x3 { background: var(--grad-rose); color: #fff; box-shadow: var(--glow-rose); animation: g-accent-glow 1.2s ease-in-out infinite; }
-.g-accent-combo.is-x4 { background: var(--grad-lav); color: #fff; box-shadow: 0 0 0 1px rgba(167,139,250,0.5), 0 8px 30px rgba(167,139,250,0.5); animation: g-accent-glow 0.8s ease-in-out infinite; }
+.g-accent-combo.is-x4 { background: var(--grad-lav); color: #fff; box-shadow: 0 0 0 1px rgba(255,210,63,0.5), 0 8px 30px rgba(255,210,63,0.5); animation: g-accent-glow 0.8s ease-in-out infinite; }
 .g-accent-combo.is-pop { animation: g-accent-pop 0.55s var(--ease-bounce); }
 .g-accent-time { min-width: 3ch; text-align: right; font-variant-numeric: tabular-nums; transition: color var(--t-med); }
 .g-accent-time.is-low { color: var(--c-rose); }
@@ -121,16 +121,16 @@
 }
 .g-accent-timer-fill {
   height: 100%; width: 100%; transform-origin: left center; border-radius: inherit;
-  background: linear-gradient(90deg, var(--c-mint), var(--c-lav) 55%, var(--c-amber)); box-shadow: 0 0 14px rgba(167,139,250,0.5);
+  background: linear-gradient(90deg, var(--c-mint), var(--c-lav) 55%, var(--c-amber)); box-shadow: 0 0 14px rgba(255,210,63,0.5);
   transition: background var(--t-med), box-shadow var(--t-med);
 }
 .g-accent-timer::after {
   content: ''; position: absolute; inset: 0; pointer-events: none;
   background: repeating-linear-gradient(90deg, transparent 0 calc(100% / 6 - 2px), rgba(0,0,0,0.3) calc(100% / 6 - 2px) calc(100% / 6));
 }
-.g-accent-timer.is-low { border-color: rgba(255,92,122,0.6); box-shadow: 0 0 18px rgba(255,92,122,0.35); }
-.g-accent-timer.is-low .g-accent-timer-fill { background: var(--grad-rose); box-shadow: 0 0 16px rgba(255,92,122,0.7); animation: pulse 0.6s ease-in-out infinite; }
-.g-accent-progress .bar-fill { transition: width var(--t-slow) var(--ease); box-shadow: 0 0 12px rgba(167,139,250,0.45); }
+.g-accent-timer.is-low { border-color: rgba(239,59,77,0.6); box-shadow: 0 0 18px rgba(239,59,77,0.35); }
+.g-accent-timer.is-low .g-accent-timer-fill { background: var(--grad-rose); box-shadow: 0 0 16px rgba(239,59,77,0.7); animation: pulse 0.6s ease-in-out infinite; }
+.g-accent-progress .bar-fill { transition: width var(--t-slow) var(--ease); box-shadow: 0 0 12px rgba(255,210,63,0.45); }
 
 /* ---------- Round: stage ---------- */
 .g-accent-stage { position: relative; min-height: 380px; padding: var(--sp-8); overflow: hidden; overflow: clip; }
@@ -154,9 +154,9 @@
 .g-accent-mount .quiz[data-kind="choice"] .quiz-prompt { font-size: clamp(1.6rem, 4vw, 2.4rem); animation: g-accent-wordpop 0.6s var(--ease-bounce) both; }
 .g-accent-mount .quiz-letters { gap: 10px; }
 .g-accent-mount .quiz-letter { width: 56px; height: 66px; font-size: 1.75rem; }
-.g-accent-mount .quiz-letter.is-on { background: rgba(167,139,250,0.22); border-color: var(--c-lav); color: #fff; box-shadow: 0 0 16px rgba(167,139,250,0.35); transform: translateY(-3px); }
+.g-accent-mount .quiz-letter.is-on { background: rgba(255,210,63,0.22); border-color: var(--c-lav); color: #fff; box-shadow: 0 0 16px rgba(255,210,63,0.35); transform: translateY(-3px); }
 .g-accent-mount .quiz-letter.g-accent-cursor {
-  outline: 2px solid var(--accent); outline-offset: 3px; box-shadow: 0 0 18px rgba(167,139,250,0.45); transform: translateY(-3px);
+  outline: 2px solid var(--accent); outline-offset: 3px; box-shadow: 0 0 18px rgba(255,210,63,0.45); transform: translateY(-3px);
 }
 .g-accent-mount .quiz-letter.g-accent-cursor::after {
   content: ''; position: absolute; left: 50%; bottom: -12px; width: 6px; height: 6px; border-radius: 50%; background: var(--accent);
@@ -174,11 +174,11 @@
 .g-accent-float {
   position: absolute; transform: translate(-50%, -100%); pointer-events: none; white-space: nowrap;
   font-family: var(--font-display); font-weight: 900; font-size: 1.9rem; line-height: 1; letter-spacing: -0.01em;
-  color: var(--c-amber); text-shadow: 0 2px 18px rgba(246,196,83,0.55);
+  color: var(--c-amber); text-shadow: 0 2px 18px rgba(255,138,43,0.55);
   animation: g-accent-float 1.3s var(--ease) both;
 }
-.g-accent-float.is-ok { color: var(--c-mint); text-shadow: 0 2px 18px rgba(56,217,196,0.55); }
-.g-accent-float.is-bad { color: var(--c-rose); text-shadow: 0 2px 18px rgba(255,92,122,0.5); font-size: 1.4rem; animation-name: g-accent-float-bad; }
+.g-accent-float.is-ok { color: var(--c-mint); text-shadow: 0 2px 18px rgba(77,163,255,0.55); }
+.g-accent-float.is-bad { color: var(--c-rose); text-shadow: 0 2px 18px rgba(239,59,77,0.5); font-size: 1.4rem; animation-name: g-accent-float-bad; }
 .g-accent-float.is-go { font-size: 2.6rem; background: var(--grad-text); -webkit-background-clip: text; background-clip: text; color: transparent; text-shadow: none; animation: g-accent-go 1.3s var(--ease) both; }
 .g-accent-spark {
   position: absolute; width: 8px; height: 8px; border-radius: 50%; pointer-events: none;
@@ -199,7 +199,7 @@
 .g-accent-final-label { color: var(--muted); font-weight: 600; }
 .g-accent-newbest {
   display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; border-radius: 999px; margin-top: 4px;
-  background: rgba(246,196,83,0.15); border: 1px solid rgba(246,196,83,0.5); color: var(--c-amber); font-weight: 800; box-shadow: var(--glow-amber);
+  background: rgba(255,138,43,0.15); border: 1px solid rgba(255,138,43,0.5); color: var(--c-amber); font-weight: 800; box-shadow: var(--glow-amber);
 }
 .g-accent-end .stat-grid { text-align: center; }
 .g-accent-missed-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-top: var(--sp-4); text-align: left; }
@@ -216,8 +216,8 @@
 .g-accent-end .g-accent-say { width: 44px; height: 44px; flex-shrink: 0; font-size: 1.1rem; border-radius: 12px; background: var(--surface-2); border: 1px solid var(--border); }
 .g-accent-end .g-accent-say:hover { background: var(--surface-3); border-color: var(--border-strong); }
 .g-accent-miss-typed s { color: var(--c-rose); text-decoration-thickness: 2px; }
-.g-accent-miss-tag { padding: 3px 9px; border-radius: 999px; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; background: rgba(246,196,83,0.15); color: var(--c-amber); border: 1px solid rgba(246,196,83,0.4); }
-.g-accent-miss[data-status="wrong"] .g-accent-miss-tag { background: rgba(255,92,122,0.15); color: var(--c-rose); border-color: rgba(255,92,122,0.4); }
+.g-accent-miss-tag { padding: 3px 9px; border-radius: 999px; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; background: rgba(255,138,43,0.15); color: var(--c-amber); border: 1px solid rgba(255,138,43,0.4); }
+.g-accent-miss[data-status="wrong"] .g-accent-miss-tag { background: rgba(239,59,77,0.15); color: var(--c-rose); border-color: rgba(239,59,77,0.4); }
 .g-accent-clean { color: var(--c-mint); font-weight: 600; margin: var(--sp-2) 0 0; }
 .g-accent-actions { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-top: var(--sp-6); }
 

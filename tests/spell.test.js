@@ -80,7 +80,7 @@ async function desktop() {
   // ---- Start screen ----
   const modeCount = await page.locator('.g-spell-mode').count();
   assert(modeCount === 4, 'four mode cards, got ' + modeCount);
-  assert((await page.locator('.g-spell-cats .chip').count()) === 5, 'one chip per category');
+  assert((await page.locator('.g-spell-cats .chip').count()) === 4, 'one chip per category');
   assert(await page.locator('.g-spell-toggle input').count() === 1, 'mix toggle present');
   assert(!(await page.locator('.g-spell-toggle input').isChecked()), 'mix toggle defaults to off');
   const registered = await page.evaluate(() => { const g = PQ.Games.get('spell'); return g && g.name + '|' + g.icon + '|' + g.order + '|' + g.accent; });
@@ -127,7 +127,7 @@ async function desktop() {
   await next(page);
 
   // Q2: accent-only mistake (forced word with an accent)
-  const accentWord = await force(page, ['frances', 'ingles', 'espanol', 'dificil', 'tecnologia'], 'typed');
+  const accentWord = await force(page, ['mayuscula', 'cuando', 'donde', 'despues', 'quien'], 'typed');
   await typeAnswer(page, await page.evaluate((id) => PQ.Text.stripAccents(PQ.Vocab.byId(id).base), accentWord));
   s = await snap(page);
   assert(s.answers[1].status === 'accent' && s.answers[1].points === 20, 'accent slip: ' + JSON.stringify(s.answers[1]));
@@ -141,7 +141,7 @@ async function desktop() {
   await next(page);
 
   // Q3: wrong answer
-  await force(page, ['facil', 'horario', 'cuando', 'quinto', 'arte'], 'typed');
+  await force(page, ['quizas', 'usted', 'cuando', 'ustedes', 'ella'], 'typed');
   await typeAnswer(page, 'zzzz');
   s = await snap(page);
   assert(s.answers[2].status === 'wrong' && s.answers[2].points === 0, 'wrong answer scores 0');
@@ -149,7 +149,7 @@ async function desktop() {
   await next(page);
 
   // Q4: hint halves the points
-  await force(page, ['util', 'septimo', 'como', 'donde', 'sexto'], 'typed');
+  await force(page, ['termine', 'como', 'como', 'donde', 'ellas'], 'typed');
   await page.click('.g-spell-mount .quiz-actions button:has-text("Hint")');
   await answerCorrect(page);
   s = await snap(page);
@@ -249,7 +249,7 @@ async function desktop() {
   await page.click('.g-spell-cats .chip[data-cat="question"]');
   await page.waitForSelector('.g-spell-round .quiz');
   s = await snap(page);
-  assert(s.mode === 'category' && s.total === 8, 'category round covers all 8 question words: ' + JSON.stringify(s));
+  assert(s.mode === 'category' && s.total === 10, 'category round covers all 10 question words: ' + JSON.stringify(s));
   assert((await page.locator('.g-spell-modechip').textContent()).includes('Question words'), 'mode chip names the category');
   const catQ = await question(page);
   assert((await page.evaluate((id) => PQ.Vocab.byId(id).cat, catQ.id)) === 'question', 'question from the chosen category');
@@ -279,12 +279,12 @@ async function desktop() {
 
   // ---- Progress bar is a real progressbar for assistive tech ----
   const pbAttrs = (p) => p.evaluate(() => { const b = document.querySelector('.g-spell-round [role=progressbar]'); return ['aria-valuemin', 'aria-valuemax', 'aria-valuenow'].map((a) => b.getAttribute(a)).join(); });
-  assert((await pbAttrs(page)) === '0,8,0', 'progressbar exposes min/max/now: ' + (await pbAttrs(page)));
+  assert((await pbAttrs(page)) === '0,10,0', 'progressbar exposes min/max/now: ' + (await pbAttrs(page)));
   await answerCorrect(page);
-  assert((await pbAttrs(page)) === '0,8,1', 'aria-valuenow follows the answers: ' + (await pbAttrs(page)));
+  assert((await pbAttrs(page)) === '0,10,1', 'aria-valuenow follows the answers: ' + (await pbAttrs(page)));
 
   // ---- Quitting after the last answer is a finished round (results only), never "Finished early" ----
-  await page.evaluate(() => PQ.debug.spell.start('retry', { entries: ['arte', 'clase'] }));
+  await page.evaluate(() => PQ.debug.spell.start('retry', { entries: ['ella', 'hay'] }));
   await page.waitForSelector('.g-spell-round .quiz');
   await answerCorrect(page); await next(page);
   await answerCorrect(page);                           // last question graded, feedback on screen
@@ -298,7 +298,7 @@ async function desktop() {
   assert((await page.locator('.g-spell-end .eyebrow').textContent()).includes('complete'), 'end screen does not say "Finished early"');
 
   // ---- Leaving the end screen cancels its count-up, confetti and toasts: nothing bleeds into the next round ----
-  await page.evaluate(() => PQ.debug.spell.start('retry', { entries: ['arte'] }));
+  await page.evaluate(() => PQ.debug.spell.start('retry', { entries: ['ella'] }));
   await page.waitForSelector('.g-spell-round .quiz');
   await answerCorrect(page);
   await page.waitForFunction(() => !document.querySelector('.confetti-canvas') && !document.querySelector('.toast')); // nothing left over from the previous win
@@ -310,9 +310,9 @@ async function desktop() {
   assert((await snap(page)).score === 0 && await page.locator('.confetti-canvas').count() === 0 && await page.locator('.toast:has-text("New best")').count() === 0, 'no confetti / toast from the abandoned end screen');
 
   // ---- Missed-word list: a multiple-choice miss says "you picked", not "you typed" ----
-  await page.evaluate(() => PQ.debug.spell.start('retry', { entries: ['tecnologia'] }));
+  await page.evaluate(() => PQ.debug.spell.start('retry', { entries: ['quien'] }));
   await page.waitForSelector('.g-spell-round .quiz');
-  await page.evaluate(() => PQ.debug.spell.force('tecnologia', 'choice'));
+  await page.evaluate(() => PQ.debug.spell.force('quien', 'choice'));
   assert(await page.evaluate(() => PQ.debug.spell.controller === PQ.debug.spell.ctl && PQ.debug.spell.controller.question.kind === 'choice'), 'PQ.debug.spell.controller is the live QuizUI controller');
   const wrongIdx = await page.evaluate(() => PQ.debug.spell.controller.question.options.findIndex((o) => !o.correct));
   await page.click('.quiz-option[data-idx="' + wrongIdx + '"]');
@@ -326,19 +326,19 @@ async function desktop() {
   // ---- Retry rounds re-test typing even when the mix toggle is on ----
   const retryKinds = await page.evaluate(() => {
     const kinds = new Set();
-    for (let i = 0; i < 20; i++) { PQ.debug.spell.start('retry', { entries: ['dificil', 'frances'], mix: true }); kinds.add(PQ.debug.spell.controller.question.kind); }
+    for (let i = 0; i < 20; i++) { PQ.debug.spell.start('retry', { entries: ['despues', 'mayuscula'], mix: true }); kinds.add(PQ.debug.spell.controller.question.kind); }
     return { kinds: Array.from(kinds), mix: PQ.debug.spell.state.round.mix };
   });
   assert(retryKinds.kinds.join() === 'typed' && retryKinds.mix === false, 'retry is always typed: ' + JSON.stringify(retryKinds));
 
   // ---- Mode copy never promises more words than the category filter leaves in play ----
-  await page.evaluate(() => { PQ.Settings.set('cats', ['useful']); PQ.debug.spell.showStart(); });
-  assert((await page.locator('.g-spell-mode[data-mode="quick"] .g-spell-mode-name').textContent()).startsWith('Quick 4'), 'Quick card counts the words in play');
-  assert((await page.locator('.g-spell-mode[data-mode="quick"] .g-spell-mode-desc').textContent()).startsWith('Four words'), 'Quick description matches the count');
-  assert((await page.locator('.g-spell-mode[data-mode="weak"] .g-spell-mode-desc').textContent()).includes('four weakest'), 'Weak description matches the count');
+  await page.evaluate(() => { PQ.Settings.set('cats', ['pronoun-s']); PQ.debug.spell.showStart(); });
+  assert((await page.locator('.g-spell-mode[data-mode="quick"] .g-spell-mode-name').textContent()).startsWith('Quick 5'), 'Quick card counts the words in play');
+  assert((await page.locator('.g-spell-mode[data-mode="quick"] .g-spell-mode-desc').textContent()).startsWith('Five words'), 'Quick description matches the count');
+  assert((await page.locator('.g-spell-mode[data-mode="weak"] .g-spell-mode-desc').textContent()).includes('five weakest'), 'Weak description matches the count');
   await page.click('.g-spell-mode[data-mode="quick"]');
   await page.waitForSelector('.g-spell-round .quiz');
-  assert((await page.locator('.g-spell-modechip').textContent()).includes('Quick 4') && (await page.locator('.g-spell-progress-label').textContent()).includes('of 4'), 'round chip and progress agree with the copy');
+  assert((await page.locator('.g-spell-modechip').textContent()).includes('Quick 5') && (await page.locator('.g-spell-progress-label').textContent()).includes('of 5'), 'round chip and progress agree with the copy');
   await page.evaluate(() => { PQ.Settings.set('cats', null); PQ.debug.spell.showStart(); });
   assert((await page.locator('.g-spell-mode[data-mode="quick"] .g-spell-mode-name').textContent()).startsWith('Quick 10'), 'back to Quick 10 with every word in play');
 
@@ -360,7 +360,7 @@ async function desktop() {
   await next(page);
 
   // accent-placement question answered by tapping letters
-  await force(page, ['tecnologia', 'matematicas', 'edfisica'], 'accent');
+  await force(page, ['quien', 'que-deberia', 'de-donde'], 'accent');
   q = await question(page);
   assert(q.kind === 'accent' && q.needs.length === 1, 'accent question forced');
   for (const idx of q.needs) await page.click('.quiz-letter[data-idx="' + idx + '"]');
@@ -371,18 +371,18 @@ async function desktop() {
   await next(page);
 
   // three misses (wrong, accent, wrong) end the marathon
-  await force(page, ['dificil', 'practico', 'estricto'], 'typed');
+  await force(page, ['despues', 'cuantos', 'cuantos'], 'typed');
   await typeAnswer(page, 'qqqq');
   s = await snap(page);
   assert(s.lives === 2, 'life lost on a wrong answer');
   await next(page);
-  const slipWord = await force(page, ['ingles', 'frances', 'espanol'], 'typed');
+  const slipWord = await force(page, ['cuando', 'mayuscula', 'donde'], 'typed');
   await typeAnswer(page, await page.evaluate((id) => PQ.Text.stripAccents(PQ.Vocab.byId(id).base), slipWord));
   s = await snap(page);
   assert(s.lives === 1 && s.accentSlips === 1, 'accent slip also costs a life');
   await shot(page, 'desktop-marathon');
   await next(page);
-  await force(page, ['horario', 'clase', 'almuerzo'], 'typed');
+  await force(page, ['usted', 'hay', 'yo'], 'typed');
   await typeAnswer(page, 'qqqq');
   s = await snap(page);
   assert(s.lives === 0, 'no lives left');
@@ -422,12 +422,12 @@ async function desktop() {
 }
 
 async function mobile() {
-  const { browser, page, errors } = await launch({ viewport: { width: 390, height: 844 }, touch: true, mobile: true });
+  const { browser, page, errors } = await launch({ viewport: { width: 390, height: 831 }, touch: true, mobile: true });
   await page.goto(SITE + '#/play/spell');
   await page.waitForSelector('.g-spell-start');
   assert(await noOverflow(page), 'no horizontal overflow on the start screen');
   const chipHeights = await page.evaluate(() => Array.from(document.querySelectorAll('.g-spell-cats .chip')).map((c) => Math.round(c.getBoundingClientRect().height)));
-  assert(chipHeights.length === 5 && chipHeights.every((hh) => hh >= 40), 'category chips are finger-sized (≥40px): ' + chipHeights.join());
+  assert(chipHeights.length === 4 && chipHeights.every((hh) => hh >= 40), 'category chips are finger-sized (≥40px): ' + chipHeights.join());
   await shot(page, 'mobile-start');
 
   await page.tap('.g-spell-mode[data-mode="quick"]');
@@ -435,14 +435,14 @@ async function mobile() {
   assert(await noOverflow(page), 'no horizontal overflow in a round');
 
   // Touch: force an accented word, type the stem, tap the accent key, tap Check
-  const word = await force(page, ['frances', 'ingles'], 'typed'); // francés / inglés: stem + é + s
+  const word = await force(page, ['mayuscula', 'cuando'], 'typed'); // francés / inglés: stem + é + s
   await page.waitForSelector('.g-spell-mount input:not(:disabled)');
   await page.tap('.g-spell-mount input');
-  await page.keyboard.type(word === 'frances' ? 'franc' : 'ingl');
-  await page.tap('.accent-key:has-text("é")');
-  await page.keyboard.type('s');
+  await page.keyboard.type(word === 'mayuscula' ? 'may' : 'cu');
+  await page.tap('.accent-key:has-text("' + (word === 'mayuscula' ? 'ú' : 'á') + '")');
+  await page.keyboard.type(word === 'mayuscula' ? 'scula' : 'ndo');
   const val = await page.inputValue('.g-spell-mount input');
-  assert(val === (word === 'frances' ? 'francés' : 'inglés'), 'accent key inserted at the caret: ' + val);
+  assert(val === (word === 'mayuscula' ? 'mayúscula' : 'cuándo'), 'accent key inserted at the caret: ' + val);
   await page.tap('.quiz-actions button:has-text("Check")');
   await page.waitForSelector('.quiz-feedback.ok');
   await shot(page, 'mobile-feedback');

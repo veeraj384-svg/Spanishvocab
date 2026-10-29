@@ -56,7 +56,7 @@ async function desktop() {
   const registered = await page.evaluate(() => { const g = PQ.Games.get('flash'); return g && g.name + '|' + g.icon + '|' + g.order + '|' + g.accent; });
   assert(registered === 'Memory Deck|🃏|5|var(--c-sky)', 'registration: ' + registered);
   assert((await page.locator('.g-flash-deck').count()) === 4, 'four deck cards (due, weak, all, category)');
-  assert((await page.locator('.g-flash-cats .chip').count()) === 5, 'one chip per category');
+  assert((await page.locator('.g-flash-cats .chip').count()) === 4, 'one chip per category');
   assert((await page.locator('.g-flash-seg button[data-dir="en-es"]').getAttribute('aria-pressed')) === 'true', 'English → Spanish is the default direction');
   assert(!(await page.locator('.g-flash-start .g-flash-recall-toggle input').isChecked()), 'active recall defaults to off');
   assert((await page.locator('.g-flash-deck[data-deck="due"] .g-flash-deck-count').textContent()).includes('20 cards'), 'fresh profile: 20 due cards');
@@ -125,7 +125,7 @@ async function desktop() {
   s = await snap(page);
   assert(s.recall === true && (await page.locator('.g-flash-input').count()) === 1, 'recall toggle adds the input to the current card');
   assert((await page.locator('.g-flash-recall .accent-key').count()) >= 7, 'accent bar on the card');
-  const accentId = await force(page, ['frances', 'ingles', 'espanol', 'dificil', 'tecnologia']);
+  const accentId = await force(page, ['mayuscula', 'cuando', 'donde', 'despues', 'quien']);
   const ea = await entry(page, accentId);
   await shot(page, 'desktop-recall-front');
   await attempt(page, ea.stripped);
@@ -147,7 +147,7 @@ async function desktop() {
   await settled(page, 3);
 
   // ---- Correct attempt → Good suggested, 4 = Easy (+5 bonus) ----
-  const okId = await force(page, ['ingles', 'frances', 'espanol', 'matematicas']);
+  const okId = await force(page, ['cuando', 'mayuscula', 'donde', 'que-deberia']);
   const eo = await entry(page, okId);
   await attempt(page, eo.base);
   s = await snap(page);
@@ -160,7 +160,7 @@ async function desktop() {
   await settled(page, 4);
 
   // ---- Wrong attempt → Again suggested; speaker button; override with Good ----
-  const badId = await force(page, ['facil', 'horario', 'arte', 'cuando']);
+  const badId = await force(page, ['quizas', 'usted', 'ella', 'cuando']);
   await attempt(page, 'zzzz');
   s = await snap(page);
   assert(s.current.attempt.status === 'wrong' && (await page.locator('.g-flash-attempt.is-wrong .diff .d-bad').count()) >= 1, 'wrong attempt diffed');
@@ -285,7 +285,7 @@ async function desktop() {
   await page.click('.g-flash-cats .chip[data-cat="question"]');
   await page.waitForSelector('.g-flash-session .g-flash-card');
   s = await snap(page);
-  assert(s.deck === 'category' && s.cat === 'question' && s.n === 8, 'question deck has all 8 words: ' + JSON.stringify(s));
+  assert(s.deck === 'category' && s.cat === 'question' && s.n === 10, 'question deck has all 10 words: ' + JSON.stringify(s));
   const cats = await page.evaluate((ids) => ids.map((id) => PQ.Vocab.byId(id).cat), s.cards);
   assert(cats.every((c) => c === 'question'), 'every card from the chosen category');
   assert((await page.locator('.g-flash-deckchip').textContent()).includes('Question words'), 'deck chip names the category');
@@ -309,7 +309,7 @@ async function desktop() {
 }
 
 async function mobile() {
-  const { browser, page, errors } = await launch({ viewport: { width: 390, height: 844 }, touch: true, mobile: true });
+  const { browser, page, errors } = await launch({ viewport: { width: 390, height: 831 }, touch: true, mobile: true });
   await page.goto(SITE + '#/play/flash');
   await page.waitForSelector('.g-flash-start');
   assert(await noOverflow(page), 'no horizontal overflow on the start screen');
@@ -335,14 +335,14 @@ async function mobile() {
   await page.tap('.g-flash-session .g-flash-recall-toggle');
   s = await snap(page);
   assert(s.recall === true, 'recall toggled by touch');
-  const id = await force(page, ['frances', 'ingles']);
+  const id = await force(page, ['mayuscula', 'cuando']);
   await page.waitForSelector('.g-flash-input:not(:disabled)');
   await page.tap('.g-flash-input');
-  await page.keyboard.type(id === 'frances' ? 'franc' : 'ingl');
-  await page.tap('.g-flash-recall .accent-key:has-text("é")');
-  await page.keyboard.type('s');
+  await page.keyboard.type(id === 'mayuscula' ? 'may' : 'cu');
+  await page.tap('.g-flash-recall .accent-key:has-text("' + (id === 'mayuscula' ? 'ú' : 'á') + '")');
+  await page.keyboard.type(id === 'mayuscula' ? 'scula' : 'ndo');
   const val = await page.inputValue('.g-flash-input');
-  assert(val === (id === 'frances' ? 'francés' : 'inglés'), 'accent key inserted at the caret: ' + val);
+  assert(val === (id === 'mayuscula' ? 'mayúscula' : 'cuándo'), 'accent key inserted at the caret: ' + val);
   await shot(page, 'mobile-recall-front');
   await page.keyboard.press('Enter');
   await page.waitForSelector('.g-flash-card.is-flipped');
