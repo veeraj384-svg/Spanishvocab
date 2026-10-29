@@ -17,9 +17,9 @@
   'use strict';
 
   const CATEGORIES = [
-    { id: 'pronoun-s', es: 'Sujeto personal singular', en: 'Subject pronouns (singular)', icon: '👤', color: '#ff8a2b' },
-    { id: 'pronoun-p', es: 'Sujeto personal plural',   en: 'Subject pronouns (plural)',   icon: '👥', color: '#4da3ff' },
-    { id: 'question',  es: 'Haciendo preguntas',       en: 'Asking questions',             icon: '❓', color: '#ffd23f' },
+    { id: 'pronoun-s', es: 'Sujeto personal singular', en: 'Subject pronouns (singular)', icon: '👤', color: '#4da3ff' },
+    { id: 'pronoun-p', es: 'Sujeto personal plural',   en: 'Subject pronouns (plural)',   icon: '👥', color: '#ff8a2b' },
+    { id: 'question',  es: 'Haciendo preguntas',       en: 'Asking questions',             icon: '❓', color: '#ffb347' },
     { id: 'random',    es: 'Palabras aleatorias',      en: 'Random words',                 icon: '💬', color: '#ef3b4d' },
   ];
 

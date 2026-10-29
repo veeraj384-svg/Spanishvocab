@@ -408,6 +408,48 @@ async function holdKey(page, key, ms) {
     } finally { await browser.close(); }
   }
   {
+    // moving platforms + level select
+    const { browser, page, errors } = await launch();
+    try {
+      await page.goto(SITE + '#/play/platformer'); await page.waitForSelector('.g-platformer canvas');
+      await dbg(page, () => { PQ.Progress.reset(); PQ.Settings.set('cats', null); });
+      await page.evaluate(() => { location.hash = '#/'; }); await page.waitForTimeout(150);
+      await page.evaluate(() => { location.hash = '#/play/platformer'; }); await page.waitForSelector('.g-platformer canvas');
+      // every level has at least one mover, movers never exceed the reachable height, level 2+ has lifts over pits
+      const gen = await dbg(page, () => [1, 2, 3, 6].map((l) => { const L = PQ.debug.platformer.generate(l); return { l, movers: L.movers.length, lifts: L.movers.filter((m) => m.move.axis === 'y').length, maxH: Math.max.apply(null, L.movers.map((m) => 350 - (m.y0 - (m.move.axis === 'y' ? m.move.amp : 0)))) }; }));
+      assert(gen.every((g) => g.movers >= 1 && g.maxH <= 110), 'movers on every level, reachable: ' + JSON.stringify(gen));
+      // level select: fresh profile → level 1 unlocked, later tiles locked
+      const tiles0 = await page.$$eval('.g-platformer-level', (els) => els.map((e) => ({ t: e.textContent, d: e.disabled, cur: e.classList.contains('is-current') })));
+      assert(tiles0.length >= 6 && tiles0[0].t === '1' && tiles0[0].cur && !tiles0[0].d && tiles0.slice(1).every((t) => t.d), 'level 1 only on a fresh profile: ' + JSON.stringify(tiles0));
+      // a hero standing on a sliding platform is carried without pressing anything
+      await dbg(page, () => PQ.debug.platformer.start());
+      const carried = await dbg(page, async () => {
+        const s = PQ.debug.platformer.state; const m = s.level.movers.find((x) => x.move.axis === 'x') || s.level.movers[0];
+        s.energy = 100; s.player.x = m.x + m.w / 2 - s.player.w / 2; s.player.y = m.y - s.player.h - 2; s.player.vx = 0; s.player.vy = 0;
+        await new Promise((r) => setTimeout(r, 120));
+        const x1 = s.player.x, mx1 = m.x, on = s.player.standOn === m;
+        await new Promise((r) => setTimeout(r, 500));
+        return { on, heroMoved: Math.abs(s.player.x - x1), platMoved: Math.abs(m.x - mx1), still: s.player.standOn === m, energy: s.energy };
+      });
+      assert(carried.on && carried.still && carried.platMoved > 2 && Math.abs(carried.heroMoved - carried.platMoved) < 2 && carried.energy >= 99, 'hero rides the mover for free: ' + JSON.stringify(carried));
+      // completing level 1 unlocks level 2; Levels → pick 2 → starts level 2
+      await dbg(page, () => { PQ.debug.platformer.setEnergy(100); PQ.debug.platformer.teleportToFlag(); });
+      await page.keyboard.down('ArrowRight'); await page.waitForTimeout(1500); await page.keyboard.up('ArrowRight');
+      await page.waitForFunction(() => PQ.debug.platformer.state.mode === 'complete', null, { timeout: 4000 }); await page.waitForTimeout(900);
+      assert((await dbg(page, () => PQ.debug.platformer.maxLevel())) === 2, 'level 2 unlocked after completing level 1');
+      await page.click('.g-platformer-overlay button:has-text("Levels")'); await page.waitForTimeout(150);
+      const tiles1 = await page.$$eval('.g-platformer-level', (els) => els.map((e) => ({ t: e.textContent, d: e.disabled, cur: e.classList.contains('is-current') })));
+      assert(!tiles1[1].d && tiles1[1].cur && tiles1[2].d, 'level select shows 2 unlocked and current: ' + JSON.stringify(tiles1));
+      await page.click('.g-platformer-level:nth-child(1)'); await page.waitForTimeout(100);
+      assert(await dbg(page, () => PQ.debug.platformer.state.level.level === 1 && PQ.debug.platformer.state.mode === 'intro'), 'tile 1 selects level 1');
+      await page.click('.g-platformer-level:nth-child(2)'); await page.waitForTimeout(100);
+      await page.click('.g-platformer-overlay button.btn-primary'); await page.waitForTimeout(100);
+      assert(await dbg(page, () => PQ.debug.platformer.state.level.level === 2 && PQ.debug.platformer.state.mode === 'play'), 'Start begins the selected level 2');
+      assert(errors.length === 0, 'console errors (movers/levels): ' + errors.join('\n'));
+      console.log('movers + levels: OK');
+    } finally { await browser.close(); }
+  }
+  {
     // mobile HUD keeps a fixed height whatever the score / streak
     const { browser, page, errors } = await launch({ viewport: { width: 390, height: 831 }, touch: true, mobile: true });
     try {

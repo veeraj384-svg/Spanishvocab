@@ -48,9 +48,9 @@
   // Theme colors (mirrors css/styles.css tokens; canvas can't read CSS vars cheaply)
   const C = {
     bg0: '#070a14', bg1: '#0b1020', bg2: '#111733', bg3: '#182043',
-    amber: '#ff8a2b', amber2: '#f25f1c', mint: '#4da3ff', mint2: '#2b7fe6',
-    lav: '#ffd23f', lav2: '#f5b800', rose: '#ef3b4d', rose2: '#c92233',
-    sky: '#3b82f6', lime: '#ffd23f', text: '#eef1ff', text2: '#b7bdd9',
+    amber: '#4da3ff', amber2: '#2b7fe6', mint: '#ff8a2b', mint2: '#f25f1c',
+    lav: '#ffb347', lav2: '#f28d35', rose: '#ef3b4d', rose2: '#c92233',
+    sky: '#ff8a2b', lime: '#ffb347', text: '#eef1ff', text2: '#b7bdd9',
   };
 
   /* ------------------------------------------------------------
@@ -62,7 +62,14 @@
     const rng = Rand.seeded(level * 7919 + 13);
     const r = (a, b) => a + rng() * (b - a);
     const ri = (a, b) => Rand.int(a, b, rng);
-    const L = { level, platforms: [], spikes: [], orbs: [], gates: [], flag: null, width: 0 };
+    const L = { level, platforms: [], movers: [], spikes: [], orbs: [], gates: [], flag: null, width: 0 };
+    /** A platform that slides back and forth (axis 'x' or 'y'); it lives in L.platforms like any other solid. */
+    const moverAt = (x0, y0, w, axis, amp, speed) => {
+      const phase = rng() * 6.28, off = Math.sin(phase) * amp;   // start where the first physics step will put it (no jump)
+      const m = { x: axis === 'x' ? x0 + off : x0, y: axis === 'y' ? y0 + off : y0, x0, y0, w, h: 16, ground: false, move: { axis, amp, speed, phase }, dx: 0, dy: 0 };
+      L.platforms.push(m); L.movers.push(m);
+      return m;
+    };
     const length = 2400 + level * 650;              // where the flag section starts
     const maxGap = Math.min(180, 95 + level * 14);   // pits grow with the level (jump covers ~190)
     const gateEvery = 900;
@@ -86,6 +93,8 @@
         const f = (i + 1) / (n + 1);
         orbAt(pitStart + gap * f, GROUND_Y - 60 - Math.sin(f * Math.PI) * 50);
       }
+      // a lift bobbing in the middle of a wide pit (from level 2): the safe way across
+      if (level >= 2 && gap >= 130 && rng() < 0.55) moverAt(pitStart + gap / 2 - 42, GROUND_Y - 60, 84, 'y', 36, 1.1 + level * 0.05);
       x += gap;
 
       // --- ground segment ---
@@ -115,6 +124,13 @@
           for (let i = 0; i < cnt; i++) orbAt(px + 24 + i * 44, py - 34);
         }
       } else sinceFloat++;
+      // a sliding platform above a long segment, with a letter riding its path
+      if (segW >= 320 && rng() < 0.4) {
+        const amp = Math.min(90, (segW - 220) / 2);
+        const cx = x + segW / 2;
+        const clash = L.platforms.some((p) => !p.ground && !p.move && Math.abs(p.y - (GROUND_Y - 98)) < 50 && cx - amp - 40 < p.x + p.w + 20 && cx + amp + 40 > p.x - 20);
+        if (!clash) { moverAt(cx - 40, GROUND_Y - 98, 80, 'x', amp, 0.9 + level * 0.05); orbAt(cx, GROUND_Y - 132); }
+      }
       // ground orbs: a small row somewhere on the segment
       if (rng() < 0.35) {
         const cnt = 2;
@@ -142,9 +158,16 @@
       L.gates.push({ x: gx, y: 0, w: GATE_W, h: GROUND_Y, open: false, cooldown: 0, burst: 0, glow: rng() * 6 });
       // clear hazards, floating platforms (and their orbs) that would sit inside the gate
       L.spikes = L.spikes.filter((s) => s.x + s.w < gx - 40 || s.x > gx + GATE_W + 40);
-      const removed = L.platforms.filter((p) => !p.ground && p.x + p.w >= gx - 10 && p.x <= gx + GATE_W + 10);
+      const span = (p) => (p.move && p.move.axis === 'x' ? p.move.amp : 0);
+      const removed = L.platforms.filter((p) => !p.ground && p.x + p.w + span(p) >= gx - 10 && p.x - span(p) <= gx + GATE_W + 10);
       L.platforms = L.platforms.filter((p) => !removed.includes(p));
+      L.movers = L.movers.filter((p) => !removed.includes(p));
       L.orbs = L.orbs.filter((o) => (o.x < gx - 24 || o.x > gx + GATE_W + 24) && !removed.some((p) => o.x >= p.x && o.x <= p.x + p.w && o.y < p.y));
+    }
+    // every level keeps at least one sliding platform (placed on a gate-free segment, after the gates are in)
+    if (!L.movers.length) {
+      const seg = L.platforms.find((p) => p.ground && p.w >= 300 && p.x > 0 && p.x + p.w < L.flag.x - 200 && !L.gates.some((g) => g.x + g.w > p.x - 40 && g.x < p.x + p.w + 40));
+      if (seg) { moverAt(seg.x + seg.w / 2 - 40, GROUND_Y - 98, 80, 'x', Math.min(80, (seg.w - 200) / 2), 0.9); orbAt(seg.x + seg.w / 2, GROUND_Y - 132); }
     }
     L.platforms.sort((a, b) => a.x - b.x);
     return L;
@@ -161,7 +184,7 @@
 
   function freshPlayer(x, y) {
     return { x, y, w: PLAYER_W, h: PLAYER_H, vx: 0, vy: 0, dir: 1, onGround: false, wasOnGround: false,
-      coyote: 0, buffer: 0, jumpHeld: false, jumping: false, sx: 1, sy: 1, run: 0, blink: 0, invuln: 0, prevVy: 0 };
+      coyote: 0, buffer: 0, jumpHeld: false, jumping: false, sx: 1, sy: 1, run: 0, blink: 0, invuln: 0, prevVy: 0, standOn: null };
   }
 
   function newRun(level) {
@@ -286,10 +309,34 @@
   function overlayArmed() { return !!(D && D.overlay && S && performance.now() - (S.overlayAt || 0) > 400); }
   function hideOverlay() { if (D && D.overlay) { D.overlay.remove(); D.overlay = null; } }
 
+  /** Highest level the learner may start from (level n+1 unlocks when level n is completed). */
+  function maxLevel() { return Math.max(1, Progress.gameStats(ID).maxLevel || 1); }
+  function levelGrid() {
+    const unlocked = maxLevel(), cur = S.level.level;
+    const grid = UI.h('div.g-platformer-levels', { role: 'group', 'aria-label': 'Choose a level' });
+    for (let n = 1; n <= Math.max(unlocked + 2, 6); n++) {
+      const locked = n > unlocked;
+      const b = UI.h('button.g-platformer-level' + (n === cur ? '.is-current' : '') + (locked ? '.is-locked' : ''), { type: 'button', disabled: locked ? true : null, 'aria-pressed': n === cur ? 'true' : 'false', title: locked ? 'Finish level ' + (n - 1) + ' to unlock' : 'Start at level ' + n }, locked ? '🔒' : String(n));
+      if (!locked) b.addEventListener('click', () => { Sound.play('click'); showIntro(n); });
+      grid.appendChild(b);
+    }
+    return grid;
+  }
+  /** Back to the intro overlay (level select) — from the start, or after a run. */
+  function showIntro(level) {
+    closeQuestion();
+    endRun();
+    S = Object.assign(newRun(level || (S ? S.level.level : 1)), { lastT: 0 });
+    resizeCanvas();
+    updateHud();
+    refreshBest();
+    showOverlay(introPanel());
+  }
+
   function introPanel() {
-    const start = UI.h('button.btn.btn-primary.btn-lg', { type: 'button', onclick: () => { Sound.play('click'); startPlay(); } }, '▶ Start');
+    const start = UI.h('button.btn.btn-primary.btn-lg', { type: 'button', onclick: () => { Sound.play('click'); startPlay(); } }, '▶ Start level ' + S.level.level);
     return UI.h('div.panel.g-platformer-intro', null,
-      UI.h('div.eyebrow', null, 'Energy Run · Level ' + S.level.level),
+      UI.h('div.eyebrow', null, 'Energy Run · ' + (maxLevel() > 1 ? 'levels 1–' + maxLevel() + ' unlocked' : 'level 1')),
       UI.h('h2', null, 'Spelling is your ', UI.h('span.grad-text', null, 'fuel')),
       UI.h('p.text-2', null, 'Running and jumping use energy. When it runs out you stop, and the only way to recharge is to spell a word. Gates block the road until you answer.'),
       UI.h('div.g-platformer-legend', null,
@@ -297,7 +344,8 @@
         UI.h('div', null, UI.h('b', null, 'Space / ↑ / W'), ' jump (hold = higher)'),
         UI.h('div', null, UI.h('b', null, 'P / Esc'), ' pause'),
         UI.h('div', null, UI.h('b', null, 'á é í ó ú ñ'), ' letters are worth points')),
-      UI.h('div.row', { style: { justifyContent: 'center', marginTop: '18px' } }, start));
+      levelGrid(),
+      UI.h('div.row', { style: { justifyContent: 'center', marginTop: '14px' } }, start));
   }
 
   function pausePanel() {
@@ -307,7 +355,8 @@
       UI.h('p.text-2', null, 'Score ' + computeScore() + ' · ' + distance() + 'm · ⚡ ' + Math.round(S.energy)),
       UI.h('div.row', { style: { justifyContent: 'center' } },
         UI.h('button.btn.btn-primary', { type: 'button', onclick: () => { Sound.play('click'); togglePause(); } }, '▶ Resume'),
-        UI.h('button.btn.btn-outline', { type: 'button', onclick: () => { Sound.play('click'); restartRun(1); } }, '↻ Restart'),
+        UI.h('button.btn.btn-outline', { type: 'button', onclick: () => { Sound.play('click'); restartRun(S.level.level); } }, '↻ Restart level'),
+        UI.h('button.btn.btn-ghost', { type: 'button', onclick: () => { Sound.play('click'); showIntro(S.level.level); } }, 'Levels'),
         UI.h('a.btn.btn-ghost', { href: '#/' }, 'Home')));
   }
 
@@ -327,8 +376,9 @@
       UI.h('div.big.grad-text', null, String(computeScore())),
       statsGrid({ best: S.best }),
       UI.h('div.row', { style: { justifyContent: 'center' } },
-        UI.h('button.btn.btn-primary.btn-lg', { type: 'button', onclick: () => { Sound.play('click'); restartRun(1); } }, '↻ Retry'),
-        UI.h('a.btn.btn-outline.btn-lg', { href: '#/' }, 'Home')));
+        UI.h('button.btn.btn-primary.btn-lg', { type: 'button', onclick: () => { Sound.play('click'); restartRun(S.level.level); } }, '↻ Retry level'),
+        UI.h('button.btn.btn-outline.btn-lg', { type: 'button', onclick: () => { Sound.play('click'); showIntro(S.level.level); } }, 'Levels'),
+        UI.h('a.btn.btn-ghost.btn-lg', { href: '#/' }, 'Home')));
   }
 
   function completePanel() {
@@ -339,7 +389,8 @@
       statsGrid({ best: S.best }),
       UI.h('div.row', { style: { justifyContent: 'center' } },
         UI.h('button.btn.btn-primary.btn-lg', { type: 'button', onclick: () => { Sound.play('click'); nextLevel(); } }, 'Next level →'),
-        UI.h('a.btn.btn-outline.btn-lg', { href: '#/' }, 'Home')));
+        UI.h('button.btn.btn-outline.btn-lg', { type: 'button', onclick: () => { Sound.play('click'); showIntro(S.level.level + 1); } }, 'Levels'),
+        UI.h('a.btn.btn-ghost.btn-lg', { href: '#/' }, 'Home')));
   }
 
   /* ------------------------------------------------------------
@@ -424,6 +475,7 @@
     // The run continues on "Next level", but the score is persisted right away (a closed tab must not lose it);
     // the play itself is counted once, at game over / restart / leaving.
     Progress.touchBest(ID, computeScore(), { lastLevel: S.level.level });
+    Progress.setGameMeta(ID, { maxLevel: Math.max(maxLevel(), S.level.level + 1) });
     S.best = Progress.best(ID);
     refreshBest();
     setTimeout(() => { if (S && S.mode === 'complete') showOverlay(completePanel()); }, 600);
@@ -598,7 +650,7 @@
     switch (S.mode) {
       case 'intro': if (act === 'jump' || act === 'right') startPlay(); return;
       case 'pause': if (act === 'jump' && overlayArmed()) togglePause(); return;
-      case 'over': if (act === 'jump' && overlayArmed()) restartRun(1); return;
+      case 'over': if (act === 'jump' && overlayArmed()) restartRun(S.level.level); return;
       case 'complete': if (act === 'jump' && overlayArmed()) nextLevel(); return;
       case 'play': press(act, true); return;
       default: return;
@@ -670,6 +722,15 @@
     p.invuln = Math.max(0, p.invuln - dt);
     for (const g of L.gates) g.cooldown = Math.max(0, g.cooldown - dt);
 
+    // --- moving platforms: slide them, and carry whoever stands on one ---
+    S.physT = (S.physT || 0) + dt;
+    for (const m of L.movers) {
+      const off = Math.sin(S.physT * m.move.speed + m.move.phase) * m.move.amp;
+      const nx = m.move.axis === 'x' ? m.x0 + off : m.x0, ny = m.move.axis === 'y' ? m.y0 + off : m.y0;
+      m.dx = nx - m.x; m.dy = ny - m.y; m.x = nx; m.y = ny;
+    }
+    if (p.standOn && p.standOn.move) { p.x = Math.max(0, p.x + p.standOn.dx); p.y += p.standOn.dy; }
+
     // --- horizontal ---
     const accel = p.onGround ? RUN_ACCEL : AIR_ACCEL;
     if (move) {
@@ -714,11 +775,14 @@
     p.prevVy = p.vy;
     p.y += p.vy * dt;
     p.onGround = false;
+    p.standOn = null;
     for (const s of walls) {
       if (!overlaps(p, s)) continue;
-      if (p.vy > 0) { p.y = s.y - p.h; p.vy = 0; p.onGround = true; }
+      if (p.vy > 0) { p.y = s.y - p.h; p.vy = 0; p.onGround = true; p.standOn = s; }
       else if (p.vy < 0) { p.y = s.y + s.h; p.vy = 0; p.jumping = false; }
     }
+    // a rising lift catches a grounded hero even when vy is exactly 0
+    if (!p.onGround) for (const m of L.movers) { if (m.dy < 0 && p.x + p.w > m.x && p.x < m.x + m.w && p.y + p.h > m.y && p.y + p.h < m.y + m.h + 2) { p.y = m.y - p.h; p.vy = 0; p.onGround = true; p.standOn = m; } }
     if (p.onGround && !p.wasOnGround && p.prevVy > 250) {       // landing squash
       p.sx = 1.3; p.sy = 0.7;
       dust(p.x + p.w / 2, p.y + p.h, p.prevVy > 600 ? 10 : 5);
@@ -858,7 +922,7 @@
     g.fillStyle = sky; g.fillRect(0, 0, vw, vh);
     // aurora haze
     const haze = g.createRadialGradient(vw * 0.25, 40, 10, vw * 0.25, 40, vw * 0.6);
-    haze.addColorStop(0, 'rgba(43,127,230,0.22)'); haze.addColorStop(1, 'rgba(43,127,230,0)');
+    haze.addColorStop(0, 'rgba(242,95,28,0.22)'); haze.addColorStop(1, 'rgba(242,95,28,0)');
     g.fillStyle = haze; g.fillRect(0, 0, vw, vh);
     // stars
     const W = 1600, off = cam * 0.08;
@@ -873,7 +937,7 @@
     // moon
     const mx = vw * 0.8 - cam * 0.03, my = 68 + oy * 0.3;
     const mg = g.createRadialGradient(mx, my, 10, mx, my, 90);
-    mg.addColorStop(0, 'rgba(255,138,43,0.35)'); mg.addColorStop(1, 'rgba(255,138,43,0)');
+    mg.addColorStop(0, 'rgba(77,163,255,0.35)'); mg.addColorStop(1, 'rgba(77,163,255,0)');
     g.fillStyle = mg; g.fillRect(mx - 90, my - 90, 180, 180);
     g.fillStyle = '#ffe1b8'; g.beginPath(); g.arc(mx, my, 22, 0, 6.283); g.fill();
     g.fillStyle = '#0f1430'; g.globalAlpha = 0.9; g.beginPath(); g.arc(mx - 9, my - 6, 19, 0, 6.283); g.fill(); g.globalAlpha = 1;
@@ -889,7 +953,7 @@
     }
     // ground fog
     const fog = g.createLinearGradient(0, GROUND_Y + oy - 80, 0, GROUND_Y + oy + 20);
-    fog.addColorStop(0, 'rgba(77,163,255,0)'); fog.addColorStop(1, 'rgba(77,163,255,0.10)');
+    fog.addColorStop(0, 'rgba(255,138,43,0)'); fog.addColorStop(1, 'rgba(255,138,43,0.10)');
     g.fillStyle = fog; g.fillRect(0, GROUND_Y + oy - 80, vw, 100);
   }
 
@@ -898,14 +962,26 @@
       const grad = g.createLinearGradient(0, p.y, 0, p.y + p.h);
       grad.addColorStop(0, '#223066'); grad.addColorStop(0.35, '#161e45'); grad.addColorStop(1, '#0b1024');
       g.fillStyle = grad; rr(g, p.x, p.y, p.w, p.h + 60, 14); g.fill();
-      g.fillStyle = 'rgba(77,163,255,0.75)'; rr(g, p.x + 4, p.y, p.w - 8, 4, 2); g.fill();
+      g.fillStyle = 'rgba(255,138,43,0.75)'; rr(g, p.x + 4, p.y, p.w - 8, 4, 2); g.fill();
       g.fillStyle = 'rgba(255,255,255,0.05)'; rr(g, p.x + 10, p.y + 12, p.w - 20, 10, 5); g.fill();
+    } else if (p.move) {
+      g.fillStyle = 'rgba(255,138,43,0.16)'; rr(g, p.x - 4, p.y - 3, p.w + 8, p.h + 8, 11); g.fill();   // blue halo
+      const grad = g.createLinearGradient(0, p.y, 0, p.y + p.h);
+      grad.addColorStop(0, '#2f4b86'); grad.addColorStop(1, '#17264d');
+      g.fillStyle = grad; rr(g, p.x, p.y, p.w, p.h, 8); g.fill();
+      g.fillStyle = 'rgba(255,138,43,0.9)'; rr(g, p.x + 4, p.y, p.w - 8, 3, 2); g.fill();
+      // chevrons show the axis of travel
+      g.strokeStyle = 'rgba(255,255,255,0.55)'; g.lineWidth = 1.5; g.beginPath();
+      const cx = p.x + p.w / 2, cy = p.y + p.h / 2 + 1;
+      if (p.move.axis === 'x') { g.moveTo(cx - 10, cy - 3); g.lineTo(cx - 14, cy); g.lineTo(cx - 10, cy + 3); g.moveTo(cx + 10, cy - 3); g.lineTo(cx + 14, cy); g.lineTo(cx + 10, cy + 3); }
+      else { g.moveTo(cx - 4, cy - 1); g.lineTo(cx, cy - 4); g.lineTo(cx + 4, cy - 1); g.moveTo(cx - 4, cy + 3); g.lineTo(cx, cy + 6); g.lineTo(cx + 4, cy + 3); }
+      g.stroke();
     } else {
-      g.fillStyle = 'rgba(255,210,63,0.14)'; rr(g, p.x - 4, p.y - 3, p.w + 8, p.h + 8, 11); g.fill();   // soft halo
+      g.fillStyle = 'rgba(255,179,71,0.14)'; rr(g, p.x - 4, p.y - 3, p.w + 8, p.h + 8, 11); g.fill();   // soft halo
       const grad = g.createLinearGradient(0, p.y, 0, p.y + p.h);
       grad.addColorStop(0, '#3a3f7a'); grad.addColorStop(1, '#1d2250');
       g.fillStyle = grad; rr(g, p.x, p.y, p.w, p.h, 9); g.fill();
-      g.fillStyle = 'rgba(255,210,63,0.85)'; rr(g, p.x + 4, p.y, p.w - 8, 3, 2); g.fill();
+      g.fillStyle = 'rgba(255,179,71,0.85)'; rr(g, p.x + 4, p.y, p.w - 8, 3, 2); g.fill();
     }
   }
 
@@ -929,20 +1005,20 @@
     if (!gate.open) {
       const beam = g.createLinearGradient(gate.x, 0, gate.x + gate.w, 0);
       const pulse = 0.55 + 0.25 * Math.sin(t * 3);
-      beam.addColorStop(0, 'rgba(255,210,63,0)'); beam.addColorStop(0.5, 'rgba(255,210,63,' + pulse + ')'); beam.addColorStop(1, 'rgba(255,210,63,0)');
+      beam.addColorStop(0, 'rgba(255,179,71,0)'); beam.addColorStop(0.5, 'rgba(255,179,71,' + pulse + ')'); beam.addColorStop(1, 'rgba(255,179,71,0)');
       g.fillStyle = beam; g.fillRect(gate.x - 10, 0, gate.w + 20, GROUND_Y - 50);
       g.fillStyle = 'rgba(238,241,255,0.9)';
       for (let i = 0; i < 6; i++) { const y = ((t * 60 + i * 55) % (GROUND_Y - 60)); g.fillRect(cx - 5 + Math.sin(t * 2 + i) * 3, y, 10, 2); }
       // glowing question glyph
       const qy = GROUND_Y - 150 + Math.sin(t * 2) * 6;
       const glow = g.createRadialGradient(cx, qy, 4, cx, qy, 40);
-      glow.addColorStop(0, 'rgba(255,138,43,0.5)'); glow.addColorStop(1, 'rgba(255,138,43,0)');
+      glow.addColorStop(0, 'rgba(77,163,255,0.5)'); glow.addColorStop(1, 'rgba(77,163,255,0)');
       g.fillStyle = glow; g.fillRect(cx - 40, qy - 40, 80, 80);
-      g.fillStyle = C.amber; g.font = '900 30px Outfit, Inter, system-ui, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+      g.fillStyle = C.amber; g.font = '900 30px "Times New Roman", Times, serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
       g.fillText('¿?', cx, qy);
     } else if (gate.burst > 0) {
       const r = (1 - gate.burst) * 140 + 10;
-      g.strokeStyle = 'rgba(77,163,255,' + gate.burst.toFixed(2) + ')'; g.lineWidth = 4;
+      g.strokeStyle = 'rgba(255,138,43,' + gate.burst.toFixed(2) + ')'; g.lineWidth = 4;
       g.beginPath(); g.arc(cx, GROUND_Y - 80, r, 0, 6.283); g.stroke();
     }
   }
@@ -956,20 +1032,20 @@
     for (let i = 0; i <= 10; i++) { const u = i / 10; g.lineTo(f.x + 6 + u * 58, f.y - 126 + Math.sin(f.t * 5 + u * 4) * 4 * u); }
     for (let i = 10; i >= 0; i--) { const u = i / 10; g.lineTo(f.x + 6 + u * 58, f.y - 90 + Math.sin(f.t * 5 + u * 4) * 4 * u); }
     g.closePath(); g.fill();
-    g.fillStyle = '#1a1200'; g.font = '800 15px Outfit, Inter, system-ui, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillStyle = '#1a1200'; g.font = '800 15px "Times New Roman", Times, serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
     g.fillText('META', f.x + 34, f.y - 108);
-    g.fillStyle = 'rgba(255,138,43,0.15)'; g.beginPath(); g.ellipse(f.x + 3, f.y, 40, 10, 0, 0, 6.283); g.fill();
+    g.fillStyle = 'rgba(77,163,255,0.15)'; g.beginPath(); g.ellipse(f.x + 3, f.y, 40, 10, 0, 0, 6.283); g.fill();
   }
 
   function drawOrb(g, o) {
     const y = o.y + Math.sin(o.t * 3) * 4;
     const glow = g.createRadialGradient(o.x, y, 2, o.x, y, 26);
-    glow.addColorStop(0, 'rgba(255,138,43,0.55)'); glow.addColorStop(1, 'rgba(255,138,43,0)');
+    glow.addColorStop(0, 'rgba(77,163,255,0.55)'); glow.addColorStop(1, 'rgba(77,163,255,0)');
     g.fillStyle = glow; g.fillRect(o.x - 26, y - 26, 52, 52);
     const body = g.createRadialGradient(o.x - 4, y - 5, 2, o.x, y, 14);
     body.addColorStop(0, '#fff0d6'); body.addColorStop(0.6, C.amber); body.addColorStop(1, C.amber2);
     g.fillStyle = body; g.beginPath(); g.arc(o.x, y, 13, 0, 6.283); g.fill();
-    g.fillStyle = '#1a1200'; g.font = '900 17px Outfit, Inter, system-ui, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillStyle = '#1a1200'; g.font = '900 17px "Times New Roman", Times, serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
     g.fillText(o.letter, o.x, y + 1);
   }
 
@@ -998,7 +1074,7 @@
     g.fillStyle = body; rr(g, -p.w / 2, -p.h + 2, p.w, p.h - 8, 12); g.fill();
     g.fillStyle = 'rgba(255,255,255,0.25)'; rr(g, -p.w / 2 + 4, -p.h + 6, 8, 10, 4); g.fill();
     // strap
-    g.fillStyle = 'rgba(43,127,230,0.8)'; rr(g, -6, -p.h + 4, 4, 22, 2); g.fill();
+    g.fillStyle = 'rgba(242,95,28,0.8)'; rr(g, -6, -p.h + 4, 4, 22, 2); g.fill();
     // face
     const eyeY = -p.h + 15, blink = p.blink > 0 || tired;
     for (const ex of [2, 11]) {
@@ -1014,7 +1090,7 @@
     g.restore();
     g.globalAlpha = 1;
     if (tired && S.mode === 'play') {
-      g.fillStyle = C.rose; g.font = '800 14px Outfit, Inter, system-ui, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+      g.fillStyle = C.rose; g.font = '800 14px "Times New Roman", Times, serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
       g.fillText('⚡ 0', fx, p.y - 12 + Math.sin(S.time * 6) * 2);
     }
   }
@@ -1054,10 +1130,10 @@
     if (S.banner) {
       const b = S.banner, a = Math.min(1, b.t / 0.3, (b.max - b.t) / 0.2 + 0.2);
       g.globalAlpha = Math.max(0, Math.min(1, a));
-      g.font = '700 15px Inter, system-ui, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+      g.font = '700 15px "Times New Roman", Times, serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
       const tw = Math.min(vw - 24, g.measureText(b.text).width + 32);
       g.fillStyle = 'rgba(7,10,20,0.75)'; rr(g, vw / 2 - tw / 2, 14, tw, 34, 17); g.fill();
-      g.strokeStyle = 'rgba(255,138,43,0.5)'; g.lineWidth = 1; g.stroke();
+      g.strokeStyle = 'rgba(77,163,255,0.5)'; g.lineWidth = 1; g.stroke();
       g.fillStyle = C.text; g.fillText(b.text, vw / 2, 31, vw - 56);
       g.globalAlpha = 1;
     }
@@ -1142,6 +1218,8 @@
     },
     kill() { if (S && S.mode === 'play') die(); },
     get held() { return held; },
+    showIntro(level) { showIntro(level); },
+    maxLevel,
     press(act, down) { press(act, down); },
     score() { return S ? computeScore() : 0; },
     generate(level) { return generateLevel(level); },

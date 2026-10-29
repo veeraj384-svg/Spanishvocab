@@ -40,13 +40,13 @@
   const COMBO_STEP = 4;         // every 4 combo adds +25% to each destroy
   const WRONG_COMBO_PENALTY = 2;
   const TAU = Math.PI * 2;
-  const FONT = "'Outfit', 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif";
+  const FONT = "'Times New Roman', Times, 'Liberation Serif', serif";
   const REDUCED = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
 
   // Theme colours (mirrors css/styles.css tokens; the canvas can't read CSS vars cheaply)
   const C = {
-    amber: '#ff8a2b', amber2: '#f25f1c', mint: '#4da3ff', mint2: '#2b7fe6',
-    lav2: '#f5b800', rose: '#ef3b4d', rose2: '#c92233', white: '#ffffff',
+    amber: '#4da3ff', amber2: '#2b7fe6', mint: '#ff8a2b', mint2: '#f25f1c',
+    lav2: '#f28d35', rose: '#ef3b4d', rose2: '#c92233', white: '#ffffff',
   };
   const CAT_ICON = {};
   Vocab.categories().forEach((c) => { CAT_ICON[c.id] = c.icon; });
@@ -836,7 +836,7 @@
           for (let cc = 0; cc < cols; cc++) {
             if (!b.windows[(r * cols + cc) % b.windows.length]) continue;
             if (b.hp === 1 && (r + cc) % 2) continue; // half the lights are out
-            ctx.fillStyle = (r + cc) % 5 === 0 ? 'rgba(77,163,255,0.7)' : 'rgba(255,138,43,0.75)';
+            ctx.fillStyle = (r + cc) % 5 === 0 ? 'rgba(255,138,43,0.7)' : 'rgba(77,163,255,0.75)';
             ctx.fillRect(bx + 3 + cc * cw, by + 5 + r * 9, Math.max(2, cw - 2), 5);
           }
         }
@@ -848,7 +848,7 @@
     const gg = ctx.createLinearGradient(0, gy, 0, hh);
     gg.addColorStop(0, '#1b2250'); gg.addColorStop(1, '#070a14');
     ctx.fillStyle = gg; ctx.fillRect(0, gy, w, hh - gy);
-    ctx.fillStyle = 'rgba(77,163,255,0.55)'; ctx.fillRect(0, gy, w, 1.5);
+    ctx.fillStyle = 'rgba(255,138,43,0.55)'; ctx.fillRect(0, gy, w, 1.5);
   }
 
   function drawTurret(ctx) {
@@ -864,7 +864,7 @@
     const len = 28 - T.recoil * 8;
     roundRect(ctx, 0, -4, len, 8, 3);
     ctx.fillStyle = '#2b3570'; ctx.fill();
-    ctx.strokeStyle = 'rgba(77,163,255,0.5)'; ctx.stroke();
+    ctx.strokeStyle = 'rgba(255,138,43,0.5)'; ctx.stroke();
     ctx.fillStyle = C.mint; ctx.fillRect(len - 6, -2.5, 5, 5);
     if (T.recoil > 0) {
       ctx.globalCompositeOperation = 'lighter';

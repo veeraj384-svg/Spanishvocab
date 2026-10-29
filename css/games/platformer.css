@@ -5,9 +5,9 @@
 
 .g-platformer .game-title { align-items: center; }
 .g-platformer .game-title > span:last-child { display: flex; flex-direction: column; line-height: 1.1; }
-.g-platformer .game-title .icon { background: rgba(255, 138, 43, 0.15); border-color: rgba(255, 138, 43, 0.4); box-shadow: 0 0 18px rgba(255, 138, 43, 0.25); }
+.g-platformer .game-title .icon { background: rgba(77, 163, 255, 0.15); border-color: rgba(77, 163, 255, 0.4); box-shadow: 0 0 18px rgba(77, 163, 255, 0.25); }
 .g-platformer-tag { font-family: var(--font-body); font-size: 0.78rem; font-weight: 500; color: var(--muted); letter-spacing: 0.02em; }
-.g-platformer-best { font-family: var(--font-display); font-weight: 700; font-size: 0.85rem; color: var(--c-amber); padding: 6px 12px; border-radius: var(--r-pill); background: rgba(255, 138, 43, 0.1); border: 1px solid rgba(255, 138, 43, 0.3); white-space: nowrap; }
+.g-platformer-best { font-family: var(--font-display); font-weight: 700; font-size: 0.85rem; color: var(--c-amber); padding: 6px 12px; border-radius: var(--r-pill); background: rgba(77, 163, 255, 0.1); border: 1px solid rgba(77, 163, 255, 0.3); white-space: nowrap; }
 
 /* ---------- HUD ---------- */
 .g-platformer-hud { gap: var(--sp-3) var(--sp-5); }
@@ -41,15 +41,15 @@
 .g-platformer-qhead { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: var(--r-md); border: 1px solid var(--border); background: var(--surface); animation: pop var(--t-med) var(--ease-bounce) both; }
 .g-platformer-qhead b { display: block; font-family: var(--font-display); font-size: 1.05rem; }
 .g-platformer-qhead span:last-child { font-size: 0.85rem; color: var(--text-2); }
-.g-platformer-qhead.is-energy { border-color: rgba(255, 138, 43, 0.45); background: rgba(255, 138, 43, 0.08); }
-.g-platformer-qhead.is-gate { border-color: rgba(255, 210, 63, 0.45); background: rgba(255, 210, 63, 0.08); }
+.g-platformer-qhead.is-energy { border-color: rgba(77, 163, 255, 0.45); background: rgba(77, 163, 255, 0.08); }
+.g-platformer-qhead.is-gate { border-color: rgba(255, 179, 71, 0.45); background: rgba(255, 179, 71, 0.08); }
 .g-platformer-qicon { width: 42px; height: 42px; border-radius: 12px; display: grid; place-items: center; font-size: 1.4rem; background: var(--surface-2); border: 1px solid var(--border-strong); animation: float 2.4s ease-in-out infinite; }
 
 /* ---------- Touch controls ---------- */
 .g-platformer-is-touch .g-platformer-touch { display: flex; }
 .g-platformer-touch .touch-btn { width: 72px; height: 72px; font-size: 1.7rem; transition: transform 80ms var(--ease), background var(--t-fast); }
 .g-platformer-touch .touch-btn.is-down { transform: scale(0.94); }
-.g-platformer-jump { background: rgba(255, 138, 43, 0.12); border-color: rgba(255, 138, 43, 0.45); color: var(--c-amber); width: 84px !important; }
+.g-platformer-jump { background: rgba(77, 163, 255, 0.12); border-color: rgba(77, 163, 255, 0.45); color: var(--c-amber); width: 84px !important; }
 .g-platformer-help { text-align: center; }
 .g-platformer-is-touch .g-platformer-help { display: none; }
 
@@ -103,3 +103,11 @@ body.pq-short-game .page { padding-top: 8px; }
 .g-platformer-stage > .g-platformer-touch { position: absolute; left: 0; right: 0; bottom: 8px; z-index: 4; padding: 0 10px; display: flex; pointer-events: none; }
 .g-platformer-stage > .g-platformer-touch .touch-btn { pointer-events: auto; opacity: 0.85; width: 54px; height: 54px; font-size: 1.4rem; }
 .g-platformer-stage > .g-platformer-touch .g-platformer-jump { width: 66px !important; }
+
+/* Level select */
+.g-platformer-levels { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 14px; }
+.g-platformer-level { width: 44px; height: 44px; border-radius: 12px; background: var(--surface-2); border: 1px solid var(--border-strong); font-family: var(--font-display); font-weight: 700; font-size: 1.1rem; color: var(--text); transition: transform var(--t-fast) var(--ease-bounce), background var(--t-fast); }
+.g-platformer-level:hover:not(:disabled) { background: var(--surface-3); transform: translateY(-2px); }
+.g-platformer-level.is-current { background: var(--grad-primary); color: #fff; border-color: transparent; box-shadow: var(--glow-amber); }
+.g-platformer-level.is-locked { opacity: 0.4; cursor: not-allowed; font-size: 0.9rem; }
+.g-platformer.is-short .g-platformer-levels { display: none; }

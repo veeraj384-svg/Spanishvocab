@@ -204,7 +204,7 @@
      Settings
      ------------------------------------------------------------ */
   const SETTINGS_KEY = 'pq.settings.v1';
-  const DEFAULT_SETTINGS = { cats: null /* null = all */, sound: true, speech: true, strictArticles: false };
+  const DEFAULT_SETTINGS = { cats: null /* null = all */, sound: true, music: true, speech: true, strictArticles: false };
   const Settings = {
     _s: Object.assign({}, DEFAULT_SETTINGS, Store.get(SETTINGS_KEY, {})),
     get(k) { return Settings._s[k]; },
@@ -308,6 +308,13 @@
      */
     best(gameId) { return (Progress._d.games[gameId] || {}).best || 0; },
     gameStats(gameId) { return Object.assign({ best: 0, plays: 0 }, Progress._d.games[gameId] || {}); },
+    /** Merge metadata into a game's record without touching best / plays (e.g. the highest level unlocked). */
+    setGameMeta(gameId, extra) {
+      const g = Progress._d.games[gameId] || (Progress._d.games[gameId] = { best: 0, plays: 0 });
+      Object.assign(g, extra || {});
+      Progress._save();
+      return g;
+    },
     /** Save a milestone score mid-run (e.g. a level completed) without counting a play. Returns true on a new best. */
     touchBest(gameId, score, onBest) {
       const g = Progress._d.games[gameId] || (Progress._d.games[gameId] = { best: 0, plays: 0 });
@@ -486,6 +493,8 @@
      UI — element builder, toasts, modal, accent bar, confetti
      ------------------------------------------------------------ */
   const UI = {
+    /** Where floating layers go: inside the fullscreen element when one is active, else <body>. */
+    layerRoot() { return document.fullscreenElement || document.webkitFullscreenElement || document.body; },
     /** h('div.card', {onclick}, 'text', child, ...) */
     h(tag, props) {
       const children = Array.prototype.slice.call(arguments, 2);
@@ -516,8 +525,9 @@
     },
     clear(el) { while (el && el.firstChild) el.removeChild(el.firstChild); return el; },
     toast(msg, kind, ms) {
-      let stack = document.querySelector('.toast-stack');
-      if (!stack) { stack = UI.h('div.toast-stack'); document.body.appendChild(stack); }
+      const root = UI.layerRoot();
+      let stack = root.querySelector(':scope > .toast-stack');
+      if (!stack) { stack = UI.h('div.toast-stack'); root.appendChild(stack); }
       const t = UI.h('div.toast' + (kind ? '.' + kind : ''), { role: 'status' }, msg);
       stack.appendChild(t);
       while (stack.children.length > 3) stack.removeChild(stack.firstChild);
@@ -558,7 +568,7 @@
       // Clicking the dim backdrop closes — but not the second half of a double-click / double-tap that opened it
       backdrop.addEventListener('mousedown', (e) => { if (e.target === backdrop && opts.closable !== false && performance.now() - openedAt > 350) close(); });
       document.addEventListener('keydown', onKey);
-      document.body.appendChild(backdrop);
+      UI.layerRoot().appendChild(backdrop);
       // Move focus into the dialog so keystrokes never reach inputs behind the backdrop.
       // A text input inside gets focus; otherwise the dialog box itself (never a button, so a held
       // Space/Enter cannot "click" something by accident).
@@ -627,13 +637,13 @@
       opts = opts || {};
       if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
       const canvas = UI.h('canvas.confetti-canvas');
-      document.body.appendChild(canvas);
+      UI.layerRoot().appendChild(canvas);
       const ctx = canvas.getContext('2d');
       const dpr = Math.min(2, window.devicePixelRatio || 1);
       canvas.width = window.innerWidth * dpr; canvas.height = window.innerHeight * dpr;
       canvas.style.width = window.innerWidth + 'px'; canvas.style.height = window.innerHeight + 'px';
       ctx.scale(dpr, dpr);
-      const colors = ['#ff8a2b', '#f25f1c', '#4da3ff', '#ffd23f', '#ef3b4d', '#ffd23f', '#3b82f6'];
+      const colors = ['#4da3ff', '#2b7fe6', '#ff8a2b', '#ffb347', '#ef3b4d', '#ffb347', '#ff8a2b'];
       const n = opts.count || 120;
       const ox = opts.x == null ? window.innerWidth / 2 : opts.x, oy = opts.y == null ? window.innerHeight * 0.4 : opts.y;
       const ps = Array.from({ length: n }, () => {
@@ -666,12 +676,33 @@
       size = size || 120;
       const r = 50, c = 2 * Math.PI * r;
       const el = UI.h('div.ring', { style: { width: size + 'px', height: size + 'px' } });
-      el.innerHTML = '<svg viewBox="0 0 120 120"><defs><linearGradient id="ringGrad" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ff8a2b"/><stop offset="1" stop-color="#4da3ff"/></linearGradient></defs>' +
+      el.innerHTML = '<svg viewBox="0 0 120 120"><defs><linearGradient id="ringGrad" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#4da3ff"/><stop offset="1" stop-color="#ff8a2b"/></linearGradient></defs>' +
         '<circle class="ring-bg" cx="60" cy="60" r="' + r + '"/><circle class="ring-fg" cx="60" cy="60" r="' + r + '" stroke-dasharray="' + c + '" stroke-dashoffset="' + (c * (1 - Math.max(0, Math.min(1, frac)))) + '"/></svg>' +
         '<div class="ring-label">' + Text.esc(label == null ? Math.round(frac * 100) + '%' : label) + '</div>';
       return el;
     },
     fmtTime(sec) { sec = Math.max(0, Math.round(sec)); return Math.floor(sec / 60) + ':' + String(sec % 60).padStart(2, '0'); },
+    /** Floating dock on game pages: music on/off and fullscreen (for the given page element). */
+    gameDock(pageEl) {
+      const music = UI.h('button.btn.btn-icon', { type: 'button', title: 'Music on / off', 'aria-label': 'Music' }, '🎵');
+      const paintMusic = () => { const on = PQ.Music.enabled(); music.setAttribute('aria-pressed', on ? 'true' : 'false'); music.title = on ? 'Music off' : 'Music on'; };
+      music.addEventListener('click', () => { PQ.Music.toggle(); paintMusic(); Sound.play('click'); });
+      paintMusic();
+      const dock = UI.h('div.game-dock', null, music);
+      const canFs = !!(document.fullscreenEnabled || document.webkitFullscreenEnabled) && typeof pageEl.requestFullscreen === 'function';
+      if (canFs) {
+        const fs = UI.h('button.btn.btn-icon', { type: 'button', title: 'Fullscreen', 'aria-label': 'Fullscreen', 'aria-pressed': 'false' }, '⛶');
+        const paintFs = () => { const on = document.fullscreenElement === pageEl; fs.setAttribute('aria-pressed', on ? 'true' : 'false'); fs.title = on ? 'Exit fullscreen (Esc)' : 'Fullscreen'; fs.textContent = on ? '✕' : '⛶'; };
+        fs.addEventListener('click', () => {
+          if (document.fullscreenElement) { document.exitFullscreen().catch(() => {}); }
+          else { pageEl.requestFullscreen({ navigationUI: 'hide' }).catch(() => UI.toast('Fullscreen is not available here', 'warn')); }
+          Sound.play('click');
+        });
+        document.addEventListener('fullscreenchange', paintFs);
+        dock.appendChild(fs);
+      }
+      return dock;
+    },
   };
   PQ.UI = UI;
 
@@ -731,6 +762,101 @@
     },
   };
   PQ.Sound = Sound;
+
+  /* ------------------------------------------------------------
+     Music — synthesized background loops (no audio files).
+     A 32-step sequencer per game: bass (triangle), lead (square),
+     pad (sine) and hats (filtered noise), scheduled with lookahead.
+     ------------------------------------------------------------ */
+  const midi = (n) => 440 * Math.pow(2, (n - 69) / 12);
+  const Music = {
+    TRACKS: {
+      // bpm, swing, patterns of midi notes (0 = rest), 32 steps (two bars of 16ths)
+      platformer: { bpm: 150, vol: 1,
+        bass: [48,0,48,0,55,0,48,0, 53,0,53,0,55,0,57,0, 48,0,48,0,55,0,48,0, 53,0,55,0,43,0,45,0],
+        lead: [72,0,76,0,79,0,76,0, 77,0,81,0,79,0,76,0, 72,0,76,0,79,0,84,0, 81,0,79,0,77,0,76,0],
+        pad:  [60,0,0,0,0,0,0,0, 65,0,0,0,0,0,0,0, 60,0,0,0,0,0,0,0, 65,0,0,0,67,0,0,0],
+        hat:  [1,0,1,0,1,0,1,1, 1,0,1,0,1,0,1,0, 1,0,1,0,1,0,1,1, 1,0,1,0,1,1,1,0] },
+      blaster: { bpm: 160, vol: 1,
+        bass: [45,0,45,45,0,45,0,48, 45,0,45,45,0,43,0,41, 45,0,45,45,0,45,0,48, 50,0,50,50,0,52,0,52],
+        lead: [69,0,0,72,0,0,76,0, 0,74,0,0,72,0,0,69, 0,0,76,0,79,0,0,76, 0,74,0,72,0,0,71,0],
+        pad:  [57,0,0,0,0,0,0,0, 53,0,0,0,0,0,0,0, 57,0,0,0,0,0,0,0, 55,0,0,0,0,0,0,0],
+        hat:  [1,1,0,1,1,1,0,1, 1,1,0,1,1,1,0,1, 1,1,0,1,1,1,0,1, 1,1,0,1,1,1,1,1] },
+      accent: { bpm: 128, vol: 0.9,
+        bass: [50,0,0,50,0,0,57,0, 55,0,0,55,0,0,52,0, 50,0,0,50,0,0,57,0, 55,0,0,47,0,0,45,0],
+        lead: [74,0,78,0,81,0,0,0, 79,0,78,0,74,0,0,0, 74,0,78,0,81,0,86,0, 83,0,81,0,78,0,0,0],
+        pad:  [62,0,0,0,0,0,0,0, 67,0,0,0,0,0,0,0, 62,0,0,0,0,0,0,0, 59,0,0,0,0,0,0,0],
+        hat:  [1,0,0,1,0,0,1,0, 1,0,0,1,0,0,1,0, 1,0,0,1,0,0,1,0, 1,0,0,1,0,1,0,1] },
+      spell: { bpm: 96, vol: 0.75,
+        bass: [41,0,0,0,0,0,0,0, 45,0,0,0,0,0,0,0, 38,0,0,0,0,0,0,0, 43,0,0,0,0,0,0,0],
+        lead: [65,0,0,0,69,0,0,0, 72,0,0,0,0,0,69,0, 65,0,0,0,62,0,0,0, 67,0,0,0,0,0,0,0],
+        pad:  [53,0,0,0,0,0,0,0, 57,0,0,0,0,0,0,0, 50,0,0,0,0,0,0,0, 55,0,0,0,0,0,0,0],
+        hat:  [0,0,1,0,0,0,1,0, 0,0,1,0,0,0,1,0, 0,0,1,0,0,0,1,0, 0,0,1,0,0,0,1,0] },
+      flash: { bpm: 80, vol: 0.7,
+        bass: [43,0,0,0,0,0,0,0, 48,0,0,0,0,0,0,0, 45,0,0,0,0,0,0,0, 50,0,0,0,0,0,0,0],
+        lead: [67,0,0,0,0,0,71,0, 72,0,0,0,0,0,0,0, 69,0,0,0,0,0,64,0, 66,0,0,0,0,0,0,0],
+        pad:  [55,0,0,0,0,0,0,0, 60,0,0,0,0,0,0,0, 57,0,0,0,0,0,0,0, 62,0,0,0,0,0,0,0],
+        hat:  [0,0,0,0,1,0,0,0, 0,0,0,0,1,0,0,0, 0,0,0,0,1,0,0,0, 0,0,0,0,1,0,0,0] },
+    },
+    _track: null, _timer: 0, _step: 0, _next: 0, _gain: null, _noise: null, _armed: false,
+    enabled() { return Settings.get('music') !== false && Sound.enabled(); },
+    playing() { return !!Music._timer; },
+    /** Which loop is wanted right now (a game id); music follows it while enabled. */
+    want(id) { Music._track = id || null; if (id && Music.enabled()) Music.start(); else Music.stop(); },
+    toggle() { Settings.set('music', !(Settings.get('music') !== false)); if (Music.enabled() && Music._track) Music.start(); else Music.stop(); return Music.enabled(); },
+    _ensureNoise(ctx) {
+      if (Music._noise) return Music._noise;
+      const len = ctx.sampleRate * 0.5, buf = ctx.createBuffer(1, len, ctx.sampleRate), d = buf.getChannelData(0);
+      for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+      Music._noise = buf; return buf;
+    },
+    _note(ctx, out, freq, t, dur, type, vol) {
+      const o = ctx.createOscillator(), g = ctx.createGain();
+      o.type = type; o.frequency.setValueAtTime(freq, t);
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.012); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      o.connect(g).connect(out); o.start(t); o.stop(t + dur + 0.03);
+    },
+    _hat(ctx, out, t, vol) {
+      const src = ctx.createBufferSource(); src.buffer = Music._ensureNoise(ctx);
+      const f = ctx.createBiquadFilter(); f.type = 'highpass'; f.frequency.value = 6000;
+      const g = ctx.createGain(); g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.05);
+      src.connect(f).connect(g).connect(out); src.start(t); src.stop(t + 0.06);
+    },
+    start() {
+      const track = Music.TRACKS[Music._track];
+      if (!track || Music._timer) return;
+      const ctx = Sound.ctx(); if (!ctx) return;
+      if (ctx.state === 'suspended') {   // autoplay policy: wait for the first gesture, then start
+        if (!Music._armed) { Music._armed = true; const go = () => { Music._armed = false; if (Music._track && Music.enabled()) Music.start(); }; ['pointerdown', 'keydown', 'touchstart'].forEach((ev) => document.addEventListener(ev, go, { once: true, passive: true })); }
+        return;
+      }
+      if (!Music._gain) { Music._gain = ctx.createGain(); const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 4200; Music._gain.connect(lp).connect(ctx.destination); }
+      Music._gain.gain.setValueAtTime(0.0001, ctx.currentTime); Music._gain.gain.exponentialRampToValueAtTime(0.09 * (track.vol || 1), ctx.currentTime + 0.6);
+      const stepDur = 60 / track.bpm / 4;
+      Music._step = 0; Music._next = ctx.currentTime + 0.05;
+      const tick = () => {
+        const t0 = ctx.currentTime;
+        while (Music._next < t0 + 0.2) {
+          const i = Music._step % 32, t = Music._next;
+          if (track.bass[i]) Music._note(ctx, Music._gain, midi(track.bass[i]), t, stepDur * 1.6, 'triangle', 0.5);
+          if (track.lead[i]) Music._note(ctx, Music._gain, midi(track.lead[i]), t, stepDur * 1.1, 'square', 0.14);
+          if (track.pad[i]) { Music._note(ctx, Music._gain, midi(track.pad[i]), t, stepDur * 7.5, 'sine', 0.3); Music._note(ctx, Music._gain, midi(track.pad[i] + 7), t, stepDur * 7.5, 'sine', 0.18); }
+          if (track.hat[i]) Music._hat(ctx, Music._gain, t, i % 4 === 0 ? 0.08 : 0.045);
+          Music._next += stepDur; Music._step++;
+        }
+      };
+      tick();
+      Music._timer = setInterval(tick, 60);
+    },
+    stop() {
+      if (Music._timer) { clearInterval(Music._timer); Music._timer = 0; }
+      if (Music._gain && Sound._ctx) { try { const t = Sound._ctx.currentTime; Music._gain.gain.cancelScheduledValues(t); Music._gain.gain.setValueAtTime(Music._gain.gain.value, t); Music._gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.25); } catch (e) { /* ignore */ } }
+    },
+  };
+  PQ.Music = Music;
+  document.addEventListener('visibilitychange', () => { if (document.hidden) Music.stop(); else if (Music._track && Music.enabled()) Music.start(); });
+  window.addEventListener('pq:settings', (e) => { if (e.detail && (e.detail.key === 'sound' || e.detail.key === 'music')) { if (Music.enabled() && Music._track) Music.start(); else Music.stop(); } });
+
   // Unlock audio on first user gesture (browser autoplay policy)
   ['pointerdown', 'keydown', 'touchstart'].forEach((ev) => document.addEventListener(ev, function unlock() { Sound._unlocked = true; if (Sound.enabled()) Sound.ctx(); }, { once: true, passive: true }));
 
@@ -1063,7 +1189,7 @@
       return { path: '/' + parts.join('/'), parts, page: parts[0] || 'home', param: parts[1] || '' };
     },
     go(path) { location.hash = '#' + (path.charAt(0) === '/' ? path : '/' + path); },
-    ctx() { return { Vocab, Text, Progress, Settings, Quiz, QuizUI, UI, Sound, Speech, Rand, navigate: Router.go, vocab: Vocab, quiz: Quiz, progress: Progress, ui: UI, sound: Sound }; },
+    ctx() { return { Vocab, Text, Progress, Settings, Quiz, QuizUI, UI, Sound, Music, Speech, Rand, navigate: Router.go, vocab: Vocab, quiz: Quiz, progress: Progress, ui: UI, sound: Sound }; },
     _unmountCurrent() {
       const cur = Router._current;
       Router._current = null;
@@ -1071,6 +1197,8 @@
       if (cur && cur.page && typeof cur.page.unmount === 'function') { try { cur.page.unmount(); } catch (e) { console.error('page unmount failed', e); } }
       window.dispatchEvent(new CustomEvent('pq:unmount', { detail: cur ? { game: cur.game ? cur.game.id : null, page: cur.pageId || null } : null }));
       document.querySelectorAll('.modal-backdrop').forEach((m) => m.remove());
+      Music.want(null);
+      if (document.fullscreenElement && document.exitFullscreen) { try { document.exitFullscreen().catch(() => {}); } catch (e) { /* ignore */ } }
       document.body.classList.remove('in-game');
     },
     render() {
@@ -1088,8 +1216,10 @@
         const page = UI.h('div.page.container.game-page');
         const mountEl = UI.h('div.game-mount');
         page.appendChild(mountEl);
+        page.appendChild(UI.gameDock(page));
         root.appendChild(page);
         Router._current = { game, root: mountEl };
+        Music.want(game.id);
         try { game.mount(mountEl, Router.ctx()); }
         catch (e) { console.error('Game mount failed', e); mountEl.appendChild(UI.h('div.card', null, UI.h('h3', null, 'This game hit an error'), UI.h('p.muted', null, String(e && e.message || e)), UI.h('a.btn', { href: '#/' }, '← Back home'))); }
         return;

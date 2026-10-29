@@ -16,7 +16,7 @@
   const { Vocab, Text, Progress, Settings, Quiz, QuizUI, UI, Sound, Speech, Games, Pages } = PQ;
 
   const TYPING_TIP = 'Typing tip: type a vowel or <b>n</b>, then press <span class="kbd">`</span> to add its accent (a → á, n → ñ). Every typing game also has an on-screen accent bar.';
-  const BOX_COLORS = ['#ef3b4d', '#ff6a3d', '#ff8a2b', '#ffd23f', '#4da3ff', '#3b82f6'];
+  const BOX_COLORS = ['#ef3b4d', '#ff6a3d', '#4da3ff', '#ffb347', '#ff8a2b', '#ff8a2b'];
   const LEVEL_TITLES = ['Novato', 'Aprendiz', 'Estudiante', 'Explorador', 'Experto', 'Maestro', 'Leyenda'];
   const ALL_CAT = 'all';
   // Short chip labels keep the sticky toolbar to one row of chips; the full sheet title is in the chip's title / aria-label.
@@ -512,6 +512,8 @@
       const card = UI.h('section.card.pg-settings', { 'aria-label': 'Settings' }, UI.h('div.eyebrow', null, 'Settings'), UI.h('h3', null, 'Preferences'));
 
       const soundInput = UI.h('input', { type: 'checkbox', checked: Sound.enabled() });
+      const musicInput = UI.h('input', { type: 'checkbox', checked: Settings.get('music') !== false });
+      musicInput.addEventListener('change', () => { Settings.set('music', musicInput.checked); Sound.play('click'); });
       const speechInput = UI.h('input', { type: 'checkbox', checked: Speech.enabled(), disabled: !Speech.available() });
       const toggleRow = (cls, input, title, sub) => UI.h('label.toggle.pg-toggle.' + cls, null, input, UI.h('span.track'),
         UI.h('span.pg-toggle-text', null, UI.h('b', null, title), UI.h('span.small.muted', null, sub)));
@@ -519,6 +521,7 @@
       speechInput.addEventListener('change', () => { Settings.set('speech', speechInput.checked); if (speechInput.checked) Speech.say('educación física'); Sound.play('click'); });
       card.appendChild(UI.h('div.pg-toggles', null,
         toggleRow('pg-toggle-sound', soundInput, 'Sound effects', 'Clicks, chimes and fanfares'),
+        toggleRow('pg-toggle-music', musicInput, 'Music', 'A loop plays during each game'),
         toggleRow('pg-toggle-speech', speechInput, 'Pronunciation', Speech.available() ? 'Hear words with the 🔊 buttons' : 'Not supported in this browser')));
       if (Speech.available()) card.appendChild(buildVoicePicker());
 
@@ -544,6 +547,7 @@
         if (!live || live.page !== page) return;
         const key = e.detail && e.detail.key;
         if (key === 'sound') { soundInput.checked = Sound.enabled(); syncHeaderSound(); }
+        else if (key === 'music') musicInput.checked = Settings.get('music') !== false;
         else if (key === 'speech') speechInput.checked = Speech.enabled();
         else if (key === 'cats') chips._paint();
       });

@@ -10,7 +10,7 @@ in your browser (`localStorage`), and weak words are served more often until the
 
 | Game | What it trains |
 | --- | --- |
-| **Energy Run** (platformer) | Running drains energy; answering spelling questions recharges it. Word gates block the path. |
+| **Energy Run** (platformer) | Running drains energy; answering spelling questions recharges it. Word gates block the path, sliding platforms and lifts carry you across, and a level select lets you replay any level you have unlocked. |
 | **Spell Forge** | Type the Spanish word from the English prompt. Accent-only mistakes are diffed letter by letter. |
 | **Accent Hunter** | Timed rounds: tap the letters that need an accent or ñ. |
 | **Memory Deck** | Spaced-repetition flashcards with pronunciation. |
@@ -18,6 +18,10 @@ in your browser (`localStorage`), and weak words are served more often until the
 
 Typing tip: type a vowel or `n`, then press <kbd>`</kbd> to add its accent (a → á, n → ñ). There is
 also an on-screen accent bar in every typing game.
+
+Every game has a floating dock with a music toggle (each game has its own synthesized loop; no
+audio files) and a fullscreen button. Music and sound effects can also be switched off under
+Progress → Settings.
 
 ## Deploying on Cloudflare Pages
 

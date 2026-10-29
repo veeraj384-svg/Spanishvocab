@@ -22,7 +22,8 @@ async function typeAnswer(page, text) {
 
 /** Spawn a specific vocab entry (by id) and return its meteor info. */
 async function spawn(page, id) {
-  const m = await dbg(page, (i) => PQ.debug.blaster.spawn(i), id);
+  // the wave queue may already have dropped this word: clear it first so the forced spawn is deterministic
+  const m = await dbg(page, (i) => { const S = PQ.debug.blaster.state; if (S) S.meteors = S.meteors.filter((x) => x.entry.id !== i); return PQ.debug.blaster.spawn(i); }, id);
   assert(m && m.entryId === id, 'spawned meteor for ' + id);
   return m;
 }

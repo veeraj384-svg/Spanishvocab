@@ -14,9 +14,9 @@
   background: var(--surface-2); border: 1px solid var(--border); font-size: 0.85rem; color: var(--text-2); white-space: nowrap;
 }
 .pg-pill b { color: var(--text); font-family: var(--font-display); font-size: 1rem; }
-.pg-pill-amber { border-color: rgba(255,138,43,0.35); background: rgba(255,138,43,0.1); }
+.pg-pill-amber { border-color: rgba(77,163,255,0.35); background: rgba(77,163,255,0.1); }
 .pg-pill-amber b { color: var(--c-amber); }
-.pg-pill-mint { border-color: rgba(77,163,255,0.35); background: rgba(77,163,255,0.1); }
+.pg-pill-mint { border-color: rgba(255,138,43,0.35); background: rgba(255,138,43,0.1); }
 .pg-pill-mint b { color: var(--c-mint); }
 
 .pg-cat-icon {
@@ -44,21 +44,21 @@
 .pg-row .note { line-height: 1.3; }
 .pg-row-mastery { display: flex; align-items: center; }
 .pg-row-actions { display: flex; align-items: center; gap: 6px; }
-.pg-row.is-mastered .es { text-shadow: 0 0 18px rgba(77,163,255,0.35); }
+.pg-row.is-mastered .es { text-shadow: 0 0 18px rgba(255,138,43,0.35); }
 .pg-row.is-mastered::before { background: var(--c-mint); opacity: 1; }
 .pg-row.flash-ok { animation: pg-flash-ok 900ms var(--ease); }
 .pg-row.flash-accent { animation: pg-flash-accent 900ms var(--ease); }
 .pg-row.flash-bad { animation: pg-flash-bad 900ms var(--ease); }
 @keyframes pg-row-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
-@keyframes pg-flash-ok { 0% { background: rgba(77,163,255,0.3); border-color: var(--c-mint); } 100% { background: var(--surface); } }
-@keyframes pg-flash-accent { 0% { background: rgba(255,138,43,0.3); border-color: var(--c-amber); } 100% { background: var(--surface); } }
+@keyframes pg-flash-ok { 0% { background: rgba(255,138,43,0.3); border-color: var(--c-mint); } 100% { background: var(--surface); } }
+@keyframes pg-flash-accent { 0% { background: rgba(77,163,255,0.3); border-color: var(--c-amber); } 100% { background: var(--surface); } }
 @keyframes pg-flash-bad { 0% { background: rgba(239,59,77,0.3); border-color: var(--c-rose); } 100% { background: var(--surface); } }
 
 .pg-say { width: 40px; height: 40px; border-radius: 10px; font-size: 1rem; }
 .pg-say.is-speaking { animation: pg-speak 700ms var(--ease-bounce); color: var(--c-mint); }
 @keyframes pg-speak { 0% { transform: scale(1); } 30% { transform: scale(1.25); } 100% { transform: scale(1); } }
 .pg-practice-btn {
-  gap: 5px; color: var(--c-mint); border-color: rgba(77,163,255,0.35); background: rgba(77,163,255,0.08);
+  gap: 5px; color: var(--c-mint); border-color: rgba(255,138,43,0.35); background: rgba(255,138,43,0.08);
 }
 .pg-practice-btn:hover { background: var(--grad-mint); color: #03201c; border-color: transparent; box-shadow: var(--glow-mint); }
 

@@ -45,6 +45,17 @@ async function run(viewport, touch) {
       assert(errors.length === 0, label + ': console errors on ' + r + ': ' + errors.join('\n'));
     }
 
+    // ---- game dock: music follows the route, fullscreen button present where supported ----
+    await go(page, '#/play/platformer', 400);
+    const dock = await page.evaluate(() => ({ dock: !!document.querySelector('.game-page .game-dock'), music: !!document.querySelector('.game-dock button[aria-label="Music"]'), fs: !!document.querySelector('.game-dock button[aria-label="Fullscreen"]') === !!document.fullscreenEnabled, want: PQ.Music._track }));
+    assert(dock.dock && dock.music && dock.fs && dock.want === 'platformer', label + ': game dock + music track: ' + JSON.stringify(dock));
+    await page.click('.game-dock button[aria-label="Music"]'); await page.waitForTimeout(50);
+    assert(await page.evaluate(() => PQ.Settings.get('music') === false && !PQ.Music.playing()), label + ': music toggle off');
+    await page.click('.game-dock button[aria-label="Music"]'); await page.waitForTimeout(50);
+    assert(await page.evaluate(() => PQ.Settings.get('music') !== false), label + ': music toggle on');
+    await go(page, '#/', 300);
+    assert(await page.evaluate(() => PQ.Music._track === null && !PQ.Music.playing() && !document.querySelector('.game-dock')), label + ': music and dock gone off the game page');
+
     // ---- platformer: energy question, answered for real ----
     await go(page, '#/play/platformer', 400);
     await page.evaluate(() => PQ.debug.platformer.start());

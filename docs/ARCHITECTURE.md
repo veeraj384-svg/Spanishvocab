@@ -59,6 +59,10 @@ tests/run-all.js        runs every test file in order
 | `UI.accentBar(input, {mount?, hint?})` | adds á é í ó ú ñ ü ¿ ¡ buttons + backtick accent trick to an input |
 | `Sound.play(name)` | `correct wrong accent jump coin energy gate hurt win lose tick click levelup shoot explode` |
 | `Sound.tone(freq, dur, type?, vol?, when?, slideTo?)` | one pitched tone (for combo pitch ramps); silent when muted |
+| `Music.want(gameId)` / `Music.toggle()` / `Music.enabled()` | synthesized background loop per game (`Music.TRACKS`); the router starts it on a game route and stops it on leave; follows the `music` + `sound` settings and pauses in hidden tabs |
+| `Progress.setGameMeta(gameId, extra)` | merge metadata into a game's record without touching best / plays (e.g. `maxLevel`) |
+| `UI.layerRoot()` | where dialogs, toasts and confetti are appended: the fullscreen element when one is active, else `<body>` |
+| `UI.gameDock(pageEl)` | the floating music + fullscreen dock the router adds to every game page |
 | `Speech.say(text)`, `Speech.enabled()` | pronunciation (Web Speech API) |
 | `Rand.pick(arr)`, `Rand.shuffle(arr)`, `Rand.int(a,b)`, `Rand.chance(p)`, `Rand.seeded(seed)` | randomness |
 | `Settings.get/set` | `cats` (array│null), `sound`, `speech` |

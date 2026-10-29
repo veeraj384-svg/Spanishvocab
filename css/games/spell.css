@@ -74,12 +74,12 @@ button.g-spell-mode:active { transform: translateY(0) scale(0.99); }
   font-family: var(--font-body); font-size: 0.75rem; font-weight: 700; letter-spacing: 0.02em; white-space: nowrap;
 }
 .g-spell-progress-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; margin-bottom: 7px; font-weight: 600; }
-.g-spell-progress .bar-fill { transition: width var(--t-slow) var(--ease); box-shadow: 0 0 12px rgba(77,163,255,0.45); }
+.g-spell-progress .bar-fill { transition: width var(--t-slow) var(--ease); box-shadow: 0 0 12px rgba(255,138,43,0.45); }
 
 .g-spell-hud { gap: var(--sp-5); }
 .g-spell-hud .hud-item .label { margin: 0; }
 .g-spell-flame { transition: transform var(--t-fast) var(--ease-bounce), background var(--t-med), box-shadow var(--t-med), color var(--t-med); }
-.g-spell-flame.is-hot { background: rgba(242,95,28,0.25); box-shadow: 0 0 16px rgba(242,95,28,0.35); animation: g-spell-flicker 1.3s ease-in-out infinite; }
+.g-spell-flame.is-hot { background: rgba(43,127,230,0.25); box-shadow: 0 0 16px rgba(43,127,230,0.35); animation: g-spell-flicker 1.3s ease-in-out infinite; }
 .g-spell-flame.is-blazing { background: var(--grad-rose); color: #fff; box-shadow: var(--glow-rose); }
 .g-spell-flame.is-pop, .g-spell-mult.is-pop { animation: g-spell-pop 0.55s var(--ease-bounce); }
 .g-spell-mult {
@@ -96,7 +96,7 @@ button.g-spell-mode:active { transform: translateY(0) scale(0.99); }
 .g-spell-heart.is-lost { fill: var(--surface-3); filter: none; transform: scale(0.82); animation: none; }
 .g-spell-tip {
   display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border-radius: 999px;
-  background: rgba(255,138,43,0.14); border: 1px solid rgba(255,138,43,0.45); color: var(--c-amber);
+  background: rgba(77,163,255,0.14); border: 1px solid rgba(77,163,255,0.45); color: var(--c-amber);
   font-size: 0.8rem; font-weight: 700; cursor: help; white-space: nowrap;
 }
 .g-spell-tip-mark { font-family: var(--font-display); font-size: 1.25rem; line-height: 0.6; font-weight: 900; }
@@ -122,8 +122,8 @@ button.g-spell-mode:active { transform: translateY(0) scale(0.99); }
   display: inline-flex; align-items: baseline; gap: 4px;
   animation: g-spell-float 1.2s var(--ease) both;
 }
-.g-spell-float.is-ok { color: var(--c-mint); text-shadow: 0 0 18px rgba(77,163,255,0.65); }
-.g-spell-float.is-accent { color: var(--c-amber); text-shadow: 0 0 18px rgba(255,138,43,0.6); }
+.g-spell-float.is-ok { color: var(--c-mint); text-shadow: 0 0 18px rgba(255,138,43,0.65); }
+.g-spell-float.is-accent { color: var(--c-amber); text-shadow: 0 0 18px rgba(77,163,255,0.6); }
 .g-spell-float.is-bad { color: var(--c-rose); font-size: 1.1rem; text-transform: uppercase; letter-spacing: 0.08em; }
 .g-spell-float .x { font-size: 0.85rem; padding: 2px 6px; border-radius: 6px; background: var(--grad-primary); color: #1a1200; text-shadow: none; }
 
@@ -160,9 +160,9 @@ button.g-spell-mode:active { transform: translateY(0) scale(0.99); }
   font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; padding: 3px 9px; border-radius: 999px;
   background: rgba(239,59,77,0.15); color: var(--c-rose); border: 1px solid rgba(239,59,77,0.4); white-space: nowrap;
 }
-.g-spell-miss[data-status="accent"] .g-spell-miss-tag { background: rgba(255,138,43,0.15); color: var(--c-amber); border-color: rgba(255,138,43,0.45); }
+.g-spell-miss[data-status="accent"] .g-spell-miss-tag { background: rgba(77,163,255,0.15); color: var(--c-amber); border-color: rgba(77,163,255,0.45); }
 .g-spell-say { font-size: 1.1rem; }
-.g-spell-clean { margin: var(--sp-2) 0 0; padding: 14px 16px; border-radius: 12px; background: rgba(77,163,255,0.1); border: 1px solid rgba(77,163,255,0.4); color: #d9fff9; font-weight: 600; }
+.g-spell-clean { margin: var(--sp-2) 0 0; padding: 14px 16px; border-radius: 12px; background: rgba(255,138,43,0.1); border: 1px solid rgba(255,138,43,0.4); color: #d9fff9; font-weight: 600; }
 .g-spell-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: var(--sp-6); }
 
 /* ---------- Animations ---------- */

@@ -94,6 +94,8 @@ t('level curve', Progress.xpForLevel(1) === 0 && Progress.xpForLevel(2) === 100 
 t('setBest', Progress.setBest('x', 10) === true && Progress.setBest('x', 5) === false && Progress.best('x') === 10 && Progress.gameStats('x').plays === 2);
 Progress.setBest('y', 100, { mode: 'a' }, { wave: 3 }); Progress.setBest('y', 20, { mode: 'b' }, { wave: 1 });
 t('touchBest updates best without a play', Progress.touchBest('z', 50, { lvl: 2 }) === true && Progress.gameStats('z').best === 50 && Progress.gameStats('z').plays === 0 && Progress.gameStats('z').lvl === 2 && Progress.touchBest('z', 10) === false);
+t('setGameMeta merges without a play', (Progress.setGameMeta('m', { maxLevel: 3 }), Progress.gameStats('m').maxLevel === 3 && Progress.gameStats('m').plays === 0));
+t('music tracks cover every game', ['platformer', 'spell', 'accent', 'blaster', 'flash'].every((id) => w.PQ.Music.TRACKS[id] && w.PQ.Music.TRACKS[id].bass.length === 32 && w.PQ.Music.TRACKS[id].lead.length === 32 && w.PQ.Music.TRACKS[id].pad.length === 32 && w.PQ.Music.TRACKS[id].hat.length === 32));
 t('setBest onBest kept from the best run', Progress.gameStats('y').wave === 3 && Progress.gameStats('y').mode === 'b' && Progress.gameStats('y').lastScore === 20 && Progress.gameStats('y').best === 100);
 const sum = Progress.summary(); t('summary', sum.total === 31 && sum.mastered === 1 && sum.boxes.reduce((a, b) => a + b, 0) === 31);
 w.PQ.Settings.set('cats', ['pronoun-s']); t('active respects filter', Vocab.active().length === 5 && Vocab.active().every((e) => e.cat === 'pronoun-s'));
