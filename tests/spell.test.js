@@ -371,7 +371,7 @@ async function desktop() {
   await next(page);
 
   // three misses (wrong, accent, wrong) end the marathon
-  await force(page, ['despues', 'cuantos', 'cuantos'], 'typed');
+  await force(page, ['despues', 'termine', 'mayuscula'], 'typed');
   await typeAnswer(page, 'qqqq');
   s = await snap(page);
   assert(s.lives === 2, 'life lost on a wrong answer');
