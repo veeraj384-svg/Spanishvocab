@@ -45,16 +45,31 @@ async function run(viewport, touch) {
       assert(errors.length === 0, label + ': console errors on ' + r + ': ' + errors.join('\n'));
     }
 
+    // ---- volume panel: header speaker opens it; sliders drive the settings; home page has its own track ----
+    await go(page, '#/', 300);
+    assert(await page.evaluate(() => PQ.Music._track === 'home'), label + ': home page wants the home track');
+    await page.click('#soundBtn'); await page.waitForTimeout(150);
+    const vp = await page.evaluate(() => ({ open: !!document.querySelector('.vol-pop'), sliders: document.querySelectorAll('.vol-pop input[type=range]').length, music: !!document.querySelector('.vol-pop button[aria-pressed]') }));
+    assert(vp.open && vp.sliders === 3 && vp.music, label + ': volume panel with 3 sliders + music switch: ' + JSON.stringify(vp));
+    await page.evaluate(() => { const r = document.querySelectorAll('.vol-pop input[type=range]')[1]; r.value = '40'; r.dispatchEvent(new Event('input', { bubbles: true })); });
+    assert(await page.evaluate(() => Math.abs(PQ.Settings.get('volSfx') - 0.4) < 1e-9), label + ': effects slider sets volSfx');
+    await page.keyboard.press('Escape'); await page.waitForTimeout(60);
+    assert(await page.evaluate(() => !document.querySelector('.vol-pop')), label + ': Escape closes the panel');
+    await page.evaluate(() => PQ.Settings.set('volSfx', 0.9));
+    await go(page, '#/words', 300);
+    assert(await page.evaluate(() => PQ.Music._track === null), label + ': no music outside home / games');
+
     // ---- game dock: music follows the route, fullscreen button present where supported ----
+    await page.evaluate(() => PQ.Settings.set('music', true));
     await go(page, '#/play/platformer', 400);
-    const dock = await page.evaluate(() => ({ dock: !!document.querySelector('.game-page .game-dock'), music: !!document.querySelector('.game-dock button[aria-label="Music"]'), fs: !!document.querySelector('.game-dock button[aria-label="Fullscreen"]') === !!document.fullscreenEnabled, want: PQ.Music._track }));
-    assert(dock.dock && dock.music && dock.fs && dock.want === 'platformer', label + ': game dock + music track: ' + JSON.stringify(dock));
+    const dock = await page.evaluate(() => ({ dock: !!document.querySelector('.game-page .game-dock'), music: !!document.querySelector('.game-dock button[aria-label="Music"]'), vol: !!document.querySelector('.game-dock button[aria-label="Volume"]'), fs: !!document.querySelector('.game-dock button[aria-label="Fullscreen"]') === !!document.fullscreenEnabled, want: PQ.Music._track }));
+    assert(dock.dock && dock.music && dock.vol && dock.fs && dock.want === 'platformer', label + ': game dock + music track: ' + JSON.stringify(dock));
     await page.click('.game-dock button[aria-label="Music"]'); await page.waitForTimeout(50);
     assert(await page.evaluate(() => PQ.Settings.get('music') === false && !PQ.Music.playing()), label + ': music toggle off');
     await page.click('.game-dock button[aria-label="Music"]'); await page.waitForTimeout(50);
     assert(await page.evaluate(() => PQ.Settings.get('music') !== false), label + ': music toggle on');
     await go(page, '#/', 300);
-    assert(await page.evaluate(() => PQ.Music._track === null && !PQ.Music.playing() && !document.querySelector('.game-dock')), label + ': music and dock gone off the game page');
+    assert(await page.evaluate(() => PQ.Music._track === 'home' && !document.querySelector('.game-dock')), label + ': dock gone off the game page, home track wanted');
 
     // ---- platformer: energy question, answered for real ----
     await go(page, '#/play/platformer', 400);

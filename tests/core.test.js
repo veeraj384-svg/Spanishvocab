@@ -95,7 +95,9 @@ t('setBest', Progress.setBest('x', 10) === true && Progress.setBest('x', 5) === 
 Progress.setBest('y', 100, { mode: 'a' }, { wave: 3 }); Progress.setBest('y', 20, { mode: 'b' }, { wave: 1 });
 t('touchBest updates best without a play', Progress.touchBest('z', 50, { lvl: 2 }) === true && Progress.gameStats('z').best === 50 && Progress.gameStats('z').plays === 0 && Progress.gameStats('z').lvl === 2 && Progress.touchBest('z', 10) === false);
 t('setGameMeta merges without a play', (Progress.setGameMeta('m', { maxLevel: 3 }), Progress.gameStats('m').maxLevel === 3 && Progress.gameStats('m').plays === 0));
-t('music tracks cover every game', ['platformer', 'spell', 'accent', 'blaster', 'flash'].every((id) => w.PQ.Music.TRACKS[id] && w.PQ.Music.TRACKS[id].bass.length === 32 && w.PQ.Music.TRACKS[id].lead.length === 32 && w.PQ.Music.TRACKS[id].pad.length === 32 && w.PQ.Music.TRACKS[id].hat.length === 32));
+t('music pieces compose for every game and the home page', ['home', 'platformer', 'spell', 'accent', 'blaster', 'flash'].every((id) => { const sg = w.PQ.Music.compose(id); return sg && sg.bars === 40 && sg.steps.length === 640 && sg.steps.some((x) => x.lead) && sg.steps.some((x) => x.pad) && sg.steps.some((x) => x.kick) && sg.bpm <= 90; }));
+t('composer is deterministic', JSON.stringify(w.PQ.Music.compose('spell').steps.slice(0, 64)) === JSON.stringify(w.PQ.Music.compose('spell').steps.slice(0, 64)));
+t('sound gain follows the volume settings', (w.PQ.Settings.set('volMaster', 0.5), w.PQ.Settings.set('volSfx', 0.5), Math.abs(w.PQ.Sound.gainFactor() - 0.25) < 1e-9 && (w.PQ.Settings.set('volMaster', 0.8), w.PQ.Settings.set('volSfx', 0.9), true)));
 t('setBest onBest kept from the best run', Progress.gameStats('y').wave === 3 && Progress.gameStats('y').mode === 'b' && Progress.gameStats('y').lastScore === 20 && Progress.gameStats('y').best === 100);
 const sum = Progress.summary(); t('summary', sum.total === 31 && sum.mastered === 1 && sum.boxes.reduce((a, b) => a + b, 0) === 31);
 w.PQ.Settings.set('cats', ['pronoun-s']); t('active respects filter', Vocab.active().length === 5 && Vocab.active().every((e) => e.cat === 'pronoun-s'));

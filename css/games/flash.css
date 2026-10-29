@@ -24,7 +24,7 @@
 .g-flash-fan i {
   position: absolute; left: 50%; top: 10px; width: 62px; height: 82px; margin-left: -31px; border-radius: 12px;
   display: grid; place-items: center; font-style: normal; font-family: var(--font-display); font-size: 1.9rem; font-weight: 900; color: var(--c-amber);
-  background: linear-gradient(160deg, rgba(255,255,255,0.14), rgba(255,255,255,0.04)); border: 1px solid var(--border-strong);
+  background: var(--surface-2); border: 1px solid var(--border-strong);
   box-shadow: var(--shadow-md); transform-origin: 50% 130%;
   animation: g-flash-fan-float 4s ease-in-out infinite;
 }
@@ -97,7 +97,7 @@
 }
 .g-flash-deckchip-dir { color: var(--muted); font-family: var(--font-mono); font-size: 0.68rem; padding-left: 8px; border-left: 1px solid var(--border-strong); }
 .g-flash-progress-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; margin-bottom: 7px; font-weight: 600; }
-.g-flash-progress .bar-fill { background: linear-gradient(90deg, #ff8a2b, #ffb347); box-shadow: 0 0 12px rgba(255,138,43,0.45); transition: width var(--t-slow) var(--ease); }
+.g-flash-progress .bar-fill { background: var(--c-mint); box-shadow: 0 0 12px rgba(255,138,43,0.45); transition: width var(--t-slow) var(--ease); }
 
 .g-flash-hud { gap: var(--sp-4); }
 .g-flash-counts { display: flex; gap: 8px; flex-wrap: wrap; }
@@ -128,18 +128,18 @@
   grid-area: 1 / 1; position: relative; backface-visibility: hidden; -webkit-backface-visibility: hidden;
   display: flex; flex-direction: column; justify-content: center; gap: 10px; text-align: center;
   padding: 58px 28px 24px; border-radius: var(--r-xl); border: 1px solid var(--border-strong);
-  background: linear-gradient(160deg, rgba(255,255,255,0.11), rgba(255,255,255,0.035) 60%, rgba(255,138,43,0.08));
+  background: var(--surface-2);
   box-shadow: var(--shadow-lg);
 }
 .g-flash-face::before {
   content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
-  background: linear-gradient(115deg, transparent 30%, rgba(255,255,255,0.07) 45%, transparent 60%);
+  background: none;
   background-size: 250% 100%; background-position: 100% 0; transition: background-position 900ms var(--ease);
 }
 .g-flash-card:hover .g-flash-face::before { background-position: 0 0; }
 .g-flash-back {
   transform: rotateY(180deg);
-  background: linear-gradient(160deg, rgba(255,138,43,0.26), rgba(255,179,71,0.14) 55%, rgba(255,255,255,0.04));
+  background: rgba(255,138,43,0.16);
   border-color: rgba(255,138,43,0.5);
   box-shadow: var(--shadow-lg), 0 0 0 1px rgba(255,138,43,0.25), 0 10px 40px rgba(255,138,43,0.18);
 }

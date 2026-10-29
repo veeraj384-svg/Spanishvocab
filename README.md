@@ -19,8 +19,11 @@ in your browser (`localStorage`), and weak words are served more often until the
 Typing tip: type a vowel or `n`, then press <kbd>`</kbd> to add its accent (a → á, n → ñ). There is
 also an on-screen accent bar in every typing game.
 
-Every game has a floating dock with a music toggle (each game has its own synthesized loop; no
-audio files) and a fullscreen button. Music and sound effects can also be switched off under
+Lofi background music plays on the home page and in every game: each has its own generated,
+40-bar piece (slow swung drums, warm seventh-chord pads, an electric-piano melody and a vinyl
+crackle bed, all synthesized in the browser, no audio files). The 🔊 button at the top of every
+page opens a quick panel with master, effects and music volume sliders plus music and mute
+switches; the same controls sit in the game dock (with a fullscreen button) and under
 Progress → Settings.
 
 ## Deploying on Cloudflare Pages

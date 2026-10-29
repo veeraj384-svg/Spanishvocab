@@ -204,7 +204,7 @@
      Settings
      ------------------------------------------------------------ */
   const SETTINGS_KEY = 'pq.settings.v1';
-  const DEFAULT_SETTINGS = { cats: null /* null = all */, sound: true, music: true, speech: true, strictArticles: false };
+  const DEFAULT_SETTINGS = { cats: null /* null = all */, sound: true, music: true, speech: true, strictArticles: false, volMaster: 0.8, volSfx: 0.9, volMusic: 0.5 };
   const Settings = {
     _s: Object.assign({}, DEFAULT_SETTINGS, Store.get(SETTINGS_KEY, {})),
     get(k) { return Settings._s[k]; },
@@ -676,19 +676,73 @@
       size = size || 120;
       const r = 50, c = 2 * Math.PI * r;
       const el = UI.h('div.ring', { style: { width: size + 'px', height: size + 'px' } });
-      el.innerHTML = '<svg viewBox="0 0 120 120"><defs><linearGradient id="ringGrad" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#4da3ff"/><stop offset="1" stop-color="#ff8a2b"/></linearGradient></defs>' +
+      el.innerHTML = '<svg viewBox="0 0 120 120"><defs><linearGradient id="ringGrad" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#4da3ff"/><stop offset="1" stop-color="#4da3ff"/></linearGradient></defs>' +
         '<circle class="ring-bg" cx="60" cy="60" r="' + r + '"/><circle class="ring-fg" cx="60" cy="60" r="' + r + '" stroke-dasharray="' + c + '" stroke-dashoffset="' + (c * (1 - Math.max(0, Math.min(1, frac)))) + '"/></svg>' +
         '<div class="ring-label">' + Text.esc(label == null ? Math.round(frac * 100) + '%' : label) + '</div>';
       return el;
     },
     fmtTime(sec) { sec = Math.max(0, Math.round(sec)); return Math.floor(sec / 60) + ':' + String(sec % 60).padStart(2, '0'); },
-    /** Floating dock on game pages: music on/off and fullscreen (for the given page element). */
+    /** Three sliders (master, effects, music) bound to Settings; shared by the quick panel and the Settings page. */
+    volumeSliders(opts) {
+      opts = opts || {};
+      const wrap = UI.h('div.vol-sliders');
+      const cleanups = [];
+      wrap._cleanup = () => { cleanups.splice(0).forEach((f) => f()); };
+      if (opts.register) opts.register(wrap._cleanup);
+      let lastTick = 0;
+      [['volMaster', 'Volume', '🔊'], ['volSfx', 'Effects', '✨'], ['volMusic', 'Music', '🎵']].forEach(([key, label, icon]) => {
+        const val = UI.h('span.vol-val.mono', null, Math.round(Sound.level(key) * 100));
+        const input = UI.h('input.vol-range', { type: 'range', min: '0', max: '100', step: '1', value: String(Math.round(Sound.level(key) * 100)), 'aria-label': label + ' volume' });
+        input.addEventListener('input', () => {
+          Settings.set(key, Number(input.value) / 100);
+          val.textContent = input.value;
+          const now = performance.now();
+          if (key !== 'volMusic' && now - lastTick > 140) { lastTick = now; Sound.play('tick'); }
+        });
+        const onSettings = (e) => {
+          if (!wrap.isConnected) { wrap._cleanup(); return; }   // lazily let go once the sliders are gone from the page
+          if (e.detail && e.detail.key === key && document.activeElement !== input) { input.value = String(Math.round(Sound.level(key) * 100)); val.textContent = input.value; }
+        };
+        window.addEventListener('pq:settings', onSettings);
+        cleanups.push(() => window.removeEventListener('pq:settings', onSettings));
+        wrap.appendChild(UI.h('label.vol-row', null, UI.h('span.vol-label', null, icon + ' ' + label), input, val));
+      });
+      return wrap;
+    },
+    /** Quick-access volume popover anchored to a button (one at a time; closes on outside click / Escape). */
+    volumePanel(anchor) {
+      const existing = document.querySelector('.vol-pop');
+      if (existing) { existing.remove(); return null; }
+      const muteBtn = UI.h('button.btn.btn-sm.btn-outline', { type: 'button' });
+      const paintMute = () => { muteBtn.textContent = Sound.enabled() ? '🔇 Mute everything' : '🔊 Unmute'; };
+      muteBtn.addEventListener('click', () => { Sound.toggle(); paintMute(); if (Sound.enabled()) Sound.play('click'); });
+      paintMute();
+      const musicBtn = UI.h('button.btn.btn-sm.btn-outline', { type: 'button' });
+      const paintMusic = () => { musicBtn.textContent = Settings.get('music') !== false ? '🎵 Music on' : '🎵 Music off'; musicBtn.setAttribute('aria-pressed', Settings.get('music') !== false ? 'true' : 'false'); };
+      musicBtn.addEventListener('click', () => { PQ.Music.toggle(); paintMusic(); });
+      paintMusic();
+      const sliders = UI.volumeSliders();
+      const pop = UI.h('div.vol-pop.card', { role: 'dialog', 'aria-label': 'Volume' }, UI.h('div.row-between', null, UI.h('b', null, 'Sound'), UI.h('div.row', { style: { gap: '6px' } }, musicBtn, muteBtn)), sliders);
+      const r = anchor.getBoundingClientRect();
+      pop.style.top = (r.bottom + 8) + 'px';
+      pop.style.right = Math.max(8, window.innerWidth - r.right) + 'px';
+      if (r.top > window.innerHeight / 2) { pop.style.top = 'auto'; pop.style.bottom = (window.innerHeight - r.top + 8) + 'px'; }
+      const close = () => { pop.remove(); sliders._cleanup(); document.removeEventListener('pointerdown', onDown, true); document.removeEventListener('keydown', onKey); };
+      const onDown = (e) => { if (!pop.contains(e.target) && e.target !== anchor && !anchor.contains(e.target)) close(); };
+      const onKey = (e) => { if (e.key === 'Escape') close(); };
+      setTimeout(() => { document.addEventListener('pointerdown', onDown, true); document.addEventListener('keydown', onKey); }, 0);
+      UI.layerRoot().appendChild(pop);
+      return pop;
+    },
+    /** Floating dock on game pages: music on/off, volume and fullscreen (for the given page element). */
     gameDock(pageEl) {
       const music = UI.h('button.btn.btn-icon', { type: 'button', title: 'Music on / off', 'aria-label': 'Music' }, '🎵');
       const paintMusic = () => { const on = PQ.Music.enabled(); music.setAttribute('aria-pressed', on ? 'true' : 'false'); music.title = on ? 'Music off' : 'Music on'; };
       music.addEventListener('click', () => { PQ.Music.toggle(); paintMusic(); Sound.play('click'); });
       paintMusic();
-      const dock = UI.h('div.game-dock', null, music);
+      const vol = UI.h('button.btn.btn-icon', { type: 'button', title: 'Volume', 'aria-label': 'Volume', 'aria-pressed': 'true' }, '🔊');
+      vol.addEventListener('click', () => UI.volumePanel(vol));
+      const dock = UI.h('div.game-dock', null, music, vol);
       const canFs = !!(document.fullscreenEnabled || document.webkitFullscreenEnabled) && typeof pageEl.requestFullscreen === 'function';
       if (canFs) {
         const fs = UI.h('button.btn.btn-icon', { type: 'button', title: 'Fullscreen', 'aria-label': 'Fullscreen', 'aria-pressed': 'false' }, '⛶');
@@ -723,14 +777,20 @@
     },
     enabled() { return Settings.get('sound') !== false; },
     toggle() { Settings.set('sound', !Sound.enabled()); return Sound.enabled(); },
+    /** 0..1 volume level for a settings key. */
+    level(key) { const v = Number(Settings.get(key)); return isFinite(v) ? Math.max(0, Math.min(1, v)) : 1; },
+    /** Effects loudness = master × effects. */
+    gainFactor() { return Sound.level('volMaster') * Sound.level('volSfx'); },
     _tone(freq, dur, type, vol, when, slide) {
       const ctx = Sound.ctx(); if (!ctx) return;
+      vol = (vol || 0.15) * Sound.gainFactor();
+      if (vol <= 0.0002) return;
       const t = ctx.currentTime + (when || 0);
       const o = ctx.createOscillator(), g = ctx.createGain();
       o.type = type || 'sine'; o.frequency.setValueAtTime(freq, t);
       if (slide) o.frequency.exponentialRampToValueAtTime(Math.max(20, slide), t + dur);
       g.gain.setValueAtTime(0.0001, t);
-      g.gain.exponentialRampToValueAtTime(vol || 0.15, t + 0.01);
+      g.gain.exponentialRampToValueAtTime(vol, t + 0.01);
       g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
       o.connect(g).connect(ctx.destination);
       o.start(t); o.stop(t + dur + 0.02);
@@ -764,98 +824,215 @@
   PQ.Sound = Sound;
 
   /* ------------------------------------------------------------
-     Music — synthesized background loops (no audio files).
-     A 32-step sequencer per game: bass (triangle), lead (square),
-     pad (sine) and hats (filtered noise), scheduled with lookahead.
+     Music — generative background pieces (no audio files).
+     Each game has a style (key, tempo, chord progression, drum feel,
+     lead style). compose() renders a deterministic 40-bar piece:
+     intro · A · B · A' · bridge · B, with kick / snare / hats, a
+     filtered bass, a detuned pad and a delayed lead. Scheduled with
+     lookahead; loops when it ends.
      ------------------------------------------------------------ */
   const midi = (n) => 440 * Math.pow(2, (n - 69) / 12);
+  const SCALES = { major: [0, 2, 4, 5, 7, 9, 11], minor: [0, 2, 3, 5, 7, 8, 10] };
   const Music = {
-    TRACKS: {
-      // bpm, swing, patterns of midi notes (0 = rest), 32 steps (two bars of 16ths)
-      platformer: { bpm: 150, vol: 1,
-        bass: [48,0,48,0,55,0,48,0, 53,0,53,0,55,0,57,0, 48,0,48,0,55,0,48,0, 53,0,55,0,43,0,45,0],
-        lead: [72,0,76,0,79,0,76,0, 77,0,81,0,79,0,76,0, 72,0,76,0,79,0,84,0, 81,0,79,0,77,0,76,0],
-        pad:  [60,0,0,0,0,0,0,0, 65,0,0,0,0,0,0,0, 60,0,0,0,0,0,0,0, 65,0,0,0,67,0,0,0],
-        hat:  [1,0,1,0,1,0,1,1, 1,0,1,0,1,0,1,0, 1,0,1,0,1,0,1,1, 1,0,1,0,1,1,1,0] },
-      blaster: { bpm: 160, vol: 1,
-        bass: [45,0,45,45,0,45,0,48, 45,0,45,45,0,43,0,41, 45,0,45,45,0,45,0,48, 50,0,50,50,0,52,0,52],
-        lead: [69,0,0,72,0,0,76,0, 0,74,0,0,72,0,0,69, 0,0,76,0,79,0,0,76, 0,74,0,72,0,0,71,0],
-        pad:  [57,0,0,0,0,0,0,0, 53,0,0,0,0,0,0,0, 57,0,0,0,0,0,0,0, 55,0,0,0,0,0,0,0],
-        hat:  [1,1,0,1,1,1,0,1, 1,1,0,1,1,1,0,1, 1,1,0,1,1,1,0,1, 1,1,0,1,1,1,1,1] },
-      accent: { bpm: 128, vol: 0.9,
-        bass: [50,0,0,50,0,0,57,0, 55,0,0,55,0,0,52,0, 50,0,0,50,0,0,57,0, 55,0,0,47,0,0,45,0],
-        lead: [74,0,78,0,81,0,0,0, 79,0,78,0,74,0,0,0, 74,0,78,0,81,0,86,0, 83,0,81,0,78,0,0,0],
-        pad:  [62,0,0,0,0,0,0,0, 67,0,0,0,0,0,0,0, 62,0,0,0,0,0,0,0, 59,0,0,0,0,0,0,0],
-        hat:  [1,0,0,1,0,0,1,0, 1,0,0,1,0,0,1,0, 1,0,0,1,0,0,1,0, 1,0,0,1,0,1,0,1] },
-      spell: { bpm: 96, vol: 0.75,
-        bass: [41,0,0,0,0,0,0,0, 45,0,0,0,0,0,0,0, 38,0,0,0,0,0,0,0, 43,0,0,0,0,0,0,0],
-        lead: [65,0,0,0,69,0,0,0, 72,0,0,0,0,0,69,0, 65,0,0,0,62,0,0,0, 67,0,0,0,0,0,0,0],
-        pad:  [53,0,0,0,0,0,0,0, 57,0,0,0,0,0,0,0, 50,0,0,0,0,0,0,0, 55,0,0,0,0,0,0,0],
-        hat:  [0,0,1,0,0,0,1,0, 0,0,1,0,0,0,1,0, 0,0,1,0,0,0,1,0, 0,0,1,0,0,0,1,0] },
-      flash: { bpm: 80, vol: 0.7,
-        bass: [43,0,0,0,0,0,0,0, 48,0,0,0,0,0,0,0, 45,0,0,0,0,0,0,0, 50,0,0,0,0,0,0,0],
-        lead: [67,0,0,0,0,0,71,0, 72,0,0,0,0,0,0,0, 69,0,0,0,0,0,64,0, 66,0,0,0,0,0,0,0],
-        pad:  [55,0,0,0,0,0,0,0, 60,0,0,0,0,0,0,0, 57,0,0,0,0,0,0,0, 62,0,0,0,0,0,0,0],
-        hat:  [0,0,0,0,1,0,0,0, 0,0,0,0,1,0,0,0, 0,0,0,0,1,0,0,0, 0,0,0,0,1,0,0,0] },
+    // Lofi / focus pieces: slow swung beats, soft rim + hats, warm seventh-chord pads, an electric-piano lead, vinyl crackle.
+    STYLES: {
+      home:       { bpm: 76, root: 48, mode: 'major', prog: [1, 4, 2, 5, 6, 2, 5, 1], swing: 0.2,  drums: 'lofi', lead: 'melody', vol: 0.6,  seed: 5 },
+      platformer: { bpm: 88, root: 50, mode: 'major', prog: [1, 6, 4, 5, 1, 6, 2, 5], swing: 0.18, drums: 'lofi', lead: 'melody', vol: 0.65, seed: 11 },
+      blaster:    { bpm: 84, root: 45, mode: 'minor', prog: [1, 4, 1, 5, 6, 4, 5, 5], swing: 0.16, drums: 'lofi', lead: 'melody', vol: 0.65, seed: 23 },
+      accent:     { bpm: 82, root: 53, mode: 'major', prog: [1, 3, 6, 4, 2, 5, 1, 4], swing: 0.2,  drums: 'lofi', lead: 'melody', vol: 0.6,  seed: 37 },
+      spell:      { bpm: 74, root: 55, mode: 'major', prog: [1, 4, 6, 5, 2, 5, 1, 1], swing: 0.2,  drums: 'lofi', lead: 'melody', vol: 0.6,  seed: 53 },
+      flash:      { bpm: 70, root: 48, mode: 'major', prog: [1, 6, 2, 5, 4, 5, 3, 6], swing: 0.22, drums: 'soft', lead: 'melody', vol: 0.55, seed: 71 },
     },
-    _track: null, _timer: 0, _step: 0, _next: 0, _gain: null, _noise: null, _armed: false,
+    _track: null, _song: null, _timer: 0, _step: 0, _next: 0, _bus: null, _noise: null, _armed: false,
     enabled() { return Settings.get('music') !== false && Sound.enabled(); },
     playing() { return !!Music._timer; },
-    /** Which loop is wanted right now (a game id); music follows it while enabled. */
     want(id) { Music._track = id || null; if (id && Music.enabled()) Music.start(); else Music.stop(); },
     toggle() { Settings.set('music', !(Settings.get('music') !== false)); if (Music.enabled() && Music._track) Music.start(); else Music.stop(); return Music.enabled(); },
+    /** Music loudness = master × music × the style's own level. */
+    gain() { const st = Music.STYLES[Music._track]; return 0.11 * (st ? st.vol : 1) * Sound.level('volMaster') * Sound.level('volMusic'); },
+    applyVolume() { if (Music._bus && Sound._ctx && Music._timer) { const t = Sound._ctx.currentTime; Music._bus.master.gain.cancelScheduledValues(t); Music._bus.master.gain.setTargetAtTime(Math.max(0.0001, Music.gain()), t, 0.08); } },
+
+    /** Build the piece for a style: an array of steps (16 per bar), each { kick, snare, hat, bass, pad, lead, leadLen }. */
+    compose(id) {
+      const st = Music.STYLES[id]; if (!st) return null;
+      const rng = Rand.seeded(st.seed * 7919 + 1);
+      const scale = SCALES[st.mode];
+      const tone = (deg, oct) => st.root + 12 * (oct || 0) + scale[((deg - 1) % 7 + 7) % 7] + 12 * Math.floor((deg - 1) / 7);
+      const chord = (deg) => [tone(deg, 0), tone(deg + 2, 0), tone(deg + 4, 0)];
+      const seventh = (deg) => [tone(deg, -1), tone(deg + 2, 0), tone(deg + 4, 0), tone(deg + 6, 0)];   // root dropped an octave
+      // song form, in bars: each section says which chords play and how the layers behave
+      const form = [
+        { bars: 4, lead: 'none',  drums: 'hats',  pad: true,  bass: false },
+        { bars: 8, lead: 'A',     drums: st.drums, pad: true, bass: true },
+        { bars: 8, lead: 'B',     drums: st.drums, pad: true, bass: true, up: 12 },
+        { bars: 8, lead: 'A2',    drums: st.drums, pad: true, bass: true },
+        { bars: 4, lead: 'sparse', drums: 'hats', pad: true, bass: true },
+        { bars: 8, lead: 'B',     drums: st.drums, pad: true, bass: true, up: 12, fillEvery: 2 },
+      ];
+      const steps = [];
+      let barIndex = 0;
+      const leadPhrases = {};
+      const makePhrase = (kind, deg, variant) => {   // 16 steps of lead notes (0 = rest), with lengths
+        const key = kind + ':' + deg + ':' + variant;
+        if (leadPhrases[key]) return leadPhrases[key];
+        const ch = chord(deg), notes = new Array(16).fill(0), lens = new Array(16).fill(1);
+        const pr = Rand.seeded(st.seed * 131 + deg * 17 + variant * 5);
+        const pick = (arr) => arr[Math.floor(pr() * arr.length)];
+        if (st.lead === 'arp') {
+          const seq = [ch[0], ch[1], ch[2], ch[1] + 12, ch[2], ch[1], ch[0] + 12, ch[2]];
+          for (let i = 0; i < 16; i += 2) { notes[i] = seq[(i / 2 + variant) % seq.length] + 12; lens[i] = 2; }
+          if (pr() < 0.5) { notes[14] = 0; }
+        } else if (st.lead === 'riff') {
+          const pat = [0, 3, 6, 8, 10, 11, 14];
+          pat.forEach((i, k) => { notes[i] = pick([ch[0], ch[0], ch[2], ch[0] + 12, tone(deg + 6, 0)]) + 12; lens[i] = k % 3 === 2 ? 2 : 1; });
+          if (variant) { notes[12] = ch[1] + 12; lens[12] = 2; }
+        } else if (st.lead === 'bounce') {
+          [0, 4, 8, 12].forEach((i, k) => { notes[i] = (k % 2 ? ch[0] + 12 : ch[k === 0 ? 2 : 1]) + 12; lens[i] = 3; });
+          notes[6] = ch[2] + 12; notes[14] = pr() < 0.5 ? ch[1] + 12 : 0; lens[6] = 2; lens[14] = 2;
+        } else { // melody: slower stepwise lines aiming at chord tones
+          let cur = ch[pick([0, 1, 2])] + 12;
+          const rhythm = pick([[0, 4, 8, 12], [0, 6, 8, 14], [0, 8], [0, 3, 6, 8, 12]]);
+          rhythm.forEach((i, k) => {
+            if (k > 0) { const dir = pr() < 0.5 ? -1 : 1; cur += scale.includes(((cur + dir - st.root) % 12 + 12) % 12) ? dir : dir * 2; if (pr() < 0.35) cur = ch[pick([0, 1, 2])] + 12; }
+            notes[i] = cur; lens[i] = Math.max(2, (rhythm[k + 1] || 16) - i - (pr() < 0.3 ? 1 : 0));
+          });
+        }
+        leadPhrases[key] = { notes, lens }; return leadPhrases[key];
+      };
+      form.forEach((sec) => {
+        for (let b = 0; b < sec.bars; b++) {
+          const deg = st.prog[b % st.prog.length];
+          const ch = chord(deg);
+          const lastBar = b === sec.bars - 1, fill = (sec.drums !== 'none' && sec.drums !== 'hats') && (lastBar || (sec.fillEvery && (b + 1) % sec.fillEvery === 0) || (b + 1) % 4 === 0);
+          const variant = sec.lead === 'A' ? 0 : sec.lead === 'B' ? 1 : sec.lead === 'A2' ? 2 : 3;
+          const phrase = sec.lead === 'none' ? null : makePhrase(sec.lead, deg, variant);
+          for (let i = 0; i < 16; i++) {
+            const step = { kick: 0, snare: 0, hat: 0, bass: 0, pad: null, lead: 0, leadLen: 1, bar: barIndex, pos: i };
+            const d = sec.drums;
+            if (d === 'lofi' || d === 'soft') {
+              if (i === 0 || i === 8) step.kick = d === 'soft' ? 0.55 : 0.8;
+              if (d === 'lofi' && (i === 7 || i === 11) && rng() < 0.45) step.kick = 0.45;          // lazy ghost kicks
+              if (i === 4 || i === 12) step.snare = d === 'soft' ? 0.3 : 0.5;                        // rim, never loud
+              if (fill && i === 14 && rng() < 0.6) step.snare = 0.4;
+            }
+            if (d === 'lofi') step.hat = i % 2 === 0 ? 0.55 : (rng() < 0.3 ? 0.3 : 0);
+            else if (d === 'soft' || d === 'hats') step.hat = i % 4 === 2 ? 0.4 : 0;
+            else if (d === 'none') step.hat = i === 8 ? 0.25 : 0;
+            if (sec.bass) {
+              if (i === 0) step.bass = ch[0] - 12;
+              else if (i === 10 && rng() < 0.7) step.bass = ch[0] - 12;                               // on the "and" of three
+              else if (i === 14 && rng() < 0.35) step.bass = (rng() < 0.5 ? ch[2] : tone(deg + 6, 0)) - 12;
+            }
+            if (sec.pad && i === 0) step.pad = seventh(deg);
+            if (phrase && !(sec.lead === 'sparse' && i % 8)) {
+              const n = phrase.notes[i];
+              if (n && !(sec.lead === 'sparse' && rng() < 0.4)) { step.lead = n + (sec.up || 0); step.leadLen = phrase.lens[i]; }
+            }
+            steps.push(step);
+          }
+          barIndex++;
+        }
+      });
+      return { bpm: st.bpm, swing: st.swing || 0, steps, bars: barIndex };
+    },
+
     _ensureNoise(ctx) {
       if (Music._noise) return Music._noise;
-      const len = ctx.sampleRate * 0.5, buf = ctx.createBuffer(1, len, ctx.sampleRate), d = buf.getChannelData(0);
+      const len = ctx.sampleRate * 0.6, buf = ctx.createBuffer(1, len, ctx.sampleRate), d = buf.getChannelData(0);
       for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
       Music._noise = buf; return buf;
     },
-    _note(ctx, out, freq, t, dur, type, vol) {
-      const o = ctx.createOscillator(), g = ctx.createGain();
-      o.type = type; o.frequency.setValueAtTime(freq, t);
-      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.012); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-      o.connect(g).connect(out); o.start(t); o.stop(t + dur + 0.03);
+    _bus_(ctx) {
+      if (Music._bus) return Music._bus;
+      const master = ctx.createGain(); master.gain.value = 0.0001;
+      const comp = ctx.createDynamicsCompressor(); comp.threshold.value = -18; comp.ratio.value = 4; comp.attack.value = 0.01; comp.release.value = 0.2;
+      const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 4200;   // tape-like dullness
+      master.connect(lp).connect(comp).connect(ctx.destination);
+      const delay = ctx.createDelay(1.0), fb = ctx.createGain(), wet = ctx.createGain(); fb.gain.value = 0.28; wet.gain.value = 0.18;
+      delay.connect(fb).connect(delay); delay.connect(wet).connect(master);
+      const leadIn = ctx.createGain(); leadIn.gain.value = 1; leadIn.connect(master); leadIn.connect(delay);
+      Music._bus = { master, delay, leadIn, crackle: null };
+      return Music._bus;
     },
-    _hat(ctx, out, t, vol) {
-      const src = ctx.createBufferSource(); src.buffer = Music._ensureNoise(ctx);
-      const f = ctx.createBiquadFilter(); f.type = 'highpass'; f.frequency.value = 6000;
-      const g = ctx.createGain(); g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.05);
-      src.connect(f).connect(g).connect(out); src.start(t); src.stop(t + 0.06);
+    /** Vinyl crackle: a quiet filtered noise bed plus random little clicks, started with the piece. */
+    _startCrackle(ctx, bus) {
+      if (bus.crackle) return;
+      const src = ctx.createBufferSource(); src.buffer = Music._ensureNoise(ctx); src.loop = true;
+      const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 3200; bp.Q.value = 0.5;
+      const g = ctx.createGain(); g.gain.value = 0.012;
+      src.connect(bp).connect(g).connect(bus.master); src.start();
+      bus.crackle = { src, g };
+    },
+    _click(ctx, out, t) { const n = ctx.createBufferSource(); n.buffer = Music._ensureNoise(ctx); const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 2500; const g = ctx.createGain(); g.gain.setValueAtTime(0.05 + Math.random() * 0.05, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.012); n.connect(hp).connect(g).connect(out); n.start(t); n.stop(t + 0.015); },
+    _kick(ctx, out, t, v) { const o = ctx.createOscillator(), g = ctx.createGain(); o.type = 'sine'; o.frequency.setValueAtTime(110, t); o.frequency.exponentialRampToValueAtTime(44, t + 0.14); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.7 * v, t + 0.008); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.32); o.connect(g).connect(out); o.start(t); o.stop(t + 0.36); },
+    _snare(ctx, out, t, v) {
+      const n = ctx.createBufferSource(); n.buffer = Music._ensureNoise(ctx); const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 1900; bp.Q.value = 0.8;
+      const g = ctx.createGain(); g.gain.setValueAtTime(0.32 * v, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.11); n.connect(bp).connect(g).connect(out); n.start(t); n.stop(t + 0.13);
+      const o = ctx.createOscillator(), g2 = ctx.createGain(); o.type = 'triangle'; o.frequency.setValueAtTime(420, t); o.frequency.exponentialRampToValueAtTime(300, t + 0.03); g2.gain.setValueAtTime(0.18 * v, t); g2.gain.exponentialRampToValueAtTime(0.0001, t + 0.05); o.connect(g2).connect(out); o.start(t); o.stop(t + 0.07);
+    },
+    _hat(ctx, out, t, v) { const n = ctx.createBufferSource(); n.buffer = Music._ensureNoise(ctx); const hp = ctx.createBiquadFilter(); hp.type = 'bandpass'; hp.frequency.value = 6500; hp.Q.value = 0.9; const g = ctx.createGain(); g.gain.setValueAtTime(0.07 * v, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.05); n.connect(hp).connect(g).connect(out); n.start(t); n.stop(t + 0.07); },
+    _bass(ctx, out, note, t, dur) { const o = ctx.createOscillator(), f = ctx.createBiquadFilter(), g = ctx.createGain(); o.type = 'triangle'; o.frequency.setValueAtTime(midi(note), t); f.type = 'lowpass'; f.Q.value = 1; f.frequency.setValueAtTime(520, t); f.frequency.exponentialRampToValueAtTime(220, t + dur); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.5, t + 0.02); g.gain.setValueAtTime(0.5, t + dur * 0.5); g.gain.exponentialRampToValueAtTime(0.0001, t + dur); o.connect(f).connect(g).connect(out); o.start(t); o.stop(t + dur + 0.05); },
+    _pad(ctx, out, notes, t, dur) {
+      const f = ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.setValueAtTime(700, t); f.frequency.linearRampToValueAtTime(1100, t + dur * 0.5); f.frequency.linearRampToValueAtTime(650, t + dur);   // slow, warm sweep
+      const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(0.1, t + 0.6); g.gain.setValueAtTime(0.1, t + dur - 0.5); g.gain.linearRampToValueAtTime(0.0001, t + dur);
+      f.connect(g).connect(out);
+      notes.forEach((n) => { [-7, 7].forEach((cents) => { const o = ctx.createOscillator(); o.type = 'triangle'; o.frequency.value = midi(n + 12); o.detune.value = cents; o.connect(f); o.start(t); o.stop(t + dur + 0.05); }); });
+    },
+    _lead(ctx, bus, note, t, dur) {
+      // electric-piano voice: a sine with a quieter octave partial, soft attack, long natural decay
+      const f = ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.setValueAtTime(2400, t); f.frequency.exponentialRampToValueAtTime(900, t + dur);
+      const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.17, t + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t + Math.max(0.25, dur));
+      f.connect(g).connect(bus.leadIn);
+      [['sine', 0, 1], ['triangle', 1200, 0.25]].forEach(([type, cents, lvl]) => { const o = ctx.createOscillator(), og = ctx.createGain(); o.type = type; o.frequency.value = midi(note); o.detune.value = cents; og.gain.value = lvl; o.connect(og).connect(f); o.start(t); o.stop(t + dur + 0.05); });
     },
     start() {
-      const track = Music.TRACKS[Music._track];
-      if (!track || Music._timer) return;
+      if (!Music._track || Music._timer) return;
       const ctx = Sound.ctx(); if (!ctx) return;
       if (ctx.state === 'suspended') {   // autoplay policy: wait for the first gesture, then start
         if (!Music._armed) { Music._armed = true; const go = () => { Music._armed = false; if (Music._track && Music.enabled()) Music.start(); }; ['pointerdown', 'keydown', 'touchstart'].forEach((ev) => document.addEventListener(ev, go, { once: true, passive: true })); }
         return;
       }
-      if (!Music._gain) { Music._gain = ctx.createGain(); const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 4200; Music._gain.connect(lp).connect(ctx.destination); }
-      Music._gain.gain.setValueAtTime(0.0001, ctx.currentTime); Music._gain.gain.exponentialRampToValueAtTime(0.09 * (track.vol || 1), ctx.currentTime + 0.6);
-      const stepDur = 60 / track.bpm / 4;
-      Music._step = 0; Music._next = ctx.currentTime + 0.05;
+      const song = Music._song && Music._song.id === Music._track ? Music._song : Object.assign(Music.compose(Music._track), { id: Music._track });
+      if (!song) return;
+      Music._song = song;
+      const bus = Music._bus_(ctx);
+      const beat = 60 / song.bpm, stepDur = beat / 4;
+      bus.delay.delayTime.value = beat * 0.75;
+      bus.master.gain.cancelScheduledValues(ctx.currentTime); bus.master.gain.setValueAtTime(0.0001, ctx.currentTime); bus.master.gain.exponentialRampToValueAtTime(Math.max(0.0001, Music.gain()), ctx.currentTime + 0.8);
+      Music._step = 0; Music._next = ctx.currentTime + 0.06;
+      Music._startCrackle(ctx, bus);
+      let nextClick = ctx.currentTime + 0.4;
       const tick = () => {
         const t0 = ctx.currentTime;
-        while (Music._next < t0 + 0.2) {
-          const i = Music._step % 32, t = Music._next;
-          if (track.bass[i]) Music._note(ctx, Music._gain, midi(track.bass[i]), t, stepDur * 1.6, 'triangle', 0.5);
-          if (track.lead[i]) Music._note(ctx, Music._gain, midi(track.lead[i]), t, stepDur * 1.1, 'square', 0.14);
-          if (track.pad[i]) { Music._note(ctx, Music._gain, midi(track.pad[i]), t, stepDur * 7.5, 'sine', 0.3); Music._note(ctx, Music._gain, midi(track.pad[i] + 7), t, stepDur * 7.5, 'sine', 0.18); }
-          if (track.hat[i]) Music._hat(ctx, Music._gain, t, i % 4 === 0 ? 0.08 : 0.045);
+        while (nextClick < t0 + 0.25) { Music._click(ctx, bus.master, nextClick); nextClick += 0.15 + Math.random() * 1.1; }
+        while (Music._next < t0 + 0.25) {
+          const i = Music._step % song.steps.length, st = song.steps[i];
+          const t = Music._next + (i % 2 ? song.swing * stepDur : 0);
+          if (st.kick) Music._kick(ctx, bus.master, t, st.kick);
+          if (st.snare) Music._snare(ctx, bus.master, t, st.snare);
+          if (st.hat) Music._hat(ctx, bus.master, t, st.hat);
+          if (st.bass) Music._bass(ctx, bus.master, st.bass, t, stepDur * 3.2);
+          if (st.pad) Music._pad(ctx, bus.master, st.pad, t, beat * 4);
+          if (st.lead) Music._lead(ctx, bus, st.lead, t, stepDur * st.leadLen * 0.95);
           Music._next += stepDur; Music._step++;
         }
       };
       tick();
-      Music._timer = setInterval(tick, 60);
+      Music._timer = setInterval(tick, 50);
     },
     stop() {
       if (Music._timer) { clearInterval(Music._timer); Music._timer = 0; }
-      if (Music._gain && Sound._ctx) { try { const t = Sound._ctx.currentTime; Music._gain.gain.cancelScheduledValues(t); Music._gain.gain.setValueAtTime(Music._gain.gain.value, t); Music._gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.25); } catch (e) { /* ignore */ } }
+      if (Music._bus && Music._bus.crackle) { try { Music._bus.crackle.src.stop(); } catch (e) { /* ignore */ } Music._bus.crackle = null; }
+      if (Music._bus && Sound._ctx) { try { const t = Sound._ctx.currentTime; Music._bus.master.gain.cancelScheduledValues(t); Music._bus.master.gain.setValueAtTime(Math.max(0.0001, Music._bus.master.gain.value), t); Music._bus.master.gain.exponentialRampToValueAtTime(0.0001, t + 0.3); } catch (e) { /* ignore */ } }
     },
   };
   PQ.Music = Music;
   document.addEventListener('visibilitychange', () => { if (document.hidden) Music.stop(); else if (Music._track && Music.enabled()) Music.start(); });
-  window.addEventListener('pq:settings', (e) => { if (e.detail && (e.detail.key === 'sound' || e.detail.key === 'music')) { if (Music.enabled() && Music._track) Music.start(); else Music.stop(); } });
+  window.addEventListener('pq:settings', (e) => {
+    const k = e.detail && e.detail.key;
+    if (k === 'sound' || k === 'music') { if (Music.enabled() && Music._track) Music.start(); else Music.stop(); }
+    if (k === 'volMaster' || k === 'volMusic') Music.applyVolume();
+  });
 
   // Unlock audio on first user gesture (browser autoplay policy)
   ['pointerdown', 'keydown', 'touchstart'].forEach((ev) => document.addEventListener(ev, function unlock() { Sound._unlocked = true; if (Sound.enabled()) Sound.ctx(); }, { once: true, passive: true }));
@@ -1227,6 +1404,7 @@
       const pageDef = Pages.get(r.page) || Pages.get('home');
       document.title = (r.page === 'home' ? 'Spanish Vocab' : Text.cap(r.page) + ' · Spanish Vocab');
       Router._current = { page: pageDef, pageId: Pages.get(r.page) ? r.page : 'home' };
+      if (Router._current.pageId === 'home') Music.want('home');
       try { pageDef.mount(root, Router.ctx(), r); }
       catch (e) { console.error('Page render failed', e); root.appendChild(UI.h('div.page.container', null, UI.h('h2', null, 'Something went wrong'), UI.h('p.muted', null, String(e && e.message || e)))); }
     },
@@ -1352,9 +1530,13 @@
       refreshXp();
       const sb = document.getElementById('soundBtn');
       if (sb) {
-        const paint = () => { sb.textContent = Sound.enabled() ? '🔊' : '🔇'; sb.setAttribute('aria-pressed', Sound.enabled() ? 'true' : 'false'); sb.title = Sound.enabled() ? 'Mute sounds' : 'Unmute sounds'; };
-        sb.addEventListener('click', () => { Sound.toggle(); if (Sound.enabled()) Sound.play('click'); });
-        window.addEventListener('pq:settings', (e) => { if (!e.detail || e.detail.key === 'sound') paint(); });
+        const paint = () => {
+          const on = Sound.enabled() && Sound.level('volMaster') > 0;
+          sb.textContent = !on ? '🔇' : Sound.level('volMaster') < 0.5 ? '🔉' : '🔊';
+          sb.setAttribute('aria-pressed', on ? 'true' : 'false'); sb.title = 'Volume';
+        };
+        sb.addEventListener('click', () => UI.volumePanel(sb));
+        window.addEventListener('pq:settings', (e) => { if (!e.detail || /^(sound|volMaster)$/.test(e.detail.key)) paint(); });
         paint();
       }
       Router.start(root);

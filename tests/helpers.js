@@ -16,6 +16,9 @@ async function launch(opts) {
     isMobile: !!opts.mobile,
     deviceScaleFactor: 1,
   });
+  // Tests start with background music off (its sequencer timer would otherwise show up in leak checks);
+  // a test that exercises music turns it on explicitly with PQ.Settings.set('music', true).
+  await context.addInitScript(() => { try { const k = 'pq.settings.v1'; const st = JSON.parse(localStorage.getItem(k) || '{}'); if (st.music === undefined) { st.music = false; localStorage.setItem(k, JSON.stringify(st)); } } catch (e) { /* ignore */ } });
   const page = await context.newPage();
   const errors = [];
   page.on('pageerror', (e) => errors.push('pageerror: ' + (e && e.message || e)));

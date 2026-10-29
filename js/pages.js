@@ -523,6 +523,7 @@
         toggleRow('pg-toggle-sound', soundInput, 'Sound effects', 'Clicks, chimes and fanfares'),
         toggleRow('pg-toggle-music', musicInput, 'Music', 'A loop plays during each game'),
         toggleRow('pg-toggle-speech', speechInput, 'Pronunciation', Speech.available() ? 'Hear words with the 🔊 buttons' : 'Not supported in this browser')));
+      card.appendChild(UI.h('div.pg-settings-block', null, UI.h('div.pg-settings-title', null, 'Volume'), UI.h('p.small.muted', null, 'Also in the 🔊 button at the top of every page and in the game dock.'), UI.volumeSliders({ register: (fn) => live.cleanups.push(fn) })));
       if (Speech.available()) card.appendChild(buildVoicePicker());
 
       const chips = focusChips();

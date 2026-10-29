@@ -246,8 +246,11 @@ async function desktop() {
   await press(page, '.pg-toggle-sound');
   assert((await page.evaluate(() => PQ.Sound.enabled())) === !soundBefore, 'sound toggled');
   assert((await page.textContent('#soundBtn')) === (soundBefore ? '🔇' : '🔊'), 'header sound button repainted');
-  await page.click('#soundBtn');
-  assert((await page.evaluate(() => PQ.Sound.enabled())) === soundBefore, 'header toggles back');
+  await page.click('#soundBtn'); await page.waitForTimeout(120);          // the header speaker opens the quick volume panel
+  assert((await page.locator('.vol-pop input[type=range]').count()) === 3, 'header speaker opens the volume panel');
+  await page.click('.vol-pop button:has-text("' + (soundBefore ? 'Unmute' : 'Mute') + '")'); await page.waitForTimeout(60);
+  assert((await page.evaluate(() => PQ.Sound.enabled())) === soundBefore, 'panel mute button toggles back');
+  await page.keyboard.press('Escape'); await page.waitForTimeout(60);
   assert((await page.locator('.pg-toggle-sound input').isChecked()) === soundBefore, 'settings checkbox follows the header');
   if (await page.evaluate(() => PQ.Speech.available())) {
     await press(page, '.pg-toggle-speech');
