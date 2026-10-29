@@ -156,7 +156,7 @@ async function holdKey(page, key, ms) {
     const a3 = await answer(page, 'wrong');
     assert(a3.status !== 'correct', 'wrong answer not graded correct: ' + a3.status);
     const e5 = await dbg(page, () => PQ.debug.platformer.state.energy);
-    assert(e5 >= 8 && e5 < 18, 'wrong answer still gives a little energy: ' + e5);
+    assert(e5 >= 8 && e5 < 40, 'wrong (or accent-graded) answer still gives a little energy, less than a correct one: ' + e5);
     assert(await dbg(page, () => PQ.debug.platformer.state.streak) === 0, 'streak reset on mistake');
     assert(await mode(page) === 'play', 'resumes after wrong answer');
 
