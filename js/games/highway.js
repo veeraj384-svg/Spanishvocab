@@ -523,6 +523,8 @@
     else if (S.mode === 'ending') { S.t += dt; const c = S.car; c.v *= Math.max(0, 1 - dt * 2.5); c.vx *= Math.max(0, 1 - dt * 2.5); c.vz *= Math.max(0, 1 - dt * 2.5); c.x += c.vx * dt; c.z += c.vz * dt; if (S.t >= S.endAt) gameOver(); }
     else if (S.mode === 'intro' || S.mode === 'over') { S.t += dt; S.cam.a += dt * 0.12; S.cam.x = S.car.x - Math.sin(S.cam.a) * CAM_BACK; S.cam.z = S.car.z - Math.cos(S.cam.a) * CAM_BACK; }   // the camera circles the car under the menu
     updateHud(false);
+    S.frameNo = (S.frameNo || 0) + 1;
+    if (S.mode === 'question' && S.frameNo % 6) return;
     render();
     drawMini();
   }
@@ -634,6 +636,7 @@
   }
 
   function drawWorld(ctx) {
+    if (S.prof) S.prof._t = performance.now();
     const R = Math.ceil(VIEW / TILE);
     const ctx0 = Math.floor(S.cam.x / TILE), ctz0 = Math.floor(S.cam.z / TILE);
     // camera-space corners of the lattice, computed once
@@ -665,8 +668,11 @@
       if (o && o.type === 'lava' && fog < 0.9) { ctx.globalAlpha = 0.35 + 0.25 * Math.sin(S.anim * 3 + t.tx); fillPoly(ctx, t.poly, fogged('#ffd060', fog)); ctx.globalAlpha = 1; }
       if (o && o.type !== 'lava' && !(o.type === 'coin' && S.taken.has(o.key))) objs.push({ f: t.f, o, biome });
     }
+    if (S.prof) S.prof._t = performance.now();
     drawRoadMarks(ctx);
+    if (S.prof) { S.prof.marks += performance.now() - S.prof._t; S.prof._t = performance.now(); }
     // things with height, intersections' beacons, extras, the car — all sorted far to near
+    if (S.prof) { S.prof.tiles += performance.now() - S.prof._t; S.prof._t = performance.now(); S.prof.nTiles += tiles.length; S.prof.nObjs += objs.length; }
     const items = objs.map((it) => ({ f: it.f, draw: () => drawObject(ctx, it.o, fogOf(it.f), it.biome) }));
     S.extra.forEach((o) => { if (o.taken) return; const c = cs(o.x, 0, o.z); if (c.f > NEAR - 2 && c.f < VIEW) items.push({ f: c.f, draw: () => drawObject(ctx, o, fogOf(c.f), 'plains') }); });
     // intersections in view
@@ -679,6 +685,7 @@
     const carC = cs(S.car.x, 0, S.car.z);
     items.push({ f: carC.f, draw: () => drawCar(ctx) });
     items.sort((p, q) => q.f - p.f).forEach((it) => it.draw());
+    if (S.prof) { S.prof.items += performance.now() - S.prof._t; S.prof.nItems += items.length; }
   }
 
   function drawRoadMarks(ctx) {
@@ -864,10 +871,15 @@
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, w, hh);
     if (S.shake > 0 && !REDUCED) ctx.translate((Math.random() - 0.5) * 12 * S.shake, (Math.random() - 0.5) * 8 * S.shake);
+    const P = S.prof, now = () => performance.now();
+    let t0 = P ? now() : 0;
     drawSky(ctx);
+    if (P) { P.sky += now() - t0; t0 = now(); }
     drawWorld(ctx);
+    if (P) { P.world += now() - t0; t0 = now(); }
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     drawFx(ctx);
+    if (P) { P.fx += now() - t0; P.frames++; }
     if (S.flash > 0) { ctx.fillStyle = fogged(S.flashColor, 0, 1, 0.3 * S.flash); ctx.fillRect(0, 0, w, hh); }
   }
 
@@ -988,5 +1000,12 @@
     tileObj(tx, tz) { return S ? tileObj(tx, tz) : null; },
     pause() { if (S) pause(); },
     resume() { if (S) resume(); },
+    /** Per-frame render cost (ms) by phase since the last call; profiling starts on the first call. */
+    profile() {
+      if (!S) return null;
+      const P = S.prof, out = P && P.frames ? { frames: P.frames, sky: P.sky / P.frames, tiles: (P.world - P.marks - P.items) / P.frames, marks: P.marks / P.frames, items: P.items / P.frames, fx: P.fx / P.frames, world: P.world / P.frames, tilesPerFrame: P.nTiles / P.frames, objsPerFrame: P.nObjs / P.frames, itemsPerFrame: P.nItems / P.frames } : null;
+      S.prof = { frames: 0, sky: 0, world: 0, tiles: 0, marks: 0, items: 0, fx: 0, nTiles: 0, nObjs: 0, nItems: 0, _t: 0 };
+      return out;
+    },
   };
 })();
