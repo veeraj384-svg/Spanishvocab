@@ -1075,6 +1075,7 @@
     tagline: 'Type the Spanish before the words hit the ground.',
     icon: '☄️',
     accent: 'var(--c-rose)',
+    accent2: '#8a1c5c',
     order: 4,
     mount(root) {
       S = newState(null);

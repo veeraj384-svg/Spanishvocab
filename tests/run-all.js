@@ -1,7 +1,7 @@
 /* Runs every test file in order. Usage: node tests/run-all.js */
 const { spawnSync } = require('child_process');
 const path = require('path');
-const files = ['core.test.js', 'quizui.test.js', 'pages.test.js', 'spell.test.js', 'accent.test.js', 'flash.test.js', 'blaster.test.js', 'platformer.test.js', 'browser.test.js'];
+const files = ['core.test.js', 'quizui.test.js', 'pages.test.js', 'spell.test.js', 'accent.test.js', 'flash.test.js', 'blaster.test.js', 'platformer.test.js', 'highway.test.js', 'browser.test.js'];
 let failed = 0;
 for (const f of files) {
   const t0 = Date.now();

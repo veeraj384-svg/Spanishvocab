@@ -923,6 +923,8 @@
                     bpm: 74, root: 55, mode: 'major', prog: [1, 4, 6, 5, 2, 5, 1, 1], swing: 0.2,  drums: 'lofi', lead: 'melody', seed: 53 },
       flash:      { file: 'assets/music/moavii-downtown.mp3', credit: '“Downtown” by Moavii · freetouse.com', vol: 0.8,
                     bpm: 70, root: 48, mode: 'major', prog: [1, 6, 2, 5, 4, 5, 3, 6], swing: 0.22, drums: 'soft', lead: 'melody', seed: 71 },
+      highway:    { file: 'assets/music/moavii-downtown.mp3', credit: '“Downtown” by Moavii · freetouse.com', vol: 0.8,
+                    bpm: 88, root: 50, mode: 'minor', prog: [1, 6, 4, 5, 1, 6, 7, 5], swing: 0.14, drums: 'lofi', lead: 'melody', seed: 97 },
     },
     _track: null, _song: null, _timer: 0, _step: 0, _next: 0, _bus: null, _noise: null, _armed: false,
     _audio: null,      // the Audio element of the recording currently wanted (one element per file, so each track resumes where it left off)
@@ -1594,7 +1596,7 @@
     if (!games.length) grid.appendChild(UI.h('div.card', null, 'No games loaded yet.'));
     games.forEach((g) => {
       const best = Progress.best(g.id);
-      grid.appendChild(UI.h('a.card.card-hover.game-card', { href: '#/play/' + g.id, style: { '--accent': g.accent || 'var(--c-amber)' } },
+      grid.appendChild(UI.h('a.card.card-hover.game-card', { href: '#/play/' + g.id, style: { '--accent': g.accent || 'var(--c-amber)', '--accent-2': g.accent2 || g.accent || 'var(--c-mint)' } },
         UI.h('div.icon', null, g.icon || '🎮'),
         UI.h('div', null, UI.h('div.game-name', null, g.name), UI.h('div.game-tag', null, g.tagline || '')),
         UI.h('div.game-cta', null, UI.h('span', null, best ? 'Best: ' + best : 'Play now'), UI.h('span.arrow', null, '→'))));

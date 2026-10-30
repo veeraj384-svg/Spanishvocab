@@ -2,8 +2,8 @@
    Run: node tests/browser.test.js */
 const { launch, assert, SITE } = require('./helpers');
 
-const ROUTES = ['#/', '#/words', '#/stats', '#/play/platformer', '#/play/spell', '#/play/accent', '#/play/blaster', '#/play/flash'];
-const GAMES = ['platformer', 'spell', 'accent', 'blaster', 'flash'];
+const ROUTES = ['#/', '#/words', '#/stats', '#/play/platformer', '#/play/spell', '#/play/accent', '#/play/blaster', '#/play/flash', '#/play/highway'];
+const GAMES = ['platformer', 'spell', 'accent', 'blaster', 'flash', 'highway'];
 
 const go = async (page, hash, ms) => { await page.evaluate((h) => { location.hash = h; }, hash); await page.waitForTimeout(ms || 250); };
 const overflow = (page) => page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
@@ -32,10 +32,11 @@ async function run(viewport, touch) {
 
     // ---- home ----
     const cards = await page.$$eval('.game-card', (els) => els.map((a) => a.getAttribute('href')));
-    assert(cards.length === 5, label + ': 5 game cards, got ' + cards.length);
+    assert(cards.length === 6, label + ': 6 game cards, got ' + cards.length);
+    assert(await page.$$eval('.game-card', (els) => els.every((el) => /gradient/.test(getComputedStyle(el).backgroundImage))), label + ': game cards paint a gradient');
     const startHref = await page.$eval('a.btn-primary.btn-lg', (a) => a.getAttribute('href'));
     assert(GAMES.some((g) => startHref === '#/play/' + g), label + ': Start playing links to a game: ' + startHref);
-    assert(await page.evaluate(() => PQ.Games.all().length === 5 && PQ.Vocab.all().length === 31), label + ': 5 games, 31 words registered');
+    assert(await page.evaluate(() => PQ.Games.all().length === 6 && PQ.Vocab.all().length === 31), label + ': 6 games, 31 words registered');
 
     // ---- every route: no console errors, no horizontal overflow ----
     for (const r of ROUTES) {

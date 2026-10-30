@@ -1153,6 +1153,7 @@
     tagline: 'A platformer where spelling is your fuel.',
     icon: '⚡',
     accent: 'var(--c-amber)',
+    accent2: '#1e3fb8',
     order: 1,
     mount(root) {
       if (S || D) GAME.unmount();           // idempotent: a second mount never leaves a loop running

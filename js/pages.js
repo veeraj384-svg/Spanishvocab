@@ -495,7 +495,7 @@
       const grid = UI.h('div.pg-games');
       games.forEach((g) => {
         const st = Progress.gameStats(g.id);
-        grid.appendChild(UI.h('a.pg-game', { href: '#/play/' + g.id, style: { '--accent': g.accent || 'var(--c-amber)' }, dataset: { game: g.id } },
+        grid.appendChild(UI.h('a.pg-game', { href: '#/play/' + g.id, style: { '--accent': g.accent || 'var(--c-amber)', '--accent-2': g.accent2 || g.accent || 'var(--c-mint)' }, dataset: { game: g.id } },
           UI.h('div.pg-game-icon', { 'aria-hidden': 'true' }, g.icon || '🎮'),
           UI.h('div.pg-game-name', null, g.name),
           UI.h('div.pg-game-stats', null,

@@ -1,0 +1,132 @@
+/* ============================================================
+   SPANISH VOCAB — Word Highway (highway) styles
+   Every selector is prefixed with .g-highway (module contract).
+   Accent colour: blue, with red for danger.
+   ============================================================ */
+
+/* ---------- Top bar ---------- */
+.g-highway .game-title > span:last-child { display: flex; flex-direction: column; line-height: 1.1; }
+.g-highway .game-title .icon { background: rgba(77, 163, 255, 0.15); border-color: rgba(77, 163, 255, 0.4); box-shadow: 0 0 18px rgba(77, 163, 255, 0.25); }
+.g-highway-tag { font-family: var(--font-body); font-size: 0.78rem; font-weight: 500; color: var(--muted); letter-spacing: 0.02em; }
+.g-highway-best { font-family: var(--font-display); font-weight: 700; font-size: 0.85rem; color: var(--c-amber); padding: 6px 12px; border-radius: var(--r-pill); background: rgba(77, 163, 255, 0.1); border: 1px solid rgba(77, 163, 255, 0.3); white-space: nowrap; }
+.g-highway .game-topbar .row { gap: 8px; }
+.g-highway-pausebtn { min-height: 40px; }
+
+/* ---------- HUD ---------- */
+.g-highway-hud { gap: var(--sp-3) var(--sp-5); }
+.g-highway-hud .hud-item .val { font-variant-numeric: tabular-nums; min-width: 2ch; }
+.g-highway-hearts { display: inline-flex; gap: 3px; font-size: 1.4rem; line-height: 1; }
+.g-highway-heart { color: var(--c-rose); text-shadow: 0 0 10px rgba(239, 59, 77, 0.7); transition: transform var(--t-med) var(--ease-bounce), color var(--t-med), text-shadow var(--t-med); animation: g-highway-heartbeat 1.6s ease-in-out infinite; }
+.g-highway-heart:nth-child(2) { animation-delay: 0.15s; }
+.g-highway-heart:nth-child(3) { animation-delay: 0.3s; }
+.g-highway-heart.is-off { color: var(--muted-2); text-shadow: none; animation: none; transform: scale(0.8); }
+.g-highway-heart.is-lost { animation: g-highway-heartbreak 0.7s var(--ease) both; }
+@keyframes g-highway-heartbeat { 0%, 100% { transform: scale(1); } 12% { transform: scale(1.14); } 24% { transform: scale(1); } }
+@keyframes g-highway-heartbreak { 0% { transform: scale(1.6) rotate(0); color: #fff; } 100% { transform: scale(0.8) rotate(-20deg); } }
+.g-highway-streak .val { transition: color var(--t-fast); }
+.g-highway-streak.is-hot .val { color: var(--c-mint); text-shadow: 0 0 12px rgba(255, 138, 43, 0.6); animation: g-highway-flame 0.9s ease-in-out infinite; }
+@keyframes g-highway-flame { 0%, 100% { transform: translateY(0) scale(1); } 50% { transform: translateY(-1px) scale(1.06); } }
+
+/* The correct spelling after a wrong gate */
+.g-highway-hudmsg { display: none; position: absolute; left: 10px; right: 10px; top: 72px; z-index: 3; margin: 0 auto; width: fit-content; max-width: calc(100% - 20px); align-items: center; gap: 12px; padding: 10px 14px; border-radius: 12px; background: rgba(7, 10, 20, 0.9); border: 1px solid rgba(239, 59, 77, 0.5); box-shadow: 0 8px 30px rgba(0, 0, 0, 0.45); backdrop-filter: blur(6px); }
+.g-highway-hudmsg.is-on { display: flex; animation: pop var(--t-med) var(--ease-bounce) both; }
+.g-highway-hudmsg-icon { font-size: 1.3rem; }
+.g-highway-hudmsg-text { flex: 1; display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; min-width: 0; }
+.g-highway-hudmsg-en { color: var(--text-2); font-weight: 500; }
+.g-highway-hudmsg-arrow { color: var(--muted); }
+.g-highway-hudmsg-es { font-family: var(--font-display); font-size: 1.6rem; font-weight: 800; letter-spacing: 0.02em; line-height: 1.1; color: var(--text); overflow-wrap: anywhere; min-width: 0; }
+.g-highway-hudmsg-speak { width: 40px; height: 40px; flex: none; border-radius: 10px; display: grid; place-items: center; font-size: 1.1rem; background: var(--surface-2); border: 1px solid var(--border); }
+.g-highway-hudmsg-speak:hover { background: var(--surface-3); }
+
+/* ---------- Stage ---------- */
+.g-highway-stage { background: #05081a; touch-action: none; -webkit-user-select: none; user-select: none; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.g-highway-canvas { width: 100%; height: 100%; display: block; }
+.g-highway-stage::after { content: ''; position: absolute; inset: 0; pointer-events: none; border-radius: inherit; box-shadow: inset 0 0 70px rgba(5, 8, 26, 0.6), inset 0 0 0 1px rgba(255, 255, 255, 0.04); transition: box-shadow var(--t-med); z-index: 2; }
+.g-highway-stage.is-hit::after { box-shadow: inset 0 0 90px rgba(239, 59, 77, 0.6), inset 0 0 0 2px rgba(239, 59, 77, 0.6); transition: none; }
+
+/* Stage banner */
+.g-highway-banner { position: absolute; top: 34%; left: 50%; transform: translateX(-50%); width: min(100% - 32px, 520px); text-align: center; pointer-events: none; z-index: 3; opacity: 0; transition: opacity var(--t-med); }
+.g-highway-banner.is-on { opacity: 1; animation: g-highway-banner-in var(--t-slow) var(--ease-bounce) both; }
+@keyframes g-highway-banner-in { from { opacity: 0; transform: translateX(-50%) translateY(-14px) scale(0.92); } to { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); } }
+.g-highway-banner-title { font-family: var(--font-display); font-size: clamp(1.6rem, 5vw, 2.6rem); font-weight: 900; letter-spacing: -0.01em; line-height: 1.1; color: #fff; text-shadow: 0 0 24px rgba(77, 163, 255, 0.9), 0 6px 18px rgba(0, 0, 0, 0.7); }
+.g-highway-banner-sub { margin-top: 4px; font-size: 0.9rem; font-weight: 600; color: var(--text-2); text-shadow: 0 2px 8px rgba(0, 0, 0, 0.8); }
+
+/* ---------- Controls ---------- */
+.g-highway-touch { align-items: center; }
+.g-highway-is-touch .g-highway-touch { display: flex; }
+.g-highway-touch .touch-btn { width: 72px; height: 60px; font-size: 1.6rem; }
+.g-highway-touch-hint { text-align: center; flex: 1; }
+.g-highway-help { text-align: center; }
+.g-highway-is-touch .g-highway-help { display: none; }
+
+/* ---------- Overlays ---------- */
+.g-highway-overlay .panel { max-width: 540px; }
+.g-highway-overlay-intro { padding: 12px; }
+.g-highway-intro.panel { padding: 20px var(--sp-6); }
+.g-highway-intro-icon { font-size: 2.4rem; line-height: 1; margin-bottom: 2px; animation: float 3s ease-in-out infinite; filter: drop-shadow(0 8px 24px rgba(77, 163, 255, 0.5)); }
+.g-highway-intro h2 { margin-bottom: 6px; }
+.g-highway-intro p { margin-bottom: 12px; }
+.g-highway-legend { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; text-align: left; font-size: 0.82rem; color: var(--text-2); margin-bottom: 12px; }
+.g-highway-legend > div { display: flex; align-items: center; gap: 10px; padding: 6px 10px; border-radius: 10px; background: var(--surface); border: 1px solid var(--border); }
+.g-highway-legend b { flex: 0 0 28px; height: 28px; display: grid; place-items: center; border-radius: 8px; background: rgba(77, 163, 255, 0.14); color: var(--c-amber); font-family: var(--font-display); font-size: 1rem; }
+.g-highway-intro-best { margin-bottom: var(--sp-3); }
+.g-highway-actions { justify-content: center; margin-top: var(--sp-2); }
+.g-highway-overlay-over { padding: 12px; }
+.g-highway-over.panel { padding: 16px var(--sp-6); max-width: 600px; }
+.g-highway-over .eyebrow { margin-bottom: 2px; }
+.g-highway-over h2 { font-size: 1.45rem; margin-bottom: 0; }
+.g-highway-over .big { font-size: 2.3rem; margin: 2px 0; }
+.g-highway-newbest { display: inline-block; padding: 4px 14px; border-radius: 999px; background: rgba(77, 163, 255, 0.15); border: 1px solid rgba(77, 163, 255, 0.5); color: var(--c-amber); font-weight: 700; font-size: 0.85rem; animation: pulse 1.2s ease-in-out infinite; }
+.g-highway-over .stat-grid { grid-template-columns: repeat(4, 1fr); gap: 8px; margin: 8px 0; }
+.g-highway-over .stat { padding: 6px 6px; }
+.g-highway-over .stat-val { font-size: 1.2rem; }
+.g-highway-missed-title { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); margin: 14px 0 4px; }
+.g-highway-missed { max-height: 132px; overflow: auto; scrollbar-width: thin; margin-top: 4px; display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; margin-bottom: 8px; }
+.g-highway-missed-row { display: inline-flex; align-items: center; gap: 8px; padding: 4px 6px 4px 12px; border-radius: 999px; background: var(--surface); border: 1px solid rgba(77, 163, 255, 0.35); }
+.g-highway-missed-row .en { color: var(--text-2); font-size: 0.85rem; }
+.g-highway-missed-row .en::after { content: '→'; color: var(--muted); margin-left: 6px; }
+.g-highway-missed-row .es { font-family: var(--font-display); font-weight: 800; font-size: 1rem; white-space: nowrap; }
+.g-highway-missed-row .btn { padding: 0; width: 40px; min-height: 36px; font-size: 0.95rem; }
+.g-highway-over .g-highway-actions { margin-top: 4px; }
+
+/* ---------- Responsive ---------- */
+@media (max-width: 640px) {
+  .g-highway-tag { display: none; }
+  .g-highway-hud { display: grid; grid-template-columns: repeat(5, max-content); justify-content: space-between; align-items: center; padding: 10px 12px; gap: 8px 6px; }
+  .g-highway-hud .hud-item { font-size: 0.82rem; gap: 5px; flex-direction: column; }
+  .g-highway-hud .hud-item .label { font-size: 0.62rem; letter-spacing: 0.06em; }
+  .g-highway-hud .hud-item .val { font-size: 0.95rem; }
+  .g-highway-hud .hud-spacer { display: none; }
+  .g-highway-hearts { font-size: 1.1rem; }
+  .g-highway-hudmsg { top: 64px; padding: 8px 10px; gap: 8px; }
+  .g-highway-hudmsg-es { font-size: 1.3rem; }
+  .g-highway-overlay { padding: var(--sp-3); }
+  .g-highway-overlay .panel { padding: var(--sp-5) var(--sp-4); }
+  .g-highway-overlay .panel h2 { font-size: 1.35rem; }
+  .g-highway-overlay .panel .big { font-size: 2.2rem; }
+  .g-highway-overlay .panel p { font-size: 0.9rem; margin-bottom: var(--sp-3); }
+  .g-highway-intro-icon { font-size: 2.2rem; }
+  .g-highway-legend { grid-template-columns: 1fr; gap: 4px; font-size: 0.78rem; margin-bottom: 8px; }
+  .g-highway-legend > div:nth-child(n+3) { display: none; }
+  .g-highway-legend > div { padding: 4px 8px; }
+  .g-highway-legend b { flex-basis: 24px; height: 24px; font-size: 0.9rem; }
+  .g-highway-over.panel { padding: var(--sp-4); }
+  .g-highway-over .eyebrow { display: none; }
+  .g-highway-over h2 { font-size: 1.3rem; }
+  .g-highway-over .big { font-size: 1.9rem; }
+  .g-highway-newbest { font-size: 0.78rem; padding: 3px 10px; }
+  .g-highway-over .stat-grid { gap: 6px; margin: 8px 0; }
+  .g-highway-over .stat { padding: 6px 4px; border-radius: 10px; }
+  .g-highway-over .stat-val { font-size: 1rem; }
+  .g-highway-over .stat-label { font-size: 0.6rem; letter-spacing: 0.04em; }
+  .g-highway-missed-title { display: none; }
+  .g-highway-missed { gap: 4px; max-height: 120px; margin-bottom: 6px; }
+  .g-highway-missed-row { padding: 3px 4px 3px 8px; gap: 6px; }
+  .g-highway-missed-row .en { font-size: 0.72rem; }
+  .g-highway-missed-row .es { font-size: 0.85rem; }
+  .g-highway-missed-row .btn { width: 36px; min-height: 34px; font-size: 0.85rem; }
+  .g-highway-overlay .panel .btn-lg { padding: 11px 18px; font-size: 0.95rem; }
+  .g-highway-actions { gap: 8px; }
+  .g-highway-touch .touch-btn { width: 64px; height: 54px; }
+  .g-highway-touch-hint { font-size: 0.72rem; }
+}

@@ -705,6 +705,7 @@
     tagline: 'Tap where the accents go.',
     icon: '🎯',
     accent: 'var(--c-lav)',
+    accent2: '#ff5a1f',
     order: 3,
     mount(root, ctx) {
       view = { root, ctx, timeouts: new Set(), rafs: new Set(), docListeners: [], modal: null, rafId: 0, last: 0, tiles: [], cursor: 0, kbd: false };

@@ -660,6 +660,7 @@
     tagline: 'See the English, type the Spanish.',
     icon: '✍️',
     accent: 'var(--c-mint)',
+    accent2: '#ef3b4d',
     order: 2,
     mount(root, ctx) {
       view = { root, ctx, timeouts: new Set(), rafs: new Set(), docListeners: [], modal: null, timerId: null };

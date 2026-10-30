@@ -256,3 +256,11 @@
 .pg-voice-select { flex: 1 1 260px; min-width: 0; }
 .pg-voice-speed { flex: 0 0 auto; }
 .pg-voice-note { margin: 8px 0 0; }
+
+/* Game records: the same two-colour gradients as the home cards */
+.pg-game { color: #fff; isolation: isolate; background: linear-gradient(140deg, color-mix(in oklab, var(--accent) 80%, #0a1124) 0%, color-mix(in oklab, var(--accent-2, var(--accent)) 78%, #0a1124) 100%); border-color: color-mix(in srgb, var(--accent) 50%, rgba(255, 255, 255, 0.25)); }
+.pg-game::before { background: var(--accent-2, var(--accent)); opacity: 0.7; z-index: -1; }
+.pg-game:hover::before { opacity: 0.9; }
+.pg-game-icon { background: rgba(255, 255, 255, 0.18); border-color: rgba(255, 255, 255, 0.4); }
+.pg-game-val, .pg-game-cta { color: #fff; }
+.pg-game .tiny.muted { color: rgba(255, 255, 255, 0.75); }

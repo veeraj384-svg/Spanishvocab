@@ -770,6 +770,7 @@
     tagline: 'Flashcards with pronunciation.',
     icon: '🃏',
     accent: 'var(--c-sky)',
+    accent2: '#4da3ff',
     order: 5,
     mount(root, ctx) {
       view = { root, ctx, timeouts: new Set(), rafs: new Set(), docListeners: [], modal: null };
