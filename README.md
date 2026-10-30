@@ -19,10 +19,11 @@ in your browser (`localStorage`), and weak words are served more often until the
 Typing tip: type a vowel or `n`, then press <kbd>`</kbd> to add its accent (a → á, n → ñ). There is
 also an on-screen accent bar in every typing game.
 
-The home page plays “Vibing” by Pufino (freetouse.com, trimmed to the musical part, in
-`assets/music/`). Each game has its own generated lofi piece: a
-40-bar loop (slow swung drums, warm seventh-chord pads, an electric-piano melody and a vinyl
-crackle bed, all synthesized in the browser, no audio files). The 🔊 button at the top of every
+The home page plays “Vibing” by Pufino and every other page plays “Downtown” by Moavii (both
+from freetouse.com, trimmed to the musical part and level-matched, in `assets/music/`). Each
+track resumes where it left off when you come back to it. If a recording fails to load, that
+page falls back to a generated 40-bar lofi loop (slow swung drums, warm seventh-chord pads, an
+electric-piano melody and a vinyl crackle bed, synthesized in the browser). The 🔊 button at the top of every
 page opens a quick panel with master, effects and music volume sliders plus music and mute
 switches; the same controls sit in the game dock (with a fullscreen button) and under
 Progress → Settings.

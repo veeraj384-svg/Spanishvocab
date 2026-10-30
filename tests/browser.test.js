@@ -57,7 +57,7 @@ async function run(viewport, touch) {
     assert(await page.evaluate(() => !document.querySelector('.vol-pop')), label + ': Escape closes the panel');
     await page.evaluate(() => PQ.Settings.set('volSfx', 0.9));
     await go(page, '#/words', 300);
-    assert(await page.evaluate(() => PQ.Music._track === null), label + ': no music outside home / games');
+    assert(await page.evaluate(() => PQ.Music._track === 'site' && PQ.Music.STYLES.site.file !== PQ.Music.STYLES.home.file), label + ': Words page wants the site track (a different recording from home)');
 
     // ---- game dock: music follows the route, fullscreen button present where supported ----
     await page.evaluate(() => PQ.Settings.set('music', true));
@@ -75,6 +75,14 @@ async function run(viewport, touch) {
     await page.evaluate(() => PQ.Settings.set('sound', true));
     await page.waitForFunction(() => PQ.Music._audio && !PQ.Music._audio.paused, null, { timeout: 5000 });
     assert(await page.evaluate(() => /assets\/music\/pufino-vibing\.mp3$/.test(PQ.Music._audio.src) && PQ.Music._audio.loop && !PQ.Music._timer && PQ.Music.playing()), label + ': home page plays the recorded track, sequencer idle');
+    // a game switches to the other recording (its own Audio element); back home, the home track resumes where it paused
+    const homeT = await page.evaluate(() => PQ.Music._audio.currentTime);
+    await go(page, '#/play/spell', 400);
+    await page.waitForFunction(() => PQ.Music._audio && !PQ.Music._audio.paused, null, { timeout: 5000 });
+    assert(await page.evaluate(() => /assets\/music\/moavii-downtown\.mp3$/.test(PQ.Music._audio.src) && !PQ.Music._timer && PQ.Music._audios[PQ.Music.STYLES.home.file].paused), label + ': game plays the Downtown recording, home recording paused');
+    await go(page, '#/', 400);
+    await page.waitForFunction(() => PQ.Music._audio && !PQ.Music._audio.paused, null, { timeout: 5000 });
+    assert(await page.evaluate((t0) => /pufino-vibing\.mp3$/.test(PQ.Music._audio.src) && PQ.Music._audio.currentTime >= t0 && PQ.Music._audios[PQ.Music.STYLES.site.file].paused, homeT), label + ': home recording resumes where it paused, Downtown paused');
     await page.evaluate(() => PQ.Settings.set('sound', false)); await page.waitForTimeout(50);
     assert(await page.evaluate(() => PQ.Music._audio.paused && !PQ.Music.playing()), label + ': muting everything pauses the recording');
 
