@@ -15,7 +15,7 @@ in your browser (`localStorage`), and weak words are served more often until the
 | **Accent Hunter** | Timed rounds: tap the letters that need an accent or ñ. |
 | **Memory Deck** | Spaced-repetition flashcards with pronunciation. |
 | **Word Rain** | Arcade typing defense: destroy falling words by spelling them correctly. |
-| **Word Highway** | A 3D lane runner: steer the hover car into the gate with the correct spelling, dodge barriers, collect coins. Drawn with a perspective projection on canvas, no libraries. |
+| **Word Highway** | Open-world 3D driving: an endless procedural world of roads and five blocky biomes (plains, forest, desert, snow, badlands), villages, coins, trees, rocks and lava. Full car control (gas, brake, reverse, steering, handbrake). Every intersection is a checkpoint: answer a word question to clear it and refuel. Drawn with a perspective projection on canvas, no libraries. |
 
 Typing tip: type a vowel or `n`, then press <kbd>`</kbd> to add its accent (a → á, n → ñ). There is
 also an on-screen accent bar in every typing game.
