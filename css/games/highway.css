@@ -77,6 +77,11 @@
 .g-highway-legend > div { display: flex; align-items: center; gap: 10px; padding: 6px 10px; border-radius: 10px; background: var(--surface); border: 1px solid var(--border); }
 .g-highway-legend b { flex: 0 0 28px; height: 28px; display: grid; place-items: center; border-radius: 8px; background: rgba(77, 163, 255, 0.14); color: var(--c-amber); font-family: var(--font-display); font-size: 1rem; }
 .g-highway-intro-best { margin-bottom: var(--sp-3); }
+.g-highway-colors { display: flex; align-items: center; justify-content: center; gap: 10px; flex-wrap: wrap; margin: 2px 0 12px; }
+.g-highway-swatches { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
+.g-highway-swatch { width: 28px; height: 28px; border-radius: 50%; border: 2px solid rgba(255, 255, 255, 0.3); background: linear-gradient(135deg, color-mix(in srgb, var(--swatch) 85%, #fff) 0%, var(--swatch) 45%, var(--stripe) 46%, var(--stripe) 54%, var(--swatch) 55%); box-shadow: 0 3px 10px rgba(0, 0, 0, 0.35); transition: transform var(--t-fast) var(--ease-bounce), border-color var(--t-fast); cursor: pointer; }
+.g-highway-swatch:hover { transform: scale(1.12); }
+.g-highway-swatch[aria-pressed="true"] { border-color: #fff; transform: scale(1.15); box-shadow: 0 0 0 3px rgba(77, 163, 255, 0.5), 0 3px 10px rgba(0, 0, 0, 0.35); }
 .g-highway-actions { justify-content: center; margin-top: var(--sp-2); }
 .g-highway-overlay-over { padding: 12px; }
 .g-highway-over.panel { padding: 16px var(--sp-6); max-width: 600px; }
@@ -116,6 +121,8 @@
   .g-highway-intro-icon { font-size: 2.2rem; }
   .g-highway-legend { grid-template-columns: 1fr; gap: 4px; font-size: 0.78rem; margin-bottom: 8px; }
   .g-highway-legend > div:nth-child(n+3) { display: none; }
+  .g-highway-swatch { width: 24px; height: 24px; }
+  .g-highway-colors { margin: 0 0 8px; }
   .g-highway-legend > div { padding: 4px 8px; }
   .g-highway-legend b { flex-basis: 24px; height: 24px; font-size: 0.9rem; }
   .g-highway-over.panel { padding: var(--sp-4); }

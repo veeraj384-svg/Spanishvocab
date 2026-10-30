@@ -38,7 +38,8 @@
   const GATE_R = 7.5;                         // question trigger distance from a gate
   const NEAR = 0.9;                           // near clipping plane (camera space)
   const CAM_BACK = 7.8, CAM_H = 3.1;          // chase camera: behind and above the car
-  const MAX_SPEED = 27, REV_SPEED = 8, ACCEL = 13, BRAKE = 26, DRAG = 0.5, ROLL = 2.0;
+  const MAX_SPEED = 34, REV_SPEED = 9, ACCEL = 16, BRAKE = 30, DRAG = 0.5, ROLL = 2.0;
+  const KMH = 5;                              // display: km/h per world unit of speed
   const NITRO_SPEED = 1.5, NITRO_ACCEL = 2.0, NITRO_DRAIN = 28, NITRO_REFILL = 5;
   const TURN = 2.2;                           // rad/s at full speed
   const FUEL_MAX = 100, FUEL_IDLE = 0.45, FUEL_PER_UNIT = 0.018;
@@ -50,6 +51,17 @@
   const FONT = "'Times New Roman', Times, 'Liberation Serif', serif";
   const REDUCED = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
   const C = { amber: '#4da3ff', amber2: '#2b7fe6', mint: '#ff8a2b', lav: '#ffb347', rose: '#ef3b4d', rose2: '#c92233', white: '#ffffff' };
+  const CAR_COLORS = [
+    { id: 'blue',   name: 'Blue',   hex: '#1d4fd3', stripe: '#ff8a2b' },
+    { id: 'red',    name: 'Red',    hex: '#d92b3a', stripe: '#ffffff' },
+    { id: 'orange', name: 'Orange', hex: '#ff7a1a', stripe: '#1d4fd3' },
+    { id: 'green',  name: 'Green',  hex: '#1f9a4a', stripe: '#ffffff' },
+    { id: 'white',  name: 'White',  hex: '#e8ecf5', stripe: '#1d4fd3' },
+    { id: 'black',  name: 'Black',  hex: '#1b1f2b', stripe: '#ff8a2b' },
+    { id: 'purple', name: 'Purple', hex: '#7c3aed', stripe: '#ffd27a' },
+    { id: 'yellow', name: 'Yellow', hex: '#f5c518', stripe: '#1b1f2b' },
+  ];
+  const carColor = () => CAR_COLORS.find((c) => c.id === PQ.Settings.get('highwayCar')) || CAR_COLORS[0];
 
   const BIOMES = {
     plains:   { name: 'Plains',   icon: '🌿', ground: ['#3f9a4a', '#47a654', '#3a8d44'], sky: '#0a1230', fog: [12, 20, 52],  grip: 1,    speed: 0.72 },
@@ -57,7 +69,11 @@
     desert:   { name: 'Desert',   icon: '🏜️', ground: ['#d9b26a', '#e1bb77', '#cfa860'], sky: '#2a1a12', fog: [48, 30, 20],  grip: 0.9,  speed: 0.66 },
     snow:     { name: 'Snow',     icon: '❄️', ground: ['#e6edf6', '#f1f5fb', '#dbe4ee'], sky: '#1b2a4a', fog: [36, 52, 86],  grip: 0.5,  speed: 0.78 },
     badlands: { name: 'Badlands', icon: '🌋', ground: ['#5a2a24', '#64302a', '#4e241f'], sky: '#2a0c10', fog: [48, 14, 18],  grip: 0.95, speed: 0.62 },
+    city:     { name: 'City',     icon: '🏙️', ground: ['#3a3f52', '#40455a', '#363b4d'], sky: '#101a34', fog: [28, 36, 64],  grip: 1,    speed: 0.85 },
   };
+  const ZONES = 6;
+  const TOWER_COLS = [{ side: '#5b6480', top: '#7d87a6' }, { side: '#6f7a9a', top: '#929dbd' }, { side: '#8a8470', top: '#aaa38c' }, { side: '#44506e', top: '#5f6c8c' }];
+  const WIN_LIT = { side: '#ffd27a', top: '#ffd27a' }, WIN_DARK = { side: '#20263a', top: '#20263a' };
   const ROAD_COL = ['#2a3047', '#2e354f'];
   const WALL = { side: '#6b7080', top: '#8b909f' }, WALL2 = { side: '#5a5f6e', top: '#7a7f8e' }, POST = { side: '#4a4f5e', top: '#9a9fae' };
 
@@ -87,6 +103,7 @@
     colorCache.set(key, v);
     return v;
   }
+  function shade(hex, k) { const c = hexRgb(hex).map((v) => clamp(Math.round(v * k), 0, 255)); return '#' + c.map((v) => v.toString(16).padStart(2, '0')).join(''); }
   function roundRect(ctx, x, y, w, hh, r) { r = Math.min(r, w / 2, hh / 2); ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + hh, r); ctx.arcTo(x + w, y + hh, x, y + hh, r); ctx.arcTo(x, y + hh, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath(); }
 
   /* ------------------------------------------------------------
@@ -104,8 +121,10 @@
     return lerp(lerp(h01(x0, z0, salt), h01(x0 + 1, z0, salt), sx), lerp(h01(x0, z0 + 1, salt), h01(x0 + 1, z0 + 1, salt), sx), sz);
   }
   function biomeAt(x, z) {
-    const t = vnoise(x / 170, z / 170, 11) * 0.7 + vnoise(x / 60 + 7, z / 60 + 3, 12) * 0.3;
-    const hm = vnoise(x / 150 + 37, z / 150 + 91, 13) * 0.7 + vnoise(x / 55 + 5, z / 55 + 9, 14) * 0.3;
+    const city = vnoise(x / 420 + 13, z / 420 + 29, 15) * 0.75 + vnoise(x / 120 + 3, z / 120 + 7, 16) * 0.25;
+    if (city > 0.66) return 'city';
+    const t = vnoise(x / 340, z / 340, 11) * 0.7 + vnoise(x / 110 + 7, z / 110 + 3, 12) * 0.3;
+    const hm = vnoise(x / 320 + 37, z / 320 + 91, 13) * 0.7 + vnoise(x / 110 + 5, z / 110 + 9, 14) * 0.3;
     if (t < 0.37) return 'snow';
     if (t > 0.63) return hm < 0.5 ? 'desert' : 'badlands';
     return hm > 0.58 ? 'forest' : 'plains';
@@ -155,7 +174,8 @@
       const dx = Math.min(mx, ROAD_EVERY - mx), dz = Math.min(mz, ROAD_EVERY - mz);
       const nearWall = mod(cx - WALL_OFF, DIST) <= TILE || mod(cx - WALL_OFF, DIST) >= DIST - TILE || mod(cz - WALL_OFF, DIST) <= TILE || mod(cz - WALL_OFF, DIST) >= DIST - TILE;
       if (!shoulder && !nearWall) {
-        if (dx <= 3 && dz <= 3 && r < 0.4 && b !== 'badlands') obj = { type: 'house', solid: true, r: 2.6, v, biome: b };
+        if (b === 'city') { if (r < 0.6) obj = { type: 'tower', solid: true, r: 2.9, v, hgt: 6 + v * 16, c: hash(tx, tz, 24) % 4, lit: hash(tx, tz, 25) % 3 }; else if (r < 0.66) obj = { type: 'tree', solid: true, r: 1.1, v }; }
+        else if (dx <= 3 && dz <= 3 && r < 0.4 && b !== 'badlands') obj = { type: 'house', solid: true, r: 2.6, v, biome: b };
         else if (b === 'forest' && r < 0.22) obj = { type: 'tree', solid: true, r: 1.1, v };
         else if (b === 'plains' && r < 0.05) obj = { type: 'tree', solid: true, r: 1.1, v };
         else if (b === 'plains' && r < 0.09) obj = { type: 'bush', solid: false, r: 0.8, v };
@@ -166,13 +186,17 @@
         else if (b === 'badlands' && r < 0.1) obj = { type: 'rock', solid: true, r: 1.1, v, dark: true };
         else if (b === 'badlands' && r < 0.2) obj = { type: 'lava', solid: false, r: 0, v };
       }
-      if (!obj && !nearWall && h01(tx, tz, 22) < 0.035) obj = { type: 'coin', solid: false, r: 0.6 };
+      if (!obj && !nearWall && h01(tx, tz, 22) < (b === 'city' ? 0.06 : 0.035)) obj = { type: 'coin', solid: false, r: 0.6 };
     }
     if (obj) { obj.x = cx; obj.z = cz; obj.key = key; }
     S.tileCache.set(key, obj);
     return obj;
   }
-  const tileColor = (tx, tz, biome) => (roadInfo(tx, tz).road ? ROAD_COL[(tx + tz) & 1] : BIOMES[biome].ground[hash(tx, tz, 31) % 3]);
+  const tileColor = (tx, tz, biome) => {
+    if (roadInfo(tx, tz).road) return ROAD_COL[(tx + tz) & 1];
+    if (biome === 'city') { const mx = mod(tx, ROAD_EVERY), mz = mod(tz, ROAD_EVERY); if (mx === 1 || mx === ROAD_EVERY - 1 || mz === 1 || mz === ROAD_EVERY - 1) return '#4b5168'; }   // pavements
+    return BIOMES[biome].ground[hash(tx, tz, 31) % 3];
+  };
 
   /* ------------------------------------------------------------
      State
@@ -188,7 +212,7 @@
       t: 0, anim: prev ? prev.anim : 0, lastT: prev ? prev.lastT : 0,
       view: prev ? prev.view : { w: 0, h: 0, dpr: 1, cw: 0 },
       seed: 1, tileCache: new Map(),
-      car: { x: HALF, z: -20, a: 0, v: 0, vx: 0, vz: 0, steerVis: 0, roll: 0, boosting: false, braking: false },
+      car: { x: HALF, z: -20, a: 0, v: 0, vx: 0, vz: 0, steerVis: 0, roll: 0, boosting: false, braking: false, color: carColor().id },
       cam: { x: HALF, z: -20 - CAM_BACK, a: 0 },
       input: noInput(),
       fuel: FUEL_MAX, nitro: 60, score: 0, dist: 0, streak: 0, bestStreak: 0, topSpeed: 0,
@@ -271,6 +295,15 @@
   function hideOverlay() { if (D && D.overlay) { D.overlay.remove(); D.overlay = null; } }
   function focusLater(sel) { later(() => { const b = D.overlay && D.overlay.querySelector(sel); if (b) { try { b.focus({ preventScroll: true }); } catch (e) { /* ignore */ } } }, 40); }
 
+  /** Car colour swatches: the choice is saved and shows on the car right away. */
+  function swatches() {
+    const row = h('div.g-highway-swatches', { role: 'group', 'aria-label': 'Car colour' });
+    const paint = () => { const cur = carColor().id; row.querySelectorAll('.g-highway-swatch').forEach((b) => b.setAttribute('aria-pressed', b.dataset.color === cur ? 'true' : 'false')); };
+    CAR_COLORS.forEach((c) => row.appendChild(h('button.g-highway-swatch', { type: 'button', title: c.name, 'aria-label': c.name + ' car', dataset: { color: c.id }, style: { '--swatch': c.hex, '--stripe': c.stripe },
+      onclick: () => { PQ.Settings.set('highwayCar', c.id); if (S) S.car.color = c.id; paint(); Sound.play('click'); } })));
+    paint();
+    return h('div.g-highway-colors', null, h('span.small.muted', null, 'Car colour'), row);
+  }
   function introPanel() {
     const g = Progress.gameStats(ID);
     return h('div.panel.g-highway-intro', null,
@@ -281,7 +314,8 @@
         h('div', null, h('b', null, 'W'), 'W / ↑ gas, S / ↓ brake, A D / ← → steer, Space handbrake'),
         h('div', null, h('b', null, 'N'), 'Shift or N for nitro: it refills over time and with coins'),
         h('div', null, h('b', null, '⛽'), 'Fuel drains as you drive. Gates and coins refill it'),
-        h('div', null, h('b', null, '🗺️'), 'The compass points to the nearest open gate. Find all five biomes')),
+        h('div', null, h('b', null, '🗺️'), 'The compass points to the nearest open gate. Find every biome and the cities')),
+      swatches(),
       g.best ? h('div.small.muted.g-highway-intro-best', null, '🏆 ' + bestLabel()) : null,
       h('div.row.g-highway-actions', null, h('button.btn.btn-primary.btn-lg', { type: 'button', onclick: startGame }, '▶ Drive')));
   }
@@ -289,6 +323,7 @@
     return h('div.panel.g-highway-pause', null,
       h('div.eyebrow', null, 'Paused'), h('h2', null, 'Paused'),
       h('p.text-2', null, 'Score ' + fmt(S.score) + ' · ' + S.gates + ' gates · fuel ' + Math.round(S.fuel) + '%'),
+      swatches(),
       h('div.row.g-highway-actions', null,
         h('button.btn.btn-primary.btn-lg', { type: 'button', onclick: resume }, '▶ Resume'),
         h('button.btn.btn-outline', { type: 'button', onclick: startGame }, '↻ New world'),
@@ -304,7 +339,7 @@
       h('div.eyebrow', null, 'Out of fuel'), h('h2', null, 'The road ends here'),
       h('div.big.grad-text', null, fmt(S.score)),
       S.isNewBest ? h('div.g-highway-newbest', null, 'New best score') : h('div.small.muted', null, bestLabel()),
-      h('div.stat-grid', null, statEl('Distance', (S.dist / 1000).toFixed(1) + ' km'), statEl('Gates', S.gates), statEl('Biomes', S.biomesSeen.size + '/5'), statEl('Top speed', Math.round(S.topSpeed * 6) + ' km/h')),
+      h('div.stat-grid', null, statEl('Distance', (S.dist / 1000).toFixed(1) + ' km'), statEl('Gates', S.gates), statEl('Zones', S.biomesSeen.size + '/' + ZONES), statEl('Top speed', Math.round(S.topSpeed * KMH) + ' km/h')),
       h('div.row.g-highway-actions', null, h('button.btn.btn-primary.btn-lg', { type: 'button', onclick: startGame }, '↻ New world'), h('a.btn.btn-ghost', { href: '#/' }, 'Home')),
       missed.length ? h('div.g-highway-missed-title', null, missed.length + (missed.length === 1 ? ' word to review' : ' words to review')) : null,
       list);
@@ -574,7 +609,7 @@
     D.canvas.style.height = hh + 'px';
     D.stage.style.height = hh + 'px';
     S.view = { w, h: hh, dpr, cw: w };
-    VIEW = w < 640 ? 66 : 84;
+    VIEW = w < 640 ? 72 : 96;
   }
   function frame(now) {
     if (!S || !D) return;
@@ -614,7 +649,7 @@
   let F = 400, HY = 160, CX = 320, SINA = 0, COSA = 1, RATIO = 1, VIEW = 84;
   function cs(x, y, z) { const dx = x - S.cam.x, dz = z - S.cam.z; return { f: dx * SINA + dz * COSA, r: dx * COSA - dz * SINA, y }; }
   function sp(p) { const s = F / p.f; return { x: CX + p.r * s, y: HY + (CAM_H - p.y) * s, s }; }
-  const fogOf = (f) => Math.pow(clamp((f - 22) / (VIEW - 22), 0, 1), 1.3);
+  const fogOf = (f) => Math.pow(clamp((f - 30) / (VIEW - 30), 0, 1), 1.3);
   function clipNear(poly) {
     let allIn = true, allOut = true;
     for (const p of poly) { if (p.f < NEAR) allIn = false; else allOut = false; }
@@ -847,7 +882,20 @@
         aabox(ctx, x - 2.4, x + 2.4, 2.6, 3.2, z - 2.4, z + 2.4, roof, fog);
         if (far) break;
         aabox(ctx, x - 1.4, x + 1.4, 3.2, 3.9, z - 1.4, z + 1.4, roof, fog);
-        const c = cs(x, 1.3, z - 2.11); if (c.f > NEAR) { const q = sp(c); ctx.fillStyle = fogged(C.lav, fog, 1, 0.9); ctx.fillRect(q.x - 0.35 * q.s, q.y - 0.3 * q.s, 0.7 * q.s, 0.6 * q.s); }
+        // lit windows set into each wall (real geometry, so they stay put as you drive around)
+        aabox(ctx, x - 0.35, x + 0.35, 1.0, 1.6, z - 2.18, z - 2.0, WIN_LIT, fog);
+        aabox(ctx, x - 0.35, x + 0.35, 1.0, 1.6, z + 2.0, z + 2.18, WIN_LIT, fog);
+        aabox(ctx, x - 2.18, x - 2.0, 1.0, 1.6, z - 0.35, z + 0.35, WIN_LIT, fog);
+        aabox(ctx, x + 2.0, x + 2.18, 1.0, 1.6, z - 0.35, z + 0.35, WIN_LIT, fog);
+        break;
+      }
+      case 'tower': {
+        const hw = 2.5, hgt = o.hgt, col = TOWER_COLS[o.c];
+        aabox(ctx, x - hw, x + hw, 0, hgt, z - hw, z + hw, col, fog);
+        if (far) break;
+        for (let y = 1.8, k = 0; y < hgt - 1.2 && k < 7; y += 2.8, k++) aabox(ctx, x - hw - 0.06, x + hw + 0.06, y, y + 0.7, z - hw - 0.06, z + hw + 0.06, ((k + o.lit) % 3) ? WIN_LIT : WIN_DARK, fog);
+        aabox(ctx, x - hw + 0.6, x + hw - 0.6, hgt, hgt + 0.5, z - hw + 0.6, z + hw - 0.6, { side: '#2a3044', top: '#3a4058' }, fog);
+        if (v > 0.7) aabox(ctx, x - 0.1, x + 0.1, hgt + 0.5, hgt + 3, z - 0.1, z + 0.1, { side: '#2a3044', top: C.rose }, fog);
         break;
       }
       case 'coin': {
@@ -889,16 +937,7 @@
       else { aabox(ctx, gx - HALF, gx + HALF, 1.0, 1.3, gz - 0.12, gz + 0.12, { side: C.rose, top: '#ff8a96' }, fog); for (let s = -3; s <= 3; s += 2) aabox(ctx, gx + s * 0.9 - 0.4, gx + s * 0.9 + 0.4, 1.0, 1.3, gz - 0.13, gz + 0.13, { side: '#ffffff', top: '#ffffff' }, fog); }
     } else { const p = P(0, -(HALF + 0.6)); aabox(ctx, p.x - 0.12, p.x + 0.12, 1.0, 4.0, p.z - 0.12, p.z + 0.12, { side: C.rose, top: '#ff8a96' }, fog); }
     // stop signs on both approaches
-    if (fog < 0.75) [-1, 1].forEach((side) => {
-      const p = P(side * 5.5, HALF + 1.2);
-      const base = cs(p.x, 0, p.z); if (base.f < NEAR + 0.5) return;
-      const t = sp(cs(p.x, 2.6, p.z)), b = sp(base);
-      ctx.strokeStyle = fogged('#9aa3b8', fog); ctx.lineWidth = Math.max(1, 0.12 * t.s); ctx.beginPath(); ctx.moveTo(b.x, b.y); ctx.lineTo(t.x, t.y); ctx.stroke();
-      const r = Math.max(2, 0.62 * t.s);
-      ctx.beginPath(); for (let q = 0; q < 8; q++) { const an = Math.PI / 8 + q * Math.PI / 4; const px2 = t.x + Math.cos(an) * r, py2 = t.y - r * 0.1 + Math.sin(an) * r; if (q) ctx.lineTo(px2, py2); else ctx.moveTo(px2, py2); } ctx.closePath();
-      ctx.fillStyle = fogged(cleared ? '#8a2a35' : C.rose, fog); ctx.fill(); ctx.strokeStyle = fogged('#ffffff', fog, 1, 0.9); ctx.lineWidth = Math.max(1, r * 0.1); ctx.stroke();
-      if (r > 9) { ctx.fillStyle = fogged('#ffffff', fog); ctx.font = '800 ' + Math.round(r * 0.62) + 'px ' + FONT; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('STOP', t.x, t.y - r * 0.1); ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic'; }
-    });
+    if (fog < 0.8) [-1, 1].forEach((side) => { const p = P(side * 5.5, HALF + 1.2); drawSign(ctx, p.x, p.z, axis, fog, cleared); });
     // beacon: a tall translucent pillar of light over the gate (blue until cleared, then orange)
     const c0 = cs(gx, 0, gz); if (c0.f < NEAR + 0.5) return;
     const col = cleared ? C.mint : C.amber;
@@ -906,6 +945,36 @@
     ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = pulse * (1 - fog * 0.7);
     aabox(ctx, gx - 0.5, gx + 0.5, 4.5, 18, gz - 0.5, gz + 0.5, { side: col, top: '#ffffff' }, fog);
     ctx.restore();
+  }
+
+  /** Text painted on a world-space plate: centre c, `right` and `up` are unit vectors in world units, size is the letter height in world units. */
+  function worldText(ctx, c, right, up, text, size, color) {
+    const pc = cs(c.x, c.y, c.z), pr = cs(c.x + right.x, c.y + right.y, c.z + right.z), pu = cs(c.x + up.x, c.y + up.y, c.z + up.z);
+    if (pc.f < NEAR + 0.3 || pr.f < NEAR + 0.3 || pu.f < NEAR + 0.3) return;
+    const C0 = sp(pc), R = sp(pr), U = sp(pu);
+    const ax = R.x - C0.x, ay = R.y - C0.y, bx = -(U.x - C0.x), by = -(U.y - C0.y);   // screen vectors for one world unit right / down on the plate
+    if (Math.abs(ax * by - ay * bx) < 6) return;   // too small or edge-on
+    const k = 1 / 40;
+    ctx.save(); ctx.transform(ax * k, ay * k, bx * k, by * k, C0.x, C0.y);
+    ctx.font = '800 ' + (size * 40) + 'px ' + FONT; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = color; ctx.fillText(text, 0, 0);
+    ctx.restore();
+  }
+  /** A stop sign: a post, a thin plate across the road direction, a red octagon and the word on the side facing the camera. */
+  function drawSign(ctx, px, pz, axis, fog, cleared) {
+    aabox(ctx, px - 0.07, px + 0.07, 0, 2.2, pz - 0.07, pz + 0.07, { side: '#9aa3b8', top: '#c5ccdb' }, fog);
+    const r = 0.62, cy = 2.6, plate = { side: '#6a1b26', top: '#6a1b26' };
+    if (axis === 'x') aabox(ctx, px - 0.04, px + 0.04, cy - r, cy + r, pz - r, pz + r, plate, fog);
+    else aabox(ctx, px - r, px + r, cy - r, cy + r, pz - 0.04, pz + 0.04, plate, fog);
+    if (fog > 0.6) return;
+    const nx = axis === 'x' ? (S.cam.x < px ? -1 : 1) : 0, nz = axis === 'z' ? (S.cam.z < pz ? -1 : 1) : 0;   // the face toward the camera
+    const ox = px + nx * 0.06, oz = pz + nz * 0.06;
+    const pts = [];
+    for (let q = 0; q < 8; q++) { const an = Math.PI / 8 + q * Math.PI / 4; const dy = Math.sin(an) * r, dl = Math.cos(an) * r; pts.push(cs(axis === 'x' ? ox : ox + dl, cy + dy, axis === 'x' ? oz + dl : oz)); }
+    if (pts.some((p) => p.f < NEAR + 0.2)) return;
+    fillPoly(ctx, pts, fogged(cleared ? '#8a2a35' : C.rose, fog));
+    ctx.strokeStyle = fogged('#ffffff', fog, 1, 0.9); ctx.lineWidth = Math.max(1, 0.05 * sp(pts[0]).s); ctx.beginPath(); pts.forEach((p, i) => { const q = sp(p); if (i) ctx.lineTo(q.x, q.y); else ctx.moveTo(q.x, q.y); }); ctx.closePath(); ctx.stroke();
+    const right = axis === 'x' ? { x: 0, y: 0, z: nx > 0 ? 1 : -1 } : { x: nz > 0 ? -1 : 1, y: 0, z: 0 };   // reading direction as seen from that side
+    worldText(ctx, { x: ox, y: cy, z: oz }, right, { x: 0, y: 1, z: 0 }, 'STOP', 0.4, fogged('#ffffff', fog));
   }
 
   /**
@@ -921,7 +990,9 @@
     // shadow + underglow
     const sh = cs(x, 0.01, z);
     if (sh.f > NEAR) { const q = sp(sh); ctx.fillStyle = 'rgba(0,0,0,0.45)'; ctx.beginPath(); ctx.ellipse(q.x, q.y, 1.55 * q.s, 0.6 * q.s, 0, 0, TAU); ctx.fill(); ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = car.boosting ? 'rgba(255,138,43,0.3)' : 'rgba(77,163,255,0.22)'; ctx.beginPath(); ctx.ellipse(q.x, q.y, 1.35 * q.s, 0.48 * q.s, 0, 0, TAU); ctx.fill(); ctx.restore(); }
-    const paint = { side: '#1d4fd3', top: '#3c78ff', front: '#2a62ea', back: '#153f9f' };
+    const cc = CAR_COLORS.find((c) => c.id === car.color) || CAR_COLORS[0];
+    const paint = { side: cc.hex, top: shade(cc.hex, 1.28), front: shade(cc.hex, 1.1), back: shade(cc.hex, 0.74) };
+    const bumper = { side: shade(cc.hex, 0.8), top: shade(cc.hex, 1.05) };
     const dark = { side: '#111622', top: '#232a3c', front: '#111622', back: '#111622' };
     const glass = { side: '#7cc4ff', top: '#1b3f9a', front: '#a8e0ff', back: '#8fd0ff' };
     const chrome = { side: '#aab2c4', top: '#e6ebf5' };
@@ -939,7 +1010,7 @@
     B(0, 0, 0.94, 1.15, 0.3, 0.88, paint);
     B(0, -1.5, 0.9, 0.55, 0.3, 0.8, paint);
     B(-0.96, 0, 0.06, 1.6, 0.26, 0.4, dark); B(0.96, 0, 0.06, 1.6, 0.26, 0.4, dark);
-    B(0, 0.35, 0.3, 1.5, 0.88, 0.93, { side: '#ff8a2b', top: '#ffb347' });   // racing stripe
+    B(0, 0.35, 0.3, 1.5, 0.88, 0.93, { side: cc.stripe, top: shade(cc.stripe, 1.15) });   // racing stripe
     // cabin with glass, a roof plate, mirrors and an antenna
     B(0, -0.1, 0.74, 0.98, 0.88, 1.46, glass);
     B(0, -0.1, 0.62, 0.78, 1.46, 1.52, paint);
@@ -951,7 +1022,7 @@
     B(0, -1.88, 1.02, 0.17, 1.22, 1.34, { side: C.rose2, top: C.rose });
     B(-1.02, -1.88, 0.04, 0.26, 1.1, 1.46, { side: C.rose2, top: C.rose }); B(1.02, -1.88, 0.04, 0.26, 1.1, 1.46, { side: C.rose2, top: C.rose });
     // rear: bumper, diffuser, exhausts, tail and brake lights, number plate
-    B(0, -2.1, 0.92, 0.12, 0.3, 0.6, { side: '#163f9a', top: '#2a62ea' });
+    B(0, -2.1, 0.92, 0.12, 0.3, 0.6, bumper);
     B(0, -2.12, 0.7, 0.1, 0.2, 0.3, dark);
     B(-0.42, -2.2, 0.1, 0.1, 0.34, 0.5, chrome); B(0.42, -2.2, 0.1, 0.1, 0.34, 0.5, chrome);
     const tail = car.braking ? { side: '#ff2f44', top: '#ffb0b8' } : { side: C.rose2, top: '#ff8a96' };
@@ -976,17 +1047,17 @@
   /** The speedometer: a dial with ticks, a coloured sweep, a needle, the km/h readout and the nitro ring. */
   function drawSpeedo(ctx) {
     const { h: hh } = S.view;
-    const cx = 78, cy = hh - 78, r = 58, a0 = Math.PI * 0.75, a1 = Math.PI * 2.25, MAXK = 240;
-    const kmh = Math.abs(S.car.v) * 6, frac = clamp(kmh / MAXK, 0, 1);
+    const cx = 78, cy = hh - 78, r = 58, a0 = Math.PI * 0.75, a1 = Math.PI * 2.25, MAXK = 280;
+    const kmh = Math.abs(S.car.v) * KMH, frac = clamp(kmh / MAXK, 0, 1);
     ctx.save();
     ctx.fillStyle = 'rgba(6,10,22,0.78)'; ctx.beginPath(); ctx.arc(cx, cy, r + 8, 0, TAU); ctx.fill();
     ctx.strokeStyle = 'rgba(255,255,255,0.18)'; ctx.lineWidth = 1; ctx.stroke();
     ctx.strokeStyle = 'rgba(255,255,255,0.08)'; ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(cx, cy, r + 3, a0, a1); ctx.stroke();
     ctx.strokeStyle = S.car.boosting ? C.mint : 'rgba(255,138,43,0.75)'; ctx.beginPath(); ctx.arc(cx, cy, r + 3, a0, a0 + (a1 - a0) * (S.nitro / 100)); ctx.stroke();
     ctx.lineWidth = 7; ctx.strokeStyle = 'rgba(255,255,255,0.08)'; ctx.beginPath(); ctx.arc(cx, cy, r - 6, a0, a1); ctx.stroke();
-    if (frac > 0) { ctx.strokeStyle = kmh < 120 ? C.amber : kmh < 180 ? C.mint : C.rose; ctx.beginPath(); ctx.arc(cx, cy, r - 6, a0, a0 + (a1 - a0) * frac); ctx.stroke(); }
+    if (frac > 0) { ctx.strokeStyle = kmh < 140 ? C.amber : kmh < 200 ? C.mint : C.rose; ctx.beginPath(); ctx.arc(cx, cy, r - 6, a0, a0 + (a1 - a0) * frac); ctx.stroke(); }
     for (let k = 0; k <= MAXK; k += 20) {
-      const t = a0 + (a1 - a0) * k / MAXK, big = k % 60 === 0;
+      const t = a0 + (a1 - a0) * k / MAXK, big = k % 40 === 0;
       ctx.strokeStyle = big ? '#eef3ff' : 'rgba(238,243,255,0.5)'; ctx.lineWidth = big ? 2 : 1;
       ctx.beginPath(); ctx.moveTo(cx + Math.cos(t) * (r - 14), cy + Math.sin(t) * (r - 14)); ctx.lineTo(cx + Math.cos(t) * (r - (big ? 22 : 18)), cy + Math.sin(t) * (r - (big ? 22 : 18))); ctx.stroke();
       if (big) { ctx.fillStyle = 'rgba(238,243,255,0.8)'; ctx.font = '700 9px ' + FONT; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(String(k), cx + Math.cos(t) * (r - 30), cy + Math.sin(t) * (r - 30)); }
@@ -1155,7 +1226,8 @@
     /** Scan outward from the start for the nearest tile centre of a biome. */
     findBiome(name) { if (!S) return null; for (let r = 1; r < 120; r++) for (let j = -r; j <= r; j++) for (let i = -r; i <= r; i++) { if (Math.max(Math.abs(i), Math.abs(j)) !== r) continue; const x = i * 16 + 4, z = j * 16 + 4; if (biomeAt(x, z) === name) return { x, z }; } return null; },
     nearestGate(x, z) { return S ? nearestGate(x == null ? S.car.x : x, z == null ? S.car.z : z) : null; },
-    layout() { return { TILE, BLOCK, DIST, WALL_OFF, HALF, GATE_R }; },
+    layout() { return { TILE, BLOCK, DIST, WALL_OFF, HALF, GATE_R, MAX_SPEED, KMH, ZONES }; },
+    colors() { return CAR_COLORS.map((c) => c.id); },
     /** Add an ad-hoc coin or solid rock at a world position (tests). */
     spawn(type, x, z) { if (!S) return null; const o = { type, x, z, solid: type !== 'coin', r: type === 'coin' ? 0.6 : 1.0, v: 0.5, taken: false, id: ++S.uid }; S.extra.push(o); return o.id; },
     setFuel(n) { if (S) { S.fuel = clamp(Number(n) || 0, 0, FUEL_MAX); updateHud(false); } },

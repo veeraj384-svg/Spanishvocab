@@ -40,6 +40,11 @@ async function answer(page, correct) {
       const L = await dbg(page, () => PQ.debug.highway.layout());
       assert(L.DIST === 264 && L.WALL_OFF === 48 && L.BLOCK === 88, 'district layout: ' + JSON.stringify(L));
       await shot(page, 'highway-intro.png');
+      // car colour picker
+      assert((await page.$$('.g-highway-swatch')).length === 8, 'eight car colours');
+      await page.click('.g-highway-swatch[data-color="red"]'); await page.waitForTimeout(40);
+      assert(await dbg(page, () => PQ.Settings.get('highwayCar') === 'red' && PQ.debug.highway.state.car.color === 'red'), 'choosing red paints the car and is remembered');
+      assert(await page.$eval('.g-highway-swatch[data-color="red"]', (el) => el.getAttribute('aria-pressed') === 'true'), 'swatch marked selected');
 
       // ---- start: on the road south of the first intersection, in the plains, the first gate up the road ----
       await page.click('.g-highway-overlay-intro button.btn-primary');
@@ -144,12 +149,12 @@ async function answer(page, correct) {
       await dbg(page, () => { PQ.debug.highway.teleport(4, 100, 0); PQ.debug.highway.setNitro(100); PQ.debug.highway.setInput({ gas: true, nitro: true }); });
       await page.waitForTimeout(2200);
       s = await st(page);
-      assert(s.boosting && s.v > 28 && s.nitro < 100, 'nitro boosts past the normal top speed: ' + JSON.stringify({ v: s.v, nitro: s.nitro, boosting: s.boosting }));
+      assert(s.boosting && s.v > 38 && s.nitro < 100, 'nitro boosts past the normal top speed: ' + JSON.stringify({ v: s.v, nitro: s.nitro, boosting: s.boosting }));
       await shot(page, 'highway-nitro.png');
       await dbg(page, () => PQ.debug.highway.setInput({ nitro: false }));
       await page.waitForTimeout(1500);
       s = await st(page);
-      assert(!s.boosting && s.v <= 27.6, 'speed settles back without nitro: v=' + s.v);
+      assert(!s.boosting && s.v <= 34.6 && s.v > 25, 'speed settles back to the normal top speed: v=' + s.v);
       await dbg(page, () => PQ.debug.highway.setInput({ gas: false }));
 
       // ---- biomes: discovering a new one is worth points ----
@@ -162,6 +167,13 @@ async function answer(page, correct) {
       s = await st(page);
       assert(s.biome === target && s.biomes === before.biomes + 1 && s.score >= before.score + 500, target + ' discovered: ' + JSON.stringify({ biome: s.biome, biomes: s.biomes, seen: s.seen }));
       assert((await page.$eval('.g-highway-biome .val', (el) => el.textContent)).toLowerCase() === target, 'HUD shows the biome');
+      const all = await dbg(page, () => ['plains', 'forest', 'desert', 'badlands', 'snow'].map((b) => !!PQ.debug.highway.findBiome(b)));
+      assert(all.every(Boolean), 'every natural biome exists in this world');
+      const city = await dbg(page, () => PQ.debug.highway.findBiome('city'));
+      if (city) {
+        const tower = await dbg(page, (c) => { for (let dz = -6; dz <= 6; dz++) for (let dx = -6; dx <= 6; dx++) { const o = PQ.debug.highway.tileObj(Math.floor(c.x / 8) + dx, Math.floor(c.z / 8) + dz); if (o && o.type === 'tower') return o; } return null; }, city);
+        assert(tower && tower.solid && tower.hgt > 6, 'a city has towers: ' + JSON.stringify(tower));
+      } else console.log('  (no city within the scan radius in this world)');
       await shot(page, 'highway-biome.png');
 
       // ---- keyboard: held keys, nitro, handbrake, pause ----
