@@ -21,6 +21,11 @@
 .g-highway-fuel .bar-fill { background: var(--c-amber); transition: width 200ms linear, background var(--t-med); }
 .g-highway-fuel.is-low .bar-fill { background: var(--c-rose); }
 .g-highway-fuel.is-low .val { color: var(--c-rose); animation: pulse 1s ease-in-out infinite; }
+.g-highway-nitro { flex: 0 1 170px; min-width: 130px; }
+.g-highway-nitrobar { flex: 1; min-width: 70px; }
+.g-highway-nitro .bar-fill { background: var(--c-mint); transition: width 120ms linear; }
+.g-highway-nitro.is-on .bar-fill { background: #fff; box-shadow: 0 0 12px var(--c-mint); }
+.g-highway-nitro.is-on .label { color: var(--c-mint); }
 .g-highway-biome { gap: 6px; padding: 4px 10px; border-radius: 999px; background: var(--surface-2); border: 1px solid var(--border); }
 .g-highway-biome-icon { font-size: 1.05rem; line-height: 1; }
 .g-highway-biome .val { font-size: 0.95rem; }
@@ -55,6 +60,8 @@
 .g-highway-touch .tc-group { gap: 8px; }
 .g-highway-gas { background: rgba(77, 163, 255, 0.16); border-color: rgba(77, 163, 255, 0.5); color: var(--c-amber); width: 76px !important; }
 .g-highway-brake { background: rgba(239, 59, 77, 0.12); border-color: rgba(239, 59, 77, 0.45); color: var(--c-rose); }
+.g-highway-nitrobtn { background: rgba(255, 138, 43, 0.16); border-color: rgba(255, 138, 43, 0.55); color: var(--c-mint); font-family: var(--font-display); font-weight: 900; font-size: 1.3rem; }
+.g-highway-nitrobtn.is-down { background: rgba(255, 138, 43, 0.4); border-color: var(--c-mint); }
 .g-highway-touch-pause { width: 48px; height: 48px; font-size: 1.1rem; }
 .g-highway-help { text-align: center; }
 .g-highway-is-touch .g-highway-help { display: none; }
@@ -99,6 +106,7 @@
   .g-highway-hud .hud-item .val { font-size: 0.95rem; }
   .g-highway-hud .hud-spacer { display: none; }
   .g-highway-biome { grid-column: span 2; justify-content: center; }
+  .g-highway-nitro { grid-column: span 2; min-width: 0; flex-direction: row !important; }
   .g-highway-mini { width: 96px; height: 96px; top: 8px; right: 8px; }
   .g-highway-overlay { padding: var(--sp-3); }
   .g-highway-overlay .panel { padding: var(--sp-5) var(--sp-4); }
@@ -126,6 +134,7 @@
   .g-highway-missed-row .es { font-size: 0.85rem; }
   .g-highway-overlay .panel .btn-lg { padding: 11px 18px; font-size: 0.95rem; }
   .g-highway-actions { gap: 8px; }
-  .g-highway-touch .touch-btn { width: 56px; height: 54px; }
-  .g-highway-gas { width: 66px !important; }
+  .g-highway-touch .touch-btn { width: 50px; height: 52px; }
+  .g-highway-gas { width: 60px !important; }
+  .g-highway-touch .tc-group { gap: 6px; }
 }
