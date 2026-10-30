@@ -55,7 +55,7 @@ async function run(viewport, touch) {
     assert(await page.evaluate(() => Math.abs(PQ.Settings.get('volSfx') - 0.4) < 1e-9), label + ': effects slider sets volSfx');
     await page.keyboard.press('Escape'); await page.waitForTimeout(60);
     assert(await page.evaluate(() => !document.querySelector('.vol-pop')), label + ': Escape closes the panel');
-    await page.evaluate(() => PQ.Settings.set('volSfx', 0.9));
+    await page.evaluate(() => PQ.Settings.set('volSfx', 1));
     await go(page, '#/words', 300);
     assert(await page.evaluate(() => PQ.Music._track === 'site' && PQ.Music.STYLES.site.file !== PQ.Music.STYLES.home.file), label + ': Words page wants the site track (a different recording from home)');
 

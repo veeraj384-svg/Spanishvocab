@@ -204,7 +204,7 @@
      Settings
      ------------------------------------------------------------ */
   const SETTINGS_KEY = 'pq.settings.v1';
-  const DEFAULT_SETTINGS = { cats: null /* null = all */, sound: true, music: true, speech: true, strictArticles: false, volMaster: 0.8, volSfx: 0.9, volMusic: 0.5 };
+  const DEFAULT_SETTINGS = { cats: null /* null = all */, sound: true, music: true, speech: true, strictArticles: false, volMaster: 1, volSfx: 1, volMusic: 0.2 };
   const Settings = {
     _s: Object.assign({}, DEFAULT_SETTINGS, Store.get(SETTINGS_KEY, {})),
     get(k) { return Settings._s[k]; },
@@ -781,42 +781,113 @@
     level(key) { const v = Number(Settings.get(key)); return isFinite(v) ? Math.max(0, Math.min(1, v)) : 1; },
     /** Effects loudness = master × effects. */
     gainFactor() { return Sound.level('volMaster') * Sound.level('volSfx'); },
+
+    // ---- lofi effects bus: everything runs through a gentle lowpass, light compression and a small darkened room,
+    //      so the effects sit in the same soft, warm space as the recordings instead of cutting through them ----
+    _busNode: null, _busCtx: null, _noiseBuf: null,
+    _bus_(ctx) {
+      if (Sound._busNode && Sound._busCtx === ctx) return Sound._busNode;
+      const inp = ctx.createGain(); inp.gain.value = 1;
+      const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 3600; lp.Q.value = 0.4;
+      const comp = ctx.createDynamicsCompressor(); comp.threshold.value = -20; comp.knee.value = 14; comp.ratio.value = 3; comp.attack.value = 0.004; comp.release.value = 0.14;
+      const send = ctx.createGain(); send.gain.value = 0.2;
+      const dly = ctx.createDelay(0.5); dly.delayTime.value = 0.17;
+      const fb = ctx.createGain(); fb.gain.value = 0.28;
+      const dlp = ctx.createBiquadFilter(); dlp.type = 'lowpass'; dlp.frequency.value = 1600;
+      inp.connect(lp).connect(comp).connect(ctx.destination);
+      inp.connect(send).connect(dly).connect(dlp); dlp.connect(fb).connect(dly); dlp.connect(comp);
+      Sound._busNode = inp; Sound._busCtx = ctx;
+      return inp;
+    },
+    _noise(ctx) {
+      if (Sound._noiseBuf && Sound._noiseBuf.sampleRate === ctx.sampleRate) return Sound._noiseBuf;
+      const buf = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate), d = buf.getChannelData(0);
+      for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+      Sound._noiseBuf = buf;
+      return buf;
+    },
+    _vol(vol, fallback) { return (vol || fallback) * Sound.gainFactor(); },
+
+    /** Soft marimba / kalimba-like note: a sine with quiet partials, a 5 ms attack and a lowpass that closes as it decays. `dark` mutes it further. */
+    _pluck(freq, dur, vol, when, dark) {
+      const ctx = Sound.ctx(); if (!ctx) return;
+      vol = Sound._vol(vol, 0.12); if (vol <= 0.0002) return;
+      const t = ctx.currentTime + (when || 0), bus = Sound._bus_(ctx);
+      const f = ctx.createBiquadFilter(); f.type = 'lowpass'; f.Q.value = 0.6;
+      f.frequency.setValueAtTime(Math.min(6000, freq * (dark ? 1.6 : 3.2)), t); f.frequency.exponentialRampToValueAtTime(Math.max(120, freq * (dark ? 0.9 : 1.1)), t + dur);
+      const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.005); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      f.connect(g).connect(bus);
+      [[1, 1], [2, dark ? 0.12 : 0.3], [4, dark ? 0.03 : 0.08]].forEach(([mult, lvl]) => {
+        const o = ctx.createOscillator(), og = ctx.createGain(); o.type = 'sine'; o.frequency.value = freq * mult; og.gain.value = lvl;
+        o.connect(og).connect(f); o.start(t); o.stop(t + dur + 0.03);
+      });
+    },
+    /** Muted low thump (a soft tom / dead kick): a sine falling from f0 to f1. Used where arcade games would buzz. */
+    _thump(f0, f1, dur, vol, when) {
+      const ctx = Sound.ctx(); if (!ctx) return;
+      vol = Sound._vol(vol, 0.15); if (vol <= 0.0002) return;
+      const t = ctx.currentTime + (when || 0), bus = Sound._bus_(ctx);
+      const o = ctx.createOscillator(), g = ctx.createGain(); o.type = 'sine';
+      o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(Math.max(25, f1), t + dur * 0.8);
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.006); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      o.connect(g).connect(bus); o.start(t); o.stop(t + dur + 0.03);
+    },
+    /** A puff of filtered air: bandpassed noise sweeping from f0 to f1 (brush hits, whooshes, dust). */
+    _puff(dur, vol, when, f0, f1, q) {
+      const ctx = Sound.ctx(); if (!ctx) return;
+      vol = Sound._vol(vol, 0.08); if (vol <= 0.0002) return;
+      const t = ctx.currentTime + (when || 0), bus = Sound._bus_(ctx);
+      const src = ctx.createBufferSource(); src.buffer = Sound._noise(ctx); src.loop = true;
+      const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.Q.value = q || 1;
+      bp.frequency.setValueAtTime(f0, t); bp.frequency.exponentialRampToValueAtTime(Math.max(60, f1 || f0), t + dur);
+      const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.008); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      src.connect(bp).connect(g).connect(bus); src.start(t); src.stop(t + dur + 0.03);
+    },
+    /** A slow, quiet chord swell under the bigger moments (win, level up). */
+    _swell(freqs, dur, vol, when) {
+      const ctx = Sound.ctx(); if (!ctx) return;
+      vol = Sound._vol(vol, 0.04); if (vol <= 0.0002) return;
+      const t = ctx.currentTime + (when || 0), bus = Sound._bus_(ctx);
+      const f = ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 1400;
+      const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + dur * 0.3); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      f.connect(g).connect(bus);
+      freqs.forEach((fr) => { const o = ctx.createOscillator(); o.type = 'sine'; o.frequency.value = fr; o.connect(f); o.start(t); o.stop(t + dur + 0.03); });
+    },
     _tone(freq, dur, type, vol, when, slide) {
       const ctx = Sound.ctx(); if (!ctx) return;
-      vol = (vol || 0.15) * Sound.gainFactor();
-      if (vol <= 0.0002) return;
-      const t = ctx.currentTime + (when || 0);
+      vol = Sound._vol(vol, 0.12); if (vol <= 0.0002) return;
+      const t = ctx.currentTime + (when || 0), bus = Sound._bus_(ctx);
       const o = ctx.createOscillator(), g = ctx.createGain();
       o.type = type || 'sine'; o.frequency.setValueAtTime(freq, t);
       if (slide) o.frequency.exponentialRampToValueAtTime(Math.max(20, slide), t + dur);
-      g.gain.setValueAtTime(0.0001, t);
-      g.gain.exponentialRampToValueAtTime(vol, t + 0.01);
-      g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-      o.connect(g).connect(ctx.destination);
-      o.start(t); o.stop(t + dur + 0.02);
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.008); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      o.connect(g).connect(bus); o.start(t); o.stop(t + dur + 0.02);
     },
-    /** Public pitched tone (respects the mute setting): Sound.tone(freq, dur, type?, vol?, when?, slideToFreq?) */
+    /** Public pitched tone (respects the mute setting, runs through the lofi bus): Sound.tone(freq, dur, type?, vol?, when?, slideToFreq?) */
     tone(freq, dur, type, vol, when, slide) { if (!Sound.enabled()) return; try { Sound._tone(freq, dur, type, vol, when, slide); } catch (e) { /* audio not available */ } },
+    // notes used by the effects (C major pentatonic, a key that sits well under both recordings)
+    N: { C4: 261.63, E4: 329.63, G4: 392.0, A4: 440.0, C5: 523.25, D5: 587.33, E5: 659.25, G5: 783.99, A5: 880.0, C6: 1046.5, D6: 1174.66, E6: 1318.51, G6: 1567.98 },
     play(name) {
       if (!Sound.enabled()) return;
+      const N = Sound.N;
       try {
         switch (name) {
-          case 'correct': Sound._tone(660, 0.12, 'triangle', 0.14); Sound._tone(880, 0.16, 'triangle', 0.14, 0.09); Sound._tone(1320, 0.22, 'triangle', 0.12, 0.18); break;
-          case 'wrong': Sound._tone(220, 0.22, 'sawtooth', 0.08, 0, 140); Sound._tone(170, 0.28, 'square', 0.05, 0.08, 90); break;
-          case 'accent': Sound._tone(520, 0.1, 'triangle', 0.1); Sound._tone(440, 0.18, 'triangle', 0.1, 0.1); break;
-          case 'jump': Sound._tone(300, 0.14, 'square', 0.05, 0, 620); break;
-          case 'coin': Sound._tone(1200, 0.08, 'square', 0.06); Sound._tone(1600, 0.14, 'square', 0.06, 0.07); break;
-          case 'energy': Sound._tone(400, 0.1, 'sine', 0.1, 0, 800); Sound._tone(800, 0.2, 'sine', 0.1, 0.1, 1200); break;
-          case 'gate': Sound._tone(500, 0.1, 'triangle', 0.1); Sound._tone(750, 0.1, 'triangle', 0.1, 0.1); Sound._tone(1000, 0.2, 'triangle', 0.1, 0.2); break;
-          case 'hurt': Sound._tone(180, 0.2, 'sawtooth', 0.1, 0, 60); break;
-          case 'win': [523, 659, 784, 1047].forEach((f, i) => Sound._tone(f, 0.25, 'triangle', 0.12, i * 0.12)); Sound._tone(1319, 0.5, 'triangle', 0.12, 0.5); break;
-          case 'lose': [400, 350, 300, 200].forEach((f, i) => Sound._tone(f, 0.25, 'sawtooth', 0.07, i * 0.15)); break;
-          case 'tick': Sound._tone(900, 0.04, 'square', 0.04); break;
-          case 'click': Sound._tone(700, 0.05, 'triangle', 0.05); break;
-          case 'levelup': [523, 659, 784, 1047, 1319].forEach((f, i) => Sound._tone(f, 0.18, 'sine', 0.12, i * 0.08)); break;
-          case 'shoot': Sound._tone(900, 0.08, 'square', 0.05, 0, 300); break;
-          case 'explode': Sound._tone(120, 0.3, 'sawtooth', 0.1, 0, 40); break;
-          default: Sound._tone(600, 0.08, 'sine', 0.06);
+          case 'correct': Sound._pluck(N.E5, 0.35, 0.15); Sound._pluck(N.A5, 0.5, 0.14, 0.09); Sound._pluck(N.E6, 0.6, 0.05, 0.18); break;
+          case 'accent': Sound._pluck(N.G5, 0.3, 0.13); Sound._pluck(N.E5, 0.42, 0.12, 0.11); break;
+          case 'wrong': Sound._thump(180, 110, 0.3, 0.22); Sound._pluck(220, 0.32, 0.07, 0.02, true); Sound._puff(0.14, 0.05, 0, 500, 240, 0.8); break;
+          case 'jump': Sound._puff(0.13, 0.16, 0, 600, 1900, 1.2); Sound._tone(260, 0.13, 'sine', 0.09, 0, 520); break;
+          case 'coin': Sound._pluck(N.A5, 0.2, 0.1); Sound._pluck(N.E6, 0.32, 0.09, 0.07); break;
+          case 'energy': Sound._pluck(N.C5, 0.3, 0.11); Sound._pluck(N.E5, 0.36, 0.11, 0.07); Sound._pluck(N.G5, 0.46, 0.11, 0.14); break;
+          case 'gate': Sound._pluck(N.G4, 0.3, 0.12); Sound._pluck(N.C5, 0.32, 0.12, 0.1); Sound._pluck(N.E5, 0.6, 0.12, 0.2); Sound._pluck(N.G5, 0.6, 0.05, 0.2); break;
+          case 'hurt': Sound._thump(150, 65, 0.3, 0.26); Sound._puff(0.18, 0.14, 0, 320, 120, 0.7); break;
+          case 'win': [N.C5, N.E5, N.G5, N.C6].forEach((f, i) => Sound._pluck(f, 0.5, 0.13, i * 0.12)); Sound._pluck(N.E6, 0.9, 0.1, 0.5); Sound._swell([N.C5, N.E5, N.G5], 1.5, 0.045, 0.1); break;
+          case 'lose': [N.A4, N.G4, N.E4, N.C4].forEach((f, i) => Sound._pluck(f, 0.45, 0.1, i * 0.16, true)); Sound._thump(90, 55, 0.4, 0.12, 0.5); break;
+          case 'tick': Sound._pluck(1400, 0.035, 0.05, 0, true); Sound._puff(0.018, 0.03, 0, 2200, 1600, 2); break;
+          case 'click': Sound._pluck(620, 0.07, 0.06, 0, true); break;
+          case 'levelup': [N.C5, N.D5, N.E5, N.G5, N.A5].forEach((f, i) => Sound._pluck(f, 0.4, 0.12, i * 0.08)); Sound._pluck(N.C6, 0.8, 0.1, 0.42); Sound._swell([N.C5, N.G5, N.E5], 1.3, 0.04, 0.2); break;
+          case 'shoot': Sound._puff(0.09, 0.18, 0, 1600, 500, 1.1); Sound._pluck(N.C6, 0.06, 0.06, 0, true); break;
+          case 'explode': Sound._thump(110, 38, 0.4, 0.26); Sound._puff(0.35, 0.18, 0, 520, 150, 0.7); break;
+          default: Sound._pluck(600, 0.12, 0.07, 0, true);
         }
       } catch (e) { /* audio not available */ }
     },

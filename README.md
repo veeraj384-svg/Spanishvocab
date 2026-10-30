@@ -23,9 +23,12 @@ The home page plays “Vibing” by Pufino and every other page plays “Downtow
 from freetouse.com, trimmed to the musical part and level-matched, in `assets/music/`). Each
 track resumes where it left off when you come back to it. If a recording fails to load, that
 page falls back to a generated 40-bar lofi loop (slow swung drums, warm seventh-chord pads, an
-electric-piano melody and a vinyl crackle bed, synthesized in the browser). The 🔊 button at the top of every
-page opens a quick panel with master, effects and music volume sliders plus music and mute
-switches; the same controls sit in the game dock (with a fullscreen button) and under
+electric-piano melody and a vinyl crackle bed, synthesized in the browser). Music starts at 20% so it sits under the
+effects; master and effects start at 100%. The effects themselves are built to match the
+recordings: soft marimba-like plucks, muted thumps and puffs of filtered air through a shared
+lowpass, light compression and a small darkened room, no square or sawtooth bleeps. The 🔊
+button at the top of every page opens a quick panel with master, effects and music volume
+sliders plus music and mute switches; the same controls sit in the game dock (with a fullscreen button) and under
 Progress → Settings.
 
 ## Deploying on Cloudflare Pages
