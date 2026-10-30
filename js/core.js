@@ -836,21 +836,45 @@
   const Music = {
     // Lofi / focus pieces: slow swung beats, soft rim + hats, warm seventh-chord pads, an electric-piano lead, vinyl crackle.
     STYLES: {
-      home:       { bpm: 76, root: 48, mode: 'major', prog: [1, 4, 2, 5, 6, 2, 5, 1], swing: 0.2,  drums: 'lofi', lead: 'melody', vol: 0.6,  seed: 5 },
+      // The home page plays a real recording: "Vibing" by Pufino (freetouse.com), trimmed to the musical part.
+      home:       { file: 'assets/music/pufino-vibing.mp3', credit: '“Vibing” by Pufino · freetouse.com', vol: 0.85,
+                    bpm: 76, root: 48, mode: 'major', prog: [1, 4, 2, 5, 6, 2, 5, 1], swing: 0.2, drums: 'lofi', lead: 'melody', seed: 5 },
       platformer: { bpm: 88, root: 50, mode: 'major', prog: [1, 6, 4, 5, 1, 6, 2, 5], swing: 0.18, drums: 'lofi', lead: 'melody', vol: 0.65, seed: 11 },
       blaster:    { bpm: 84, root: 45, mode: 'minor', prog: [1, 4, 1, 5, 6, 4, 5, 5], swing: 0.16, drums: 'lofi', lead: 'melody', vol: 0.65, seed: 23 },
       accent:     { bpm: 82, root: 53, mode: 'major', prog: [1, 3, 6, 4, 2, 5, 1, 4], swing: 0.2,  drums: 'lofi', lead: 'melody', vol: 0.6,  seed: 37 },
       spell:      { bpm: 74, root: 55, mode: 'major', prog: [1, 4, 6, 5, 2, 5, 1, 1], swing: 0.2,  drums: 'lofi', lead: 'melody', vol: 0.6,  seed: 53 },
       flash:      { bpm: 70, root: 48, mode: 'major', prog: [1, 6, 2, 5, 4, 5, 3, 6], swing: 0.22, drums: 'soft', lead: 'melody', vol: 0.55, seed: 71 },
     },
-    _track: null, _song: null, _timer: 0, _step: 0, _next: 0, _bus: null, _noise: null, _armed: false,
+    _track: null, _song: null, _timer: 0, _step: 0, _next: 0, _bus: null, _noise: null, _armed: false, _audio: null, _audioSrc: '',
     enabled() { return Settings.get('music') !== false && Sound.enabled(); },
-    playing() { return !!Music._timer; },
+    playing() { return !!Music._timer || !!(Music._audio && !Music._audio.paused); },
     want(id) { Music._track = id || null; if (id && Music.enabled()) Music.start(); else Music.stop(); },
     toggle() { Settings.set('music', !(Settings.get('music') !== false)); if (Music.enabled() && Music._track) Music.start(); else Music.stop(); return Music.enabled(); },
     /** Music loudness = master × music × the style's own level. */
     gain() { const st = Music.STYLES[Music._track]; return 0.11 * (st ? st.vol : 1) * Sound.level('volMaster') * Sound.level('volMusic'); },
-    applyVolume() { if (Music._bus && Sound._ctx && Music._timer) { const t = Sound._ctx.currentTime; Music._bus.master.gain.cancelScheduledValues(t); Music._bus.master.gain.setTargetAtTime(Math.max(0.0001, Music.gain()), t, 0.08); } },
+    applyVolume() {
+      if (Music._bus && Sound._ctx && Music._timer) { const t = Sound._ctx.currentTime; Music._bus.master.gain.cancelScheduledValues(t); Music._bus.master.gain.setTargetAtTime(Math.max(0.0001, Music.gain()), t, 0.08); }
+      if (Music._audio) Music._audio.volume = Music.fileVolume();
+    },
+    /** Loudness of a recorded track = master × music × the track's own level. */
+    fileVolume() { const st = Music.STYLES[Music._track]; return Math.max(0, Math.min(1, (st && st.vol || 1) * Sound.level('volMaster') * Sound.level('volMusic'))); },
+    /** Play a recorded track (looping) instead of the sequencer. Returns true when handled. */
+    _startFile(st) {
+      if (!Music._audio) { Music._audio = new Audio(); Music._audio.loop = true; Music._audio.preload = 'auto'; }
+      const a = Music._audio;
+      if (Music._audioSrc !== st.file) { a.src = st.file; Music._audioSrc = st.file; }
+      a.volume = Music.fileVolume();
+      const p = a.play();
+      if (p && p.catch) {
+        p.catch(() => {   // autoplay policy: start on the first gesture
+          if (Music._armed) return;
+          Music._armed = true;
+          const go = () => { Music._armed = false; if (Music._track && Music.enabled()) Music.start(); };
+          ['pointerdown', 'keydown', 'touchstart'].forEach((ev) => document.addEventListener(ev, go, { once: true, passive: true }));
+        });
+      }
+      return true;
+    },
 
     /** Build the piece for a style: an array of steps (16 per bar), each { kick, snare, hat, bass, pad, lead, leadLen }. */
     compose(id) {
@@ -986,7 +1010,11 @@
       [['sine', 0, 1], ['triangle', 1200, 0.25]].forEach(([type, cents, lvl]) => { const o = ctx.createOscillator(), og = ctx.createGain(); o.type = type; o.frequency.value = midi(note); o.detune.value = cents; og.gain.value = lvl; o.connect(og).connect(f); o.start(t); o.stop(t + dur + 0.05); });
     },
     start() {
-      if (!Music._track || Music._timer) return;
+      if (!Music._track) return;
+      const st = Music.STYLES[Music._track];
+      if (st && st.file) { if (Music._timer) Music.stop(); Music._startFile(st); return; }
+      if (Music._audio && !Music._audio.paused) Music._audio.pause();
+      if (Music._timer) return;
       const ctx = Sound.ctx(); if (!ctx) return;
       if (ctx.state === 'suspended') {   // autoplay policy: wait for the first gesture, then start
         if (!Music._armed) { Music._armed = true; const go = () => { Music._armed = false; if (Music._track && Music.enabled()) Music.start(); }; ['pointerdown', 'keydown', 'touchstart'].forEach((ev) => document.addEventListener(ev, go, { once: true, passive: true })); }
@@ -1021,6 +1049,7 @@
       Music._timer = setInterval(tick, 50);
     },
     stop() {
+      if (Music._audio && !Music._audio.paused) Music._audio.pause();
       if (Music._timer) { clearInterval(Music._timer); Music._timer = 0; }
       if (Music._bus && Music._bus.crackle) { try { Music._bus.crackle.src.stop(); } catch (e) { /* ignore */ } Music._bus.crackle = null; }
       if (Music._bus && Sound._ctx) { try { const t = Sound._ctx.currentTime; Music._bus.master.gain.cancelScheduledValues(t); Music._bus.master.gain.setValueAtTime(Math.max(0.0001, Music._bus.master.gain.value), t); Music._bus.master.gain.exponentialRampToValueAtTime(0.0001, t + 0.3); } catch (e) { /* ignore */ } }

@@ -59,7 +59,7 @@ tests/run-all.js        runs every test file in order
 | `UI.accentBar(input, {mount?, hint?})` | adds á é í ó ú ñ ü ¿ ¡ buttons + backtick accent trick to an input |
 | `Sound.play(name)` | `correct wrong accent jump coin energy gate hurt win lose tick click levelup shoot explode` |
 | `Sound.tone(freq, dur, type?, vol?, when?, slideTo?)` | one pitched tone (for combo pitch ramps); silent when muted |
-| `Music.want(gameId)` / `Music.toggle()` / `Music.enabled()` / `Music.compose(id)` | generative background music per game (`Music.STYLES`: key, tempo, progression, drum feel, lead style → a deterministic 40-bar piece); the router starts it on a game route and stops it on leave; follows the `music`, `sound` and volume settings and pauses in hidden tabs |
+| `Music.want(gameId)` / `Music.toggle()` / `Music.enabled()` / `Music.compose(id)` | a style with `file` plays that recording (looped, via an Audio element) — the home page uses `assets/music/`; otherwise generative background music per game (`Music.STYLES`: key, tempo, progression, drum feel, lead style → a deterministic 40-bar piece); the router starts it on a game route and stops it on leave; follows the `music`, `sound` and volume settings and pauses in hidden tabs |
 | `Settings` keys `volMaster`, `volSfx`, `volMusic` (0..1); `Sound.level(key)`, `Sound.gainFactor()`, `UI.volumeSliders()`, `UI.volumePanel(anchor)` | volume controls (header speaker, game dock, Settings page) |
 | `Progress.setGameMeta(gameId, extra)` | merge metadata into a game's record without touching best / plays (e.g. `maxLevel`) |
 | `UI.layerRoot()` | where dialogs, toasts and confetti are appended: the fullscreen element when one is active, else `<body>` |

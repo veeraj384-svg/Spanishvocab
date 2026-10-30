@@ -70,6 +70,13 @@ async function run(viewport, touch) {
     assert(await page.evaluate(() => PQ.Settings.get('music') !== false), label + ': music toggle on');
     await go(page, '#/', 300);
     assert(await page.evaluate(() => PQ.Music._track === 'home' && !document.querySelector('.game-dock')), label + ': dock gone off the game page, home track wanted');
+    // the home page plays the recorded track (an Audio element, not the sequencer). The suite keeps sound muted, so unmute
+    // for this check; the dock click above was the gesture that unlocks autoplay.
+    await page.evaluate(() => PQ.Settings.set('sound', true));
+    await page.waitForFunction(() => PQ.Music._audio && !PQ.Music._audio.paused, null, { timeout: 5000 });
+    assert(await page.evaluate(() => /assets\/music\/pufino-vibing\.mp3$/.test(PQ.Music._audio.src) && PQ.Music._audio.loop && !PQ.Music._timer && PQ.Music.playing()), label + ': home page plays the recorded track, sequencer idle');
+    await page.evaluate(() => PQ.Settings.set('sound', false)); await page.waitForTimeout(50);
+    assert(await page.evaluate(() => PQ.Music._audio.paused && !PQ.Music.playing()), label + ': muting everything pauses the recording');
 
     // ---- platformer: energy question, answered for real ----
     await go(page, '#/play/platformer', 400);

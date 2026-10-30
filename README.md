@@ -19,8 +19,9 @@ in your browser (`localStorage`), and weak words are served more often until the
 Typing tip: type a vowel or `n`, then press <kbd>`</kbd> to add its accent (a → á, n → ñ). There is
 also an on-screen accent bar in every typing game.
 
-Lofi background music plays on the home page and in every game: each has its own generated,
-40-bar piece (slow swung drums, warm seventh-chord pads, an electric-piano melody and a vinyl
+The home page plays “Vibing” by Pufino (freetouse.com, trimmed to the musical part, in
+`assets/music/`). Each game has its own generated lofi piece: a
+40-bar loop (slow swung drums, warm seventh-chord pads, an electric-piano melody and a vinyl
 crackle bed, all synthesized in the browser, no audio files). The 🔊 button at the top of every
 page opens a quick panel with master, effects and music volume sliders plus music and mute
 switches; the same controls sit in the game dock (with a fullscreen button) and under
