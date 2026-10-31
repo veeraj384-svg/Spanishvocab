@@ -38,7 +38,7 @@ async function answer(page, correct) {
       assert(await dbg(page, () => PQ.debug.highway.running), 'frame loop running');
       assert(await page.$('.g-highway-mini'), 'minimap present');
       const L = await dbg(page, () => PQ.debug.highway.layout());
-      assert(L.DIST === 264 && L.WALL_OFF === 48 && L.BLOCK === 88, 'district layout: ' + JSON.stringify(L));
+      assert(L.DIST === 440 && L.WALL_OFF === 48 && L.BLOCK === 88, 'district layout: ' + JSON.stringify(L));
       await shot(page, 'highway-intro.png');
       // car colour picker
       assert((await page.$$('.g-highway-swatch')).length === 8, 'eight car colours');

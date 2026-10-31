@@ -857,7 +857,7 @@
   function resizeCanvas() {
     if (!S || !D) return;
     const w = Math.max(200, Math.round(D.stage.clientWidth));
-    let h = w < 640 ? Math.round(Math.max(300, Math.min(380, w * 0.92))) : Math.round(Math.max(300, Math.min(480, w * 0.5625)));
+    let h = UI.fitStage(D.stage, 300, 1200);   // the world fills the viewport; the logical view scales to the canvas
     // Short touch viewports (landscape phones): compact chrome, touch buttons overlaid on the stage, stage sized to fit.
     const vh = window.innerHeight || 0;
     const short = !!(vh && vh < 560 && D.shell.classList.contains('g-platformer-is-touch'));

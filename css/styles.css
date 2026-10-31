@@ -473,7 +473,11 @@ p { margin: 0 0 var(--sp-4); }
 .game-dock .btn { width: 44px; height: 44px; padding: 0; border-radius: 14px; font-size: 1.15rem; background: rgba(6, 10, 22, 0.8); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); border: 1px solid var(--border-strong); box-shadow: var(--shadow-md); }
 .game-dock .btn[aria-pressed="false"] { opacity: 0.55; }
 .game-page:fullscreen, .game-page:-webkit-full-screen { background: var(--bg-0); overflow: auto; width: 100%; max-width: none; padding: 16px 24px 80px; margin: 0; }
-.game-page:fullscreen .game-mount, .game-page:-webkit-full-screen .game-mount { max-width: 1120px; margin: 0 auto; }
+.game-page:fullscreen .game-mount, .game-page:-webkit-full-screen .game-mount { max-width: none; margin: 0 auto; }
+/* Game pages: wider and tighter than reading pages, so the play area can fill the screen */
+.game-page.container { --container: 1680px; }
+.page.game-page { padding: 14px 0 20px; }
+@media (max-width: 640px) { .page.game-page { padding: 8px 0 16px; } }
 @media (max-width: 640px) { .game-dock { right: 10px; bottom: 10px; } .game-dock .btn { width: 40px; height: 40px; } }
 
 /* ---------- Volume popover + sliders ---------- */

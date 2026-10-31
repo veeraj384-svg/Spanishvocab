@@ -718,9 +718,7 @@
     if (!S || !D) return;
     const w = Math.max(240, Math.round(D.stage.clientWidth));
     const vh = window.innerHeight || 900;
-    let hh = w < 640
-      ? Math.round(Math.min(360, Math.max(300, w * 1.05)))
-      : Math.round(clamp(Math.min(w * 0.42, vh - 420), 280, 460)); // 460 on roomy windows, ~380 at 800px tall, 300 at 720
+    let hh = UI.fitStage(D.stage, w < 640 ? 300 : 400, 1200);   // the sky fills whatever the viewport leaves under the HUD and above the typing box (never shorter than the intro panel)
     if (vh < 480 && navigator.maxTouchPoints > 0) hh = Math.max(180, Math.min(hh, vh - 250));  // landscape phone: keep the sky in sight
     const dpr = Math.min(2, window.devicePixelRatio || 1);
     if (D.canvas.width !== Math.round(w * dpr) || D.canvas.height !== Math.round(hh * dpr)) {

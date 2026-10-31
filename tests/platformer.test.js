@@ -278,7 +278,7 @@ async function holdKey(page, key, ms) {
       const over = await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1);
       assert(over, 'no horizontal overflow at 390px');
       const cs = await page.$eval('.g-platformer canvas', (c) => ({ w: c.clientWidth, h: c.clientHeight }));
-      assert(cs.w <= 390 && cs.w > 300 && cs.h >= 280 && cs.h <= cs.w, 'canvas sized for mobile: ' + JSON.stringify(cs));
+      assert(cs.w <= 390 && cs.w > 300 && cs.h >= 280 && cs.h <= 720, 'canvas sized for mobile (the stage fills the phone screen): ' + JSON.stringify(cs));
       const tcVisible = await page.$eval('.g-platformer .touch-controls', (el) => getComputedStyle(el).display !== 'none');
       assert(tcVisible, 'touch controls visible on touch device');
       await shot(page, 'platformer-mobile-intro.png');

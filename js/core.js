@@ -494,6 +494,25 @@
      ------------------------------------------------------------ */
   const UI = {
     /** Where floating layers go: inside the fullscreen element when one is active, else <body>. */
+    /**
+     * The tallest a game stage can be so the whole game shell (top bar, HUD, stage, controls, help) fits in the
+     * viewport under the sticky header: the play area fills the screen instead of a strip of it.
+     */
+    fitStage(stageEl, min, max) {
+      const vh = window.innerHeight || 800;
+      const full = !!document.fullscreenElement;
+      const header = full ? null : document.querySelector('.site-header');
+      const hh = header ? header.getBoundingClientRect().height : 0;
+      const shell = stageEl.closest('.game-shell') || stageEl.parentElement;
+      let above = 0, below = 0, seen = false, n = 0;
+      if (shell) for (const el of shell.children) { if (el === stageEl) { seen = true; n++; continue; } const r = el.getBoundingClientRect().height; if (!r) continue; n++; if (seen) below += r; else above += r; }
+      const gap = shell ? parseFloat(getComputedStyle(shell).rowGap || getComputedStyle(shell).gap) || 0 : 0;
+      const page = stageEl.closest('.page');
+      const pcs = page ? getComputedStyle(page) : null;
+      const pad = pcs ? (parseFloat(pcs.paddingTop) || 0) + (parseFloat(pcs.paddingBottom) || 0) : 48;
+      const h = Math.floor(vh - hh - above - below - gap * Math.max(0, n - 1) - pad - 8);
+      return Math.max(min || 320, Math.min(max || 1400, h));
+    },
     layerRoot() { return document.fullscreenElement || document.webkitFullscreenElement || document.body; },
     /** h('div.card', {onclick}, 'text', child, ...) */
     h(tag, props) {

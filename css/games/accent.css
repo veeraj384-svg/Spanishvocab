@@ -278,3 +278,7 @@
   .g-accent-miss-side { grid-column: 1 / -1; grid-row: 2; justify-content: flex-start; }
   .g-accent-actions .btn { flex: 1 1 100%; }
 }
+
+/* The round fills the viewport under the top bar; bigger tiles on big screens */
+.g-accent-stage { min-height: max(380px, calc(100vh - 330px)); display: flex; flex-direction: column; justify-content: center; }
+@media (min-width: 900px) and (min-height: 760px) { .g-accent-stage .quiz-prompt { font-size: clamp(2rem, 3.4vw, 3rem); } .g-accent-stage .quiz-letter { width: 60px; height: 70px; font-size: 2rem; } .g-accent-stage .quiz-option { font-size: 1.35rem; padding: 20px 22px; } }

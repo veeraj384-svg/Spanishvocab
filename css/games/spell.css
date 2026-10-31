@@ -209,3 +209,7 @@ button.g-spell-mode:active { transform: translateY(0) scale(0.99); }
   .g-spell-key { display: none; }
   .g-spell-cats .chip { min-height: 44px; }
 }
+
+/* The round fills the viewport under the top bar; bigger type on big screens */
+.g-spell-stage { min-height: max(400px, calc(100vh - 330px)); display: flex; flex-direction: column; justify-content: center; }
+@media (min-width: 900px) and (min-height: 760px) { .g-spell-stage .quiz-prompt { font-size: clamp(2rem, 3.4vw, 3rem); } .g-spell-stage .quiz-option { font-size: 1.35rem; padding: 20px 22px; } .g-spell-stage .input { font-size: 1.5rem; } .g-spell-stage .quiz-letter { width: 56px; height: 64px; font-size: 1.9rem; } }

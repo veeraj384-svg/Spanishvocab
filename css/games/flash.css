@@ -311,3 +311,7 @@
 @media (min-width: 641px) { .g-flash-count-short { display: none; } }
 .g-flash-card, .g-flash-rate-btn, .g-flash-say, .g-flash-recall .accent-key, .g-flash-deck, .g-flash-cats .chip { touch-action: manipulation; }
 .g-flash-cats .chip:disabled { opacity: 0.45; cursor: not-allowed; }
+
+/* The card fills the viewport under the top bar */
+.g-flash-card-inner { min-height: max(340px, calc(100vh - 400px)); }
+@media (min-width: 900px) and (min-height: 760px) { .g-flash-card-inner { font-size: 1.15em; } }

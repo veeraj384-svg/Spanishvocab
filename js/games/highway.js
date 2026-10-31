@@ -32,7 +32,7 @@
   const HALF = TILE / 2;
   const ROAD_EVERY = 11;                      // tiles between roads (88 units)
   const BLOCK = ROAD_EVERY * TILE;
-  const DISTRICT = 3;                         // blocks per district side: a gate every 264 units along a road
+  const DISTRICT = 5;                         // blocks per district side: a gate every 440 units along a road
   const DIST = DISTRICT * BLOCK;
   const WALL_OFF = HALF + BLOCK / 2;          // walls run mid-block, between two roads
   const GATE_R = 7.5;                         // question trigger distance from a gate
@@ -42,8 +42,8 @@
   const KMH = 5;                              // display: km/h per world unit of speed
   const NITRO_SPEED = 1.5, NITRO_ACCEL = 2.0, NITRO_DRAIN = 28, NITRO_REFILL = 5;
   const TURN = 2.2;                           // rad/s at full speed
-  const FUEL_MAX = 100, FUEL_IDLE = 0.45, FUEL_PER_UNIT = 0.018;
-  const FUEL_REWARD = { correct: 55, accent: 20, wrong: 0 };
+  const FUEL_MAX = 100, FUEL_IDLE = 0.4, FUEL_PER_UNIT = 0.013;
+  const FUEL_REWARD = { correct: 70, accent: 25, wrong: 0 };
   const COIN_FUEL = 6, COIN_NITRO = 15, COIN_PTS = 25, GATE_PTS = 300, BIOME_PTS = 500;
   const ENDING = 1.4;
   const MAX_DT = 0.05;
@@ -615,7 +615,7 @@
     if (!S || !D) return;
     const w = Math.max(240, Math.round(D.stage.clientWidth));
     const vh = window.innerHeight || 900;
-    let hh = w < 640 ? Math.round(clamp(w * 1.0, 320, 440)) : Math.round(clamp(Math.min(w * 0.52, vh - 330), 320, 560));
+    let hh = UI.fitStage(D.stage, 320, 1200);
     if (vh < 480 && navigator.maxTouchPoints > 0) hh = Math.max(200, Math.min(hh, vh - 180));
     const dpr = Math.min(2, window.devicePixelRatio || 1);
     if (D.canvas.width !== Math.round(w * dpr) || D.canvas.height !== Math.round(hh * dpr)) { D.canvas.width = Math.round(w * dpr); D.canvas.height = Math.round(hh * dpr); }
@@ -896,11 +896,11 @@
         aabox(ctx, x - 2.4, x + 2.4, 2.6, 3.2, z - 2.4, z + 2.4, roof, fog);
         if (far) break;
         aabox(ctx, x - 1.4, x + 1.4, 3.2, 3.9, z - 1.4, z + 1.4, roof, fog);
-        // lit windows set into each wall (real geometry, so they stay put as you drive around)
-        aabox(ctx, x - 0.35, x + 0.35, 1.0, 1.6, z - 2.18, z - 2.0, WIN_LIT, fog);
-        aabox(ctx, x - 0.35, x + 0.35, 1.0, 1.6, z + 2.0, z + 2.18, WIN_LIT, fog);
-        aabox(ctx, x - 2.18, x - 2.0, 1.0, 1.6, z - 0.35, z + 0.35, WIN_LIT, fog);
-        aabox(ctx, x + 2.0, x + 2.18, 1.0, 1.6, z - 0.35, z + 0.35, WIN_LIT, fog);
+        // lit windows set into the walls that face the camera (the others are hidden by the house)
+        if (S.cam.z < z - 2.1) aabox(ctx, x - 0.35, x + 0.35, 1.0, 1.6, z - 2.18, z - 2.0, WIN_LIT, fog);
+        if (S.cam.z > z + 2.1) aabox(ctx, x - 0.35, x + 0.35, 1.0, 1.6, z + 2.0, z + 2.18, WIN_LIT, fog);
+        if (S.cam.x < x - 2.1) aabox(ctx, x - 2.18, x - 2.0, 1.0, 1.6, z - 0.35, z + 0.35, WIN_LIT, fog);
+        if (S.cam.x > x + 2.1) aabox(ctx, x + 2.0, x + 2.18, 1.0, 1.6, z - 0.35, z + 0.35, WIN_LIT, fog);
         break;
       }
       case 'tower': {
