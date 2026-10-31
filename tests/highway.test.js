@@ -166,13 +166,18 @@ async function answer(page, correct) {
       await page.waitForTimeout(200);
       s = await st(page);
       assert(s.biome === target && s.biomes === before.biomes + 1 && s.score >= before.score + 500, target + ' discovered: ' + JSON.stringify({ biome: s.biome, biomes: s.biomes, seen: s.seen }));
-      assert((await page.$eval('.g-highway-biome .val', (el) => el.textContent)).toLowerCase() === target, 'HUD shows the biome');
+      assert((await page.$eval('.g-highway-biome .val', (el) => el.textContent)).toLowerCase().includes(target), 'HUD shows the biome');
       const all = await dbg(page, () => ['plains', 'forest', 'desert', 'badlands', 'snow'].map((b) => !!PQ.debug.highway.findBiome(b)));
       assert(all.every(Boolean), 'every natural biome exists in this world');
-      const city = await dbg(page, () => PQ.debug.highway.findBiome('city'));
+      const city = await dbg(page, () => PQ.debug.highway.findCity());
       if (city) {
-        const tower = await dbg(page, (c) => { for (let dz = -6; dz <= 6; dz++) for (let dx = -6; dx <= 6; dx++) { const o = PQ.debug.highway.tileObj(Math.floor(c.x / 8) + dx, Math.floor(c.z / 8) + dz); if (o && o.type === 'tower') return o; } return null; }, city);
-        assert(tower && tower.solid && tower.hgt > 6, 'a city has towers: ' + JSON.stringify(tower));
+        const tower = await dbg(page, (c) => { for (let dz = -8; dz <= 8; dz++) for (let dx = -8; dx <= 8; dx++) { const o = PQ.debug.highway.tileObj(Math.floor(c.x / 8) + dx, Math.floor(c.z / 8) + dz); if (o && o.type === 'tower') return o; } return null; }, city);
+        assert(tower && tower.solid && tower.hgt > 6 && tower.biome === city.biome, 'a city has towers styled for its biome (' + city.biome + '): ' + JSON.stringify(tower));
+        const zonesBefore = (await st(page)).biomes;
+        await dbg(page, (c) => PQ.debug.highway.teleport(c.x, c.z, 0), city);
+        await page.waitForTimeout(200);
+        const hud = await page.$eval('.g-highway-biome .val', (el) => el.textContent);
+        assert(/^City · /.test(hud) && (await st(page)).biomes >= zonesBefore, 'the HUD names the city and its biome: ' + hud);
       } else console.log('  (no city within the scan radius in this world)');
       await shot(page, 'highway-biome.png');
 

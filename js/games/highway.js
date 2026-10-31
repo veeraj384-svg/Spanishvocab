@@ -72,7 +72,14 @@
     city:     { name: 'City',     icon: '🏙️', ground: ['#3a3f52', '#40455a', '#363b4d'], sky: '#101a34', fog: [28, 36, 64],  grip: 1,    speed: 0.85 },
   };
   const ZONES = 6;
-  const TOWER_COLS = [{ side: '#5b6480', top: '#7d87a6' }, { side: '#6f7a9a', top: '#929dbd' }, { side: '#8a8470', top: '#aaa38c' }, { side: '#44506e', top: '#5f6c8c' }];
+  const TOWER_COLS = {
+    plains:   [{ side: '#5b6480', top: '#7d87a6' }, { side: '#6f7a9a', top: '#929dbd' }, { side: '#8a8470', top: '#aaa38c' }, { side: '#44506e', top: '#5f6c8c' }],
+    forest:   [{ side: '#4f5a6e', top: '#6a7a8c' }, { side: '#5e6b80', top: '#7f8ea4' }, { side: '#6e6a5a', top: '#8c8774' }, { side: '#3e4a5e', top: '#55657c' }],
+    desert:   [{ side: '#b89a6a', top: '#d4b885' }, { side: '#c9ad7a', top: '#e2c994' }, { side: '#a88a5c', top: '#c4a677' }, { side: '#8f7652', top: '#ad926c' }],
+    snow:     [{ side: '#8f9bb3', top: '#f3f7ff' }, { side: '#a3aec4', top: '#ffffff' }, { side: '#7d8aa3', top: '#eef3fb' }, { side: '#6c7890', top: '#f6f9ff' }],
+    badlands: [{ side: '#3a3038', top: '#54464e' }, { side: '#443842', top: '#5e4f58' }, { side: '#2f272d', top: '#473a40' }, { side: '#4a3a3a', top: '#64504e' }],
+  };
+  const PAVE = { plains: '#4b5168', forest: '#424a5c', desert: '#9a8a68', snow: '#c7cfdc', badlands: '#4a3a3a' };
   const WIN_LIT = { side: '#ffd27a', top: '#ffd27a' }, WIN_DARK = { side: '#20263a', top: '#20263a' };
   const ROAD_COL = ['#2a3047', '#2e354f'];
   const WALL = { side: '#6b7080', top: '#8b909f' }, WALL2 = { side: '#5a5f6e', top: '#7a7f8e' }, POST = { side: '#4a4f5e', top: '#9a9fae' };
@@ -120,15 +127,16 @@
     const sx = fx * fx * (3 - 2 * fx), sz = fz * fz * (3 - 2 * fz);
     return lerp(lerp(h01(x0, z0, salt), h01(x0 + 1, z0, salt), sx), lerp(h01(x0, z0 + 1, salt), h01(x0 + 1, z0 + 1, salt), sx), sz);
   }
+  /** The natural biome: regions about a kilometre across. */
   function biomeAt(x, z) {
-    const city = vnoise(x / 420 + 13, z / 420 + 29, 15) * 0.75 + vnoise(x / 120 + 3, z / 120 + 7, 16) * 0.25;
-    if (city > 0.66) return 'city';
-    const t = vnoise(x / 340, z / 340, 11) * 0.7 + vnoise(x / 110 + 7, z / 110 + 3, 12) * 0.3;
-    const hm = vnoise(x / 320 + 37, z / 320 + 91, 13) * 0.7 + vnoise(x / 110 + 5, z / 110 + 9, 14) * 0.3;
+    const t = vnoise(x / 900, z / 900, 11) * 0.7 + vnoise(x / 260 + 7, z / 260 + 3, 12) * 0.3;
+    const hm = vnoise(x / 900 + 37, z / 900 + 91, 13) * 0.7 + vnoise(x / 260 + 5, z / 260 + 9, 14) * 0.3;
     if (t < 0.37) return 'snow';
     if (t > 0.63) return hm < 0.5 ? 'desert' : 'badlands';
     return hm > 0.58 ? 'forest' : 'plains';
   }
+  /** Cities are laid over whatever biome is there: a snow city, a desert city... */
+  function cityAt(x, z) { return vnoise(x / 620 + 13, z / 620 + 29, 15) * 0.75 + vnoise(x / 170 + 3, z / 170 + 7, 16) * 0.25 > 0.66; }
   function roadInfo(tx, tz) { const ns = mod(tx, ROAD_EVERY) === 0, ew = mod(tz, ROAD_EVERY) === 0; return { road: ns || ew, ns, ew, inter: ns && ew }; }
   /** Does a district wall run along this tile's east (wx) or north (wz) edge, and is that stretch a gate (a road crossing)? */
   function wallInfo(tx, tz) {
@@ -166,15 +174,16 @@
     const byWall = wi.wx || wi.wz || wallInfo(tx - 1, tz).wx || wallInfo(tx, tz - 1).wz;
     if (byWall) obj = null;   // the tiles on both sides of a wall stay clear
     else if (ri.road) {
-      if (!ri.inter && h01(tx, tz, 22) < 0.05) obj = { type: 'coin', solid: false, r: 0.6 };
+      const startZone = tx === 0 && tz >= -4 && tz <= -1;   // the car spawns here: no coin to grab before the first key press
+      if (!ri.inter && !startZone && h01(tx, tz, 22) < 0.05) obj = { type: 'coin', solid: false, r: 0.6 };
     } else {
-      const b = biomeAt(cx, cz), r = h01(tx, tz, 21), v = h01(tx, tz, 23);
+      const b = biomeAt(cx, cz), city = cityAt(cx, cz), r = h01(tx, tz, 21), v = h01(tx, tz, 23);
       const mx = mod(tx, ROAD_EVERY), mz = mod(tz, ROAD_EVERY);
       const shoulder = mx === 1 || mx === ROAD_EVERY - 1 || mz === 1 || mz === ROAD_EVERY - 1;   // kept clear next to roads
       const dx = Math.min(mx, ROAD_EVERY - mx), dz = Math.min(mz, ROAD_EVERY - mz);
       const nearWall = mod(cx - WALL_OFF, DIST) <= TILE || mod(cx - WALL_OFF, DIST) >= DIST - TILE || mod(cz - WALL_OFF, DIST) <= TILE || mod(cz - WALL_OFF, DIST) >= DIST - TILE;
       if (!shoulder && !nearWall) {
-        if (b === 'city') { if (r < 0.6) obj = { type: 'tower', solid: true, r: 2.9, v, hgt: 6 + v * 16, c: hash(tx, tz, 24) % 4, lit: hash(tx, tz, 25) % 3 }; else if (r < 0.66) obj = { type: 'tree', solid: true, r: 1.1, v }; }
+        if (city) { if (r < 0.6) obj = { type: 'tower', solid: true, r: 2.9, v, hgt: 6 + v * 16, c: hash(tx, tz, 24) % 4, lit: hash(tx, tz, 25) % 3, biome: b }; else if (r < 0.66) obj = { type: b === 'desert' ? 'cactus' : b === 'snow' ? 'pine' : 'tree', solid: true, r: 1.0, v }; }
         else if (dx <= 3 && dz <= 3 && r < 0.4 && b !== 'badlands') obj = { type: 'house', solid: true, r: 2.6, v, biome: b };
         else if (b === 'forest' && r < 0.22) obj = { type: 'tree', solid: true, r: 1.1, v };
         else if (b === 'plains' && r < 0.05) obj = { type: 'tree', solid: true, r: 1.1, v };
@@ -186,15 +195,15 @@
         else if (b === 'badlands' && r < 0.1) obj = { type: 'rock', solid: true, r: 1.1, v, dark: true };
         else if (b === 'badlands' && r < 0.2) obj = { type: 'lava', solid: false, r: 0, v };
       }
-      if (!obj && !nearWall && h01(tx, tz, 22) < (b === 'city' ? 0.06 : 0.035)) obj = { type: 'coin', solid: false, r: 0.6 };
+      if (!obj && !nearWall && h01(tx, tz, 22) < (city ? 0.06 : 0.035)) obj = { type: 'coin', solid: false, r: 0.6 };
     }
     if (obj) { obj.x = cx; obj.z = cz; obj.key = key; }
     S.tileCache.set(key, obj);
     return obj;
   }
-  const tileColor = (tx, tz, biome) => {
+  const tileColor = (tx, tz, biome, city) => {
     if (roadInfo(tx, tz).road) return ROAD_COL[(tx + tz) & 1];
-    if (biome === 'city') { const mx = mod(tx, ROAD_EVERY), mz = mod(tz, ROAD_EVERY); if (mx === 1 || mx === ROAD_EVERY - 1 || mz === 1 || mz === ROAD_EVERY - 1) return '#4b5168'; }   // pavements
+    if (city) { const mx = mod(tx, ROAD_EVERY), mz = mod(tz, ROAD_EVERY); if (mx === 1 || mx === ROAD_EVERY - 1 || mz === 1 || mz === ROAD_EVERY - 1) return PAVE[biome]; }   // pavements in the biome's tone
     return BIOMES[biome].ground[hash(tx, tz, 31) % 3];
   };
 
@@ -202,7 +211,7 @@
      State
      ------------------------------------------------------------ */
   function pickSeed() {   // a seed whose start area is plains, so the first drive is friendly
-    for (let i = 0; i < 40; i++) { const seed = (Math.random() * 0x7fffffff) | 0; S.seed = seed; if (biomeAt(0, 0) === 'plains' && biomeAt(4, 40) === 'plains') return seed; }
+    for (let i = 0; i < 40; i++) { const seed = (Math.random() * 0x7fffffff) | 0; S.seed = seed; if (biomeAt(0, 0) === 'plains' && biomeAt(4, 40) === 'plains' && !cityAt(4, 0) && !cityAt(4, 60)) return seed; }
     return S.seed;
   }
   const noInput = () => ({ gas: false, brake: false, left: false, right: false, hand: false, nitro: false });
@@ -218,7 +227,7 @@
       fuel: FUEL_MAX, nitro: 60, score: 0, dist: 0, streak: 0, bestStreak: 0, topSpeed: 0,
       gates: 0, coins: 0, bumps: 0, asked: 0, correct: 0,
       cleared: new Set(), taken: new Set(), armed: null, rearmAt: 0, extra: [],
-      biome: 'plains', biomesSeen: new Set(['plains']), fogRGB: BIOMES.plains.fog.slice(), skyRGB: hexRgb(BIOMES.plains.sky),
+      biome: 'plains', city: false, biomesSeen: new Set(['plains']), fogRGB: BIOMES.plains.fog.slice(), skyRGB: hexRgb(BIOMES.plains.sky),
       question: null, missed: [], recent: [],
       banner: null, particles: [], floats: [], shake: 0, flash: 0, flashColor: C.rose, endAt: 0, lowFuelWarned: false, bumpAt: -9, wallHintAt: -9,
       onRoad: true, lava: false, saved: false, isNewBest: false, uid: 0, hudCache: {}, mini: null, frameNo: 0,
@@ -457,10 +466,14 @@
     const car = S.car, inp = S.input;
     const { tx, tz } = tileAt(car.x, car.z);
     const ri = roadInfo(tx, tz);
-    const biome = biomeAt(car.x, car.z);
+    const biome = biomeAt(car.x, car.z), city = cityAt(car.x, car.z);
     if (biome !== S.biome) {
       S.biome = biome;
       if (!S.biomesSeen.has(biome)) { S.biomesSeen.add(biome); S.score += BIOME_PTS; showBanner(BIOMES[biome].icon + ' ' + BIOMES[biome].name, 'new biome discovered · +' + BIOME_PTS, 2.4); Sound.play('levelup'); }
+    }
+    if (city !== S.city) {
+      S.city = city;
+      if (city && !S.biomesSeen.has('city')) { S.biomesSeen.add('city'); S.score += BIOME_PTS; showBanner('🏙️ City', 'a city in the ' + BIOMES[biome].name.toLowerCase() + ' · +' + BIOME_PTS, 2.4); Sound.play('levelup'); }
     }
     const here = tileObj(tx, tz);
     S.onRoad = ri.road; S.lava = !!(here && here.type === 'lava');
@@ -637,7 +650,7 @@
     set('boost', S.car.boosting, (v) => D.hud.nitroItem.classList.toggle('is-on', v));
     set('gates', S.gates, (v) => { D.hud.gates.textContent = String(v); });
     set('coins', S.coins, (v) => { D.hud.coins.textContent = String(v); });
-    set('biome', S.biome, (v) => { D.hud.biomeIcon.textContent = BIOMES[v].icon; D.hud.biomeName.textContent = BIOMES[v].name; });
+    set('biome', S.biome + (S.city ? '+city' : ''), () => { D.hud.biomeIcon.textContent = S.city ? '🏙️' : BIOMES[S.biome].icon; D.hud.biomeName.textContent = S.city ? 'City · ' + BIOMES[S.biome].name : BIOMES[S.biome].name; });
     set('streak', S.streak, (v) => { D.hud.streak.textContent = v >= 2 ? '🔥 ' + v : String(v); D.hud.streakItem.classList.toggle('is-hot', v >= 2); });
   }
 
@@ -757,11 +770,12 @@
     tiles.sort((p, q) => q.f - p.f);
     for (const t of tiles) {
       const bk = Math.floor(t.tx / 3) + ',' + Math.floor(t.tz / 3);
-      let biome = biomeCache.get(bk);
-      if (!biome) { biome = biomeAt(t.tx * TILE + HALF, t.tz * TILE + HALF); biomeCache.set(bk, biome); }
+      let zone = biomeCache.get(bk);
+      if (!zone) { const wx = t.tx * TILE + HALF, wz = t.tz * TILE + HALF; zone = { biome: biomeAt(wx, wz), city: cityAt(wx, wz) }; biomeCache.set(bk, zone); }
+      const biome = zone.biome;
       const fog = fogOf(t.f);
       const o = tileObj(t.tx, t.tz);
-      let col = tileColor(t.tx, t.tz, biome);
+      let col = tileColor(t.tx, t.tz, biome, zone.city);
       if (o && o.type === 'lava') col = (hash(t.tx, t.tz, 5) & 1) ? '#ff7a1a' : '#ff9a2a';
       fillPoly(ctx, t.poly, fogged(col, fog, 1));
       if (o && o.type === 'lava' && fog < 0.9) { ctx.globalAlpha = 0.35 + 0.25 * Math.sin(S.anim * 3 + t.tx); fillPoly(ctx, t.poly, fogged('#ffd060', fog)); ctx.globalAlpha = 1; }
@@ -890,7 +904,7 @@
         break;
       }
       case 'tower': {
-        const hw = 2.5, hgt = o.hgt, col = TOWER_COLS[o.c];
+        const hw = 2.5, hgt = o.hgt, col = (TOWER_COLS[o.biome] || TOWER_COLS.plains)[o.c];
         aabox(ctx, x - hw, x + hw, 0, hgt, z - hw, z + hw, col, fog);
         if (far) break;
         for (let y = 1.8, k = 0; y < hgt - 1.2 && k < 7; y += 2.8, k++) aabox(ctx, x - hw - 0.06, x + hw + 0.06, y, y + 0.7, z - hw - 0.06, z + hw + 0.06, ((k + o.lit) % 3) ? WIN_LIT : WIN_DARK, fog);
@@ -1126,6 +1140,7 @@
       for (let py = 0; py < size; py += step) for (let px = 0; px < size; px += step) {
         const wx = car.x + (px + step / 2 - size / 2) / scale, wz = car.z - (py + step / 2 - size / 2) / scale;
         o.fillStyle = BIOMES[biomeAt(wx, wz)].ground[0]; o.fillRect(px, py, step, step);
+        if (cityAt(wx, wz)) { o.fillStyle = 'rgba(40,46,70,0.55)'; o.fillRect(px, py, step, step); }
       }
       S.mini = { x: car.x, z: car.z, c: off };
     }
@@ -1224,7 +1239,10 @@
     car() { return S ? Object.assign({}, S.car) : null; },
     biomeAt(x, z) { return S ? biomeAt(x, z) : null; },
     /** Scan outward from the start for the nearest tile centre of a biome. */
-    findBiome(name) { if (!S) return null; for (let r = 1; r < 120; r++) for (let j = -r; j <= r; j++) for (let i = -r; i <= r; i++) { if (Math.max(Math.abs(i), Math.abs(j)) !== r) continue; const x = i * 16 + 4, z = j * 16 + 4; if (biomeAt(x, z) === name) return { x, z }; } return null; },
+    findBiome(name) { if (!S) return null; for (let r = 1; r < 220; r++) for (let j = -r; j <= r; j++) for (let i = -r; i <= r; i++) { if (Math.max(Math.abs(i), Math.abs(j)) !== r) continue; const x = i * 32 + 4, z = j * 32 + 4; if (biomeAt(x, z) === name && !cityAt(x, z)) return { x, z }; } return null; },
+    /** The nearest city tile centre, optionally in a given biome. */
+    findCity(biome) { if (!S) return null; for (let r = 1; r < 220; r++) for (let j = -r; j <= r; j++) for (let i = -r; i <= r; i++) { if (Math.max(Math.abs(i), Math.abs(j)) !== r) continue; const x = i * 32 + 4, z = j * 32 + 4; if (cityAt(x, z) && (!biome || biomeAt(x, z) === biome)) return { x, z, biome: biomeAt(x, z) }; } return null; },
+    cityAt(x, z) { return S ? cityAt(x, z) : null; },
     nearestGate(x, z) { return S ? nearestGate(x == null ? S.car.x : x, z == null ? S.car.z : z) : null; },
     layout() { return { TILE, BLOCK, DIST, WALL_OFF, HALF, GATE_R, MAX_SPEED, KMH, ZONES }; },
     colors() { return CAR_COLORS.map((c) => c.id); },
