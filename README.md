@@ -20,6 +20,16 @@ in your browser (`localStorage`), and weak words are served more often until the
 Typing tip: type a vowel or `n`, then press <kbd>`</kbd> to add its accent (a → á, n → ñ). There is
 also an on-screen accent bar in every typing game.
 
+## Higgsfield API example
+
+`index.ts` shows the official SDK (`@higgsfield/client`, v2 client) generating a video with
+`bytedance/seedance-2.5/text-to-video`. Put your API credentials in `.env.local` as
+`HF_CREDENTIALS=key-id:key-secret` (the file is ignored by Git; the SDK reads the variable at
+runtime and the value is never printed), then run `npm run higgsfield:example`. It waits for the
+request, prints the video URL on success, and exits non-zero on failed, canceled or moderated
+requests. Each run is a billable generation. `npm install` is only needed for this example; the
+site itself still has no build step.
+
 Artwork is optional: drop `hero.jpg` and `card-<game>.jpg` into `assets/art/` and the home page
 picks them up (prompts and sizes in `docs/ART_PROMPTS.md`); without them the page keeps its
 gradient cards.

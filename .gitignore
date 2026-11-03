@@ -1,0 +1,5 @@
+
+# local secrets (Higgsfield API credentials) and installed packages
+.env.local
+.env*.local
+node_modules/
