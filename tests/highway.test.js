@@ -181,6 +181,35 @@ async function answer(page, correct) {
       } else console.log('  (no city within the scan radius in this world)');
       await shot(page, 'highway-biome.png');
 
+      // ---- day and night: the hour drives the light, the sky and the clock ----
+      await dbg(page, () => PQ.debug.highway.setTime(0.25));
+      await page.waitForTimeout(150);
+      let dn = await dbg(page, () => ({ night: PQ.debug.highway.state.night, dayK: PQ.debug.highway.state.dayK, el: PQ.debug.highway.state.sunEl }));
+      assert(!dn.night && dn.dayK > 0.95 && dn.el > 0.9, 'noon is full daylight: ' + JSON.stringify(dn));
+      await dbg(page, () => PQ.debug.highway.setTime(0.75));
+      await page.waitForTimeout(150);
+      dn = await dbg(page, () => ({ night: PQ.debug.highway.state.night, dayK: PQ.debug.highway.state.dayK, el: PQ.debug.highway.state.sunEl }));
+      assert(dn.night && dn.dayK < 0.35 && dn.el < 0, 'midnight is dark: ' + JSON.stringify(dn));
+      await shot(page, 'highway-night.png');
+      await dbg(page, () => PQ.debug.highway.setTime(0.3));
+      // ---- structures: each biome has its own landmarks, all of them drawable ----
+      const landmarks = ['windmill', 'barn', 'watertower', 'hay', 'well', 'chapel', 'watchtower', 'campfire', 'mushroom', 'pyramid', 'palm', 'adobe', 'igloo', 'lodge', 'cabin', 'volcano', 'mine', 'obelisk', 'fountain', 'shelter', 'mast', 'billboard'];
+      const found = await dbg(page, (ls) => ls.map((t) => PQ.debug.highway.findProp(t)), landmarks);
+      const nFound = found.filter(Boolean).length;
+      assert(nFound >= 12, 'most landmark types exist within reach (' + nFound + '/' + landmarks.length + ')');
+      for (let i = 0; i < landmarks.length; i++) {
+        if (!found[i]) continue;
+        await dbg(page, (p) => { PQ.debug.highway.dismiss(); PQ.debug.highway.teleport(p.x + 2, p.z - 14, 0); }, found[i]);
+        await page.waitForTimeout(60);
+      }
+      assert(await dbg(page, () => PQ.debug.highway.running), 'frame loop survived drawing every landmark');
+      const ice = await dbg(page, () => PQ.debug.highway.findProp('ice'));
+      if (ice) {
+        await dbg(page, (p) => { PQ.debug.highway.dismiss(); PQ.debug.highway.teleport(p.x, p.z, 0); }, ice);
+        await page.waitForTimeout(150);
+        assert(await dbg(page, () => PQ.debug.highway.state.ice === true), 'a frozen pool is slippery under the car');
+      } else console.log('  (no frozen pool within the scan radius in this world)');
+
       // ---- keyboard: held keys, nitro, handbrake, pause ----
       await dbg(page, () => PQ.debug.highway.teleport(4, 120, 0));
       await page.keyboard.down('ArrowUp'); await page.waitForTimeout(40);

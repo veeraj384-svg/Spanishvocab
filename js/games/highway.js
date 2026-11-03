@@ -80,7 +80,8 @@
     badlands: [{ side: '#3a3038', top: '#54464e' }, { side: '#443842', top: '#5e4f58' }, { side: '#2f272d', top: '#473a40' }, { side: '#4a3a3a', top: '#64504e' }],
   };
   const PAVE = { plains: '#4b5168', forest: '#424a5c', desert: '#9a8a68', snow: '#c7cfdc', badlands: '#4a3a3a' };
-  const WIN_LIT = { side: '#ffd27a', top: '#ffd27a' }, WIN_DARK = { side: '#20263a', top: '#20263a' };
+  const WIN_LIT = { side: '#ffd27a', top: '#ffd27a' }, WIN_DARK = { side: '#20263a', top: '#20263a' }, WIN_DAY = { side: '#8fb4dd', top: '#a9c8ea' };
+  const WOOD = { side: '#6b4426', top: '#8a5a33' }, DARKWOOD = { side: '#3b2415', top: '#4e3020' }, STONE = { side: '#8a8f9a', top: '#b4b9c4' }, SAND = { side: '#c9a66b', top: '#e0bf84' }, STEEL = { side: '#7a8499', top: '#9aa3b8' }, DARK = { side: '#1c1f2b', top: '#2a3044' }, SNOWY = { side: '#eef3fb', top: '#ffffff' };
   const ROAD_COL = ['#2a3047', '#2e354f'];
   const WALL = { side: '#6b7080', top: '#8b909f' }, WALL2 = { side: '#5a5f6e', top: '#7a7f8e' }, POST = { side: '#4a4f5e', top: '#9a9fae' };
 
@@ -100,12 +101,12 @@
   /** Colour mixed toward the current fog by `fog` (0..1), optionally scaled by `k` (shading). Cached: thousands of polygons a frame. */
   function fogged(hex, fog, k, a) {
     k = k == null ? 1 : k;
-    const fq = Math.round(fog * 12) / 12;
-    const key = hex + '|' + fq + '|' + k + '|' + (a == null ? 1 : a);
+    const fq = Math.round(fog * 12) / 12, dq = S.dayQ || 1;
+    const key = hex + '|' + fq + '|' + k + '|' + dq + '|' + (a == null ? 1 : a);
     let v = colorCache.get(key);
     if (v) return v;
-    const c = hexRgb(hex), F = S.fogRGB;
-    v = 'rgba(' + Math.round(lerp(clamp(c[0] * k, 0, 255), F[0], fq)) + ',' + Math.round(lerp(clamp(c[1] * k, 0, 255), F[1], fq)) + ',' + Math.round(lerp(clamp(c[2] * k, 0, 255), F[2], fq)) + ',' + (a == null ? 1 : a) + ')';
+    const c = hexRgb(hex), F = S.fogRGB, kk = k * dq;   // daylight dims every surface; the fog colour already follows the hour
+    v = 'rgba(' + Math.round(lerp(clamp(c[0] * kk, 0, 255), F[0], fq)) + ',' + Math.round(lerp(clamp(c[1] * kk, 0, 255), F[1], fq)) + ',' + Math.round(lerp(clamp(c[2] * kk, 0, 255), F[2], fq)) + ',' + (a == null ? 1 : a) + ')';
     if (colorCache.size > 4000) colorCache.clear();
     colorCache.set(key, v);
     return v;
@@ -183,23 +184,38 @@
       const dx = Math.min(mx, ROAD_EVERY - mx), dz = Math.min(mz, ROAD_EVERY - mz);
       const nearWall = mod(cx - WALL_OFF, DIST) <= TILE || mod(cx - WALL_OFF, DIST) >= DIST - TILE || mod(cz - WALL_OFF, DIST) <= TILE || mod(cz - WALL_OFF, DIST) >= DIST - TILE;
       if (!shoulder && !nearWall) {
-        if (city) { if (r < 0.6) obj = { type: 'tower', solid: true, r: 2.9, v, hgt: 6 + v * 16, c: hash(tx, tz, 24) % 4, lit: hash(tx, tz, 25) % 3, biome: b }; else if (r < 0.66) obj = { type: b === 'desert' ? 'cactus' : b === 'snow' ? 'pine' : 'tree', solid: true, r: 1.0, v }; }
-        else if (dx <= 3 && dz <= 3 && r < 0.4 && b !== 'badlands') obj = { type: 'house', solid: true, r: 2.6, v, biome: b };
-        else if (b === 'forest' && r < 0.22) obj = { type: 'tree', solid: true, r: 1.1, v };
-        else if (b === 'plains' && r < 0.05) obj = { type: 'tree', solid: true, r: 1.1, v };
-        else if (b === 'plains' && r < 0.09) obj = { type: 'bush', solid: false, r: 0.8, v };
-        else if (b === 'desert' && r < 0.07) obj = { type: 'cactus', solid: true, r: 0.7, v };
-        else if (b === 'desert' && r < 0.1) obj = { type: 'rock', solid: true, r: 1.0, v };
-        else if (b === 'snow' && r < 0.12) obj = { type: 'pine', solid: true, r: 1.0, v };
-        else if (b === 'snow' && r < 0.14) obj = { type: 'snowman', solid: true, r: 0.8, v };
-        else if (b === 'badlands' && r < 0.1) obj = { type: 'rock', solid: true, r: 1.1, v, dark: true };
-        else if (b === 'badlands' && r < 0.2) obj = { type: 'lava', solid: false, r: 0, v };
+        const P = (type, rad, extra) => Object.assign({ type, solid: true, r: rad, v }, extra || {});
+        if (city) {
+          if (r < 0.6) obj = { type: 'tower', solid: true, r: 2.9, v, hgt: 6 + v * 16, c: hash(tx, tz, 24) % 4, lit: hash(tx, tz, 25) % 3, biome: b };
+          else if (r < 0.66) obj = P(b === 'desert' ? 'cactus' : b === 'snow' ? 'pine' : 'tree', 1.0);
+          else if (r < 0.68) obj = P('fountain', 1.9);
+          else if (r < 0.7) obj = P('shelter', 1.7);
+          else if (r < 0.706) obj = P('mast', 0.6);
+          else if (r < 0.72) obj = P('billboard', 0.8);
+        } else if (dx <= 3 && dz <= 3 && b !== 'badlands') {   // villages around the intersections
+          if (r < 0.4) obj = P('house', 2.6, { biome: b });
+          else if (r < 0.43) obj = P('well', 1.0);
+          else if (r < 0.45) obj = b === 'desert' ? P('adobe', 2.4) : b === 'snow' ? P('cabin', 2.2) : P('chapel', 2.8);
+          else obj = biomeProp(b, r, v);
+        } else obj = biomeProp(b, r, v);
       }
       if (!obj && !nearWall && h01(tx, tz, 22) < (city ? 0.06 : 0.035)) obj = { type: 'coin', solid: false, r: 0.6 };
     }
     if (obj) { obj.x = cx; obj.z = cz; obj.key = key; }
     S.tileCache.set(key, obj);
     return obj;
+  }
+  /** The open country of each biome: its plants, rocks and landmarks. */
+  function biomeProp(b, r, v) {
+    const P = (type, rad, extra) => Object.assign({ type, solid: true, r: rad, v }, extra || {});
+    switch (b) {
+      case 'plains': return r < 0.05 ? P('tree', 1.1) : r < 0.09 ? P('bush', 0.8, { solid: false }) : r < 0.097 ? P('windmill', 1.1) : r < 0.107 ? P('barn', 2.9) : r < 0.114 ? P('watertower', 1.5) : r < 0.13 ? P('hay', 1.6) : null;
+      case 'forest': return r < 0.22 ? P('tree', 1.1) : r < 0.232 ? P('watchtower', 1.3) : r < 0.245 ? P('campfire', 0.6, { solid: false }) : r < 0.29 ? P('mushroom', 0.9, { solid: false }) : null;
+      case 'desert': return r < 0.07 ? P('cactus', 0.7) : r < 0.1 ? P('rock', 1.0) : r < 0.104 ? P('pyramid', 3.9) : r < 0.125 ? P('palm', 0.6) : r < 0.135 ? P('adobe', 2.4) : r < 0.14 ? P('watertower', 1.5) : null;
+      case 'snow': return r < 0.12 ? P('pine', 1.0) : r < 0.14 ? P('snowman', 0.8) : r < 0.15 ? P('igloo', 1.8) : r < 0.157 ? P('lodge', 2.8) : r < 0.167 ? P('cabin', 2.2) : r < 0.21 ? P('ice', 0, { solid: false }) : null;
+      case 'badlands': return r < 0.1 ? P('rock', 1.1, { dark: true }) : r < 0.2 ? P('lava', 0, { solid: false }) : r < 0.204 ? P('volcano', 3.9) : r < 0.214 ? P('mine', 2.1) : r < 0.224 ? P('obelisk', 0.7) : null;
+      default: return null;
+    }
   }
   const tileColor = (tx, tz, biome, city) => {
     if (roadInfo(tx, tz).road) return ROAD_COL[(tx + tz) & 1];
@@ -227,7 +243,8 @@
       fuel: FUEL_MAX, nitro: 60, score: 0, dist: 0, streak: 0, bestStreak: 0, topSpeed: 0,
       gates: 0, coins: 0, bumps: 0, asked: 0, correct: 0,
       cleared: new Set(), taken: new Set(), armed: null, rearmAt: 0, extra: [],
-      biome: 'plains', city: false, biomesSeen: new Set(['plains']), fogRGB: BIOMES.plains.fog.slice(), skyRGB: hexRgb(BIOMES.plains.sky),
+      biome: 'plains', city: false, biomesSeen: new Set(['plains']), fogRGB: BIOMES.plains.fog.slice(), skyRGB: hexRgb(BIOMES.plains.sky), horRGB: [255, 205, 150],
+      tod: 0.36, dayK: 1, dayQ: 1, night: false, sunAz: 0.9, sunEl: 0.6,   // time of day runs 0 = dawn, 0.25 = noon, 0.5 = dusk, 0.75 = midnight
       question: null, missed: [], recent: [],
       banner: null, particles: [], floats: [], shake: 0, flash: 0, flashColor: C.rose, endAt: 0, lowFuelWarned: false, bumpAt: -9, wallHintAt: -9,
       onRoad: true, lava: false, saved: false, isNewBest: false, uid: 0, hudCache: {}, mini: null, frameNo: 0,
@@ -476,7 +493,7 @@
       if (city && !S.biomesSeen.has('city')) { S.biomesSeen.add('city'); S.score += BIOME_PTS; showBanner('🏙️ City', 'a city in the ' + BIOMES[biome].name.toLowerCase() + ' · +' + BIOME_PTS, 2.4); Sound.play('levelup'); }
     }
     const here = tileObj(tx, tz);
-    S.onRoad = ri.road; S.lava = !!(here && here.type === 'lava');
+    S.onRoad = ri.road; S.lava = !!(here && here.type === 'lava'); S.ice = !!(here && here.type === 'ice');
     const info = BIOMES[biome];
     // nitro
     const boosting = !!(inp.nitro && S.nitro > 0 && inp.gas && car.v > -0.1);
@@ -497,7 +514,7 @@
     car.a += turn * dt;
     car.roll += (-steer * clamp(Math.abs(car.v) / MAX_SPEED, 0, 1) - car.roll) * Math.min(1, dt * 6);
     // the velocity follows the heading with a lag that depends on grip: snow drifts
-    const grip = (ri.road ? 1 : info.grip) * (inp.hand ? 0.45 : 1);
+    const grip = (ri.road ? 1 : info.grip) * (inp.hand ? 0.45 : 1) * (S.ice ? 0.18 : 1);   // a frozen pool is nearly frictionless
     const txv = Math.sin(car.a) * car.v, tzv = Math.cos(car.a) * car.v;
     const k = Math.min(1, dt * 11 * grip);
     car.vx += (txv - car.vx) * k; car.vz += (tzv - car.vz) * k;
@@ -591,10 +608,17 @@
     S.cam.a += da * Math.min(1, dt * 5);
     const back = CAM_BACK + (car.boosting ? 1.2 : 0);
     S.cam.x = car.x - Math.sin(S.cam.a) * back; S.cam.z = car.z - Math.cos(S.cam.a) * back;
-    const tb = BIOMES[S.biome];
-    const sk = hexRgb(tb.sky), kk = Math.min(1, dt * 1.5);
-    for (let i = 0; i < 3; i++) { S.fogRGB[i] = lerp(S.fogRGB[i], tb.fog[i], kk); S.skyRGB[i] = lerp(S.skyRGB[i], sk[i], kk); }
-    const fogKey = S.fogRGB.map((v) => Math.round(v / 6)).join(',');
+    S.tod = (S.tod + dt / DAY_PERIOD) % 1;
+    updateLight();
+    const tb = BIOMES[S.biome], key = skyAt(S.tod), bs = hexRgb(tb.sky), kk = Math.min(1, dt * 1.5), d2 = (S.dayK - 0.3) / 0.7;
+    S.horRGB = key.hor;
+    for (let i = 0; i < 3; i++) {
+      const skyT = lerp(key.top[i], Math.min(255, bs[i] * 1.6), 0.22);                                   // the biome tints the sky a little
+      const fogT = lerp(tb.fog[i] * 0.6, key.hor[i] * 0.8 + tb.fog[i] * 0.3, d2);                       // night haze is dark, day haze takes the horizon colour
+      S.fogRGB[i] = lerp(S.fogRGB[i], clamp(fogT, 0, 255), kk); S.skyRGB[i] = lerp(S.skyRGB[i], skyT, kk);
+    }
+    S.dayQ = Math.round(S.dayK * 20) / 20;
+    const fogKey = S.fogRGB.map((v) => Math.round(v / 6)).join(',') + '|' + S.dayQ;
     if (fogKey !== colorCacheFog) { colorCacheFog = fogKey; colorCache.clear(); }
     S.shake = Math.max(0, S.shake - dt * 2.6);
     S.flash = Math.max(0, S.flash - dt * 2.4);
@@ -686,9 +710,29 @@
   }
   // A low dusk sun: the direction toward the light (unit vector) and, for cast shadows, how far the top of a thing
   // slides along the ground per unit of height. Shadows are shortened a little so tall towers do not drown the street.
-  const SUN_AZ = 0.9, SUN_EL = 0.42;
-  const LX = Math.sin(SUN_AZ) * Math.cos(SUN_EL), LY = Math.sin(SUN_EL), LZ = Math.cos(SUN_AZ) * Math.cos(SUN_EL);
-  const SHX = -LX / LY * 0.55, SHZ = -LZ / LY * 0.55;
+  const DAY_PERIOD = 480;   // seconds of real time for a whole day
+  let LX = 0.7, LY = 0.4, LZ = 0.57, SHX = -1, SHZ = -0.8, LK = 1;   // light direction, shadow slide per unit of height, light strength
+  /** Where the sun (or, at night, the moon) is for the time of day, and the lighting that follows from it. */
+  function updateLight() {
+    S.sunEl = Math.sin(S.tod * TAU) * 0.95;
+    S.sunAz = 1.4 - S.tod * 5.6;
+    const night = S.sunEl < 0.03;
+    const az = night ? S.sunAz + Math.PI : S.sunAz, el = night ? Math.max(0.25, -S.sunEl) : Math.max(0.08, S.sunEl);
+    LX = Math.sin(az) * Math.cos(el); LY = Math.sin(el); LZ = Math.cos(az) * Math.cos(el);
+    const slide = Math.min(2.2, 0.55 / Math.max(0.25, Math.tan(el))), hz = Math.hypot(LX, LZ) || 1;   // long shadows at dawn and dusk, short at noon
+    SHX = -LX / hz * slide; SHZ = -LZ / hz * slide;
+    LK = night ? 0.28 : clamp(S.sunEl / 0.3, 0.3, 1);
+    const t = clamp((S.sunEl + 0.08) / 0.4, 0, 1);
+    S.dayK = 0.3 + 0.7 * t * t * (3 - 2 * t);
+    S.night = night;
+  }
+  // sky colours over the day (time, overhead, horizon)
+  const SKY_KF = [[0, [26, 36, 72], [255, 150, 100]], [0.08, [60, 120, 210], [255, 205, 160]], [0.25, [70, 150, 240], [190, 225, 255]], [0.4, [60, 125, 215], [255, 205, 150]], [0.5, [40, 45, 100], [255, 135, 60]], [0.58, [12, 18, 48], [90, 60, 110]], [0.75, [5, 8, 26], [14, 20, 48]], [0.92, [10, 16, 46], [50, 40, 80]], [1, [26, 36, 72], [255, 150, 100]]];
+  function skyAt(tod) {
+    let i = 0; while (i < SKY_KF.length - 2 && SKY_KF[i + 1][0] <= tod) i++;
+    const a = SKY_KF[i], b = SKY_KF[i + 1], t = (tod - a[0]) / (b[0] - a[0]);
+    return { top: a[1].map((v, k) => lerp(v, b[1][k], t)), hor: a[2].map((v, k) => lerp(v, b[2][k], t)) };
+  }
   function hull(pts) {   // convex hull (monotone chain) of {x, z} points
     const P = pts.slice().sort((a, b) => a.x - b.x || a.z - b.z);
     const cross = (o, a, b) => (a.x - o.x) * (b.z - o.z) - (a.z - o.z) * (b.x - o.x);
@@ -701,7 +745,7 @@
     if (fog > 0.6) return;
     const hh = Math.min(h, 10);
     const pts = corners.concat(corners.map((c) => ({ x: c.x + SHX * hh, z: c.z + SHZ * hh })));
-    fillPoly(ctx, hull(pts).map((q) => cs(q.x, 0.015, q.z)), 'rgba(0,0,0,' + (0.34 * (1 - fog)).toFixed(3) + ')');
+    fillPoly(ctx, hull(pts).map((q) => cs(q.x, 0.015, q.z)), 'rgba(0,0,0,' + (0.34 * LK * (1 - fog)).toFixed(3) + ')');
   }
   const rectCorners = (x0, x1, z0, z1) => [{ x: x0, z: z0 }, { x: x1, z: z0 }, { x: x1, z: z1 }, { x: x0, z: z1 }];
   /**
@@ -732,7 +776,7 @@
       if (dot < 0) {
         const len = Math.hypot(nx, ny, nz) || 1;
         const diff = Math.max(0, (nx * LX + ny * LY + nz * LZ) / len);
-        const shade = Math.round((0.5 + 0.5 * diff + (ny / len > 0.5 ? 0.08 : 0)) * 20) / 20;   // quantised: the colour cache stays small
+        const shade = Math.round(((0.42 + 0.12 * S.dayK) + 0.55 * LK * diff + (ny / len > 0.5 ? 0.08 : 0)) * 20) / 20;   // quantised: the colour cache stays small
         vis.push({ fc, depth: cs(mx, my, mz).f, shade });
       }
     }
@@ -743,32 +787,50 @@
 
   function drawSky(ctx) {
     const { w, h: hh } = S.view;
-    const sky = S.skyRGB, rel = Math.atan2(Math.sin(SUN_AZ - S.cam.a), Math.cos(SUN_AZ - S.cam.a));
-    const warm = Math.max(0, 1 - Math.abs(rel) / 1.7);
-    // a graded sky: deep overhead, lighter toward the horizon, warmed on the sun's side
+    const sky = S.skyRGB, hor = S.horRGB || sky, dayK = S.dayK;
+    const rel = Math.atan2(Math.sin(S.sunAz - S.cam.a), Math.cos(S.sunAz - S.cam.a));
+    const warm = Math.max(0, 1 - Math.abs(rel) / 1.7) * (1 - Math.min(1, Math.abs(S.sunEl) / 0.45));   // the horizon warms toward a low sun
+    // a graded sky: deep overhead, the hour's horizon colour below, warmed on the sun's side
     const g = ctx.createLinearGradient(0, 0, 0, HY);
-    g.addColorStop(0, rgbStr(sky.map((v) => Math.round(v * 0.55))));
-    g.addColorStop(0.55, rgbStr(sky.map(Math.round)));
-    g.addColorStop(1, rgbStr([Math.round(lerp(sky[0] * 1.35, 255, warm * 0.45)), Math.round(lerp(sky[1] * 1.3, 150, warm * 0.4)), Math.round(lerp(sky[2] * 1.25, 60, warm * 0.35))]));
+    g.addColorStop(0, rgbStr(sky.map((v) => Math.round(v * 0.6))));
+    g.addColorStop(0.5, rgbStr(sky.map(Math.round)));
+    g.addColorStop(1, rgbStr([Math.round(lerp(hor[0], 255, warm * 0.5)), Math.round(lerp(hor[1], 150, warm * 0.4)), Math.round(lerp(hor[2], 60, warm * 0.35))]));
     ctx.fillStyle = g; ctx.fillRect(0, 0, w, HY + 1);
-    const base = -S.cam.a / TAU * w * 2.2;
-    for (let i = 0; i < 70; i++) {
-      const fx = mod(h01(i, 3, 41) * w * 2.2 + base, w * 2.2) - w * 0.6, fy = h01(i, 4, 42) * HY * 0.6;
-      if (fx < -2 || fx > w + 2) continue;
-      ctx.globalAlpha = (0.2 + 0.6 * (0.5 + 0.5 * Math.sin(S.anim * (0.8 + h01(i, 5, 43) * 2) + i))) * (1 - fy / HY * 0.8);
-      ctx.fillStyle = '#fff'; ctx.fillRect(fx, fy, 1.4, 1.4);
+    // stars come out as the light goes
+    const starK = clamp((0.62 - dayK) / 0.3, 0, 1);
+    if (starK > 0) {
+      const base = -S.cam.a / TAU * w * 2.2;
+      for (let i = 0; i < 90; i++) {
+        const fx = mod(h01(i, 3, 41) * w * 2.2 + base, w * 2.2) - w * 0.6, fy = h01(i, 4, 42) * HY * 0.75;
+        if (fx < -2 || fx > w + 2) continue;
+        ctx.globalAlpha = (0.2 + 0.6 * (0.5 + 0.5 * Math.sin(S.anim * (0.8 + h01(i, 5, 43) * 2) + i))) * (1 - fy / HY * 0.7) * starK;
+        ctx.fillStyle = '#fff'; ctx.fillRect(fx, fy, 1.4, 1.4);
+      }
+      ctx.globalAlpha = 1;
     }
-    ctx.globalAlpha = 1;
-    // the sun: a disc with a soft glow
-    if (Math.abs(rel) < 1.15) {
-      const r = Math.min(w, hh) * 0.11, sx = CX + Math.tan(rel) * F, sy = HY - r * 0.35;
+    // the sun by day and the moon by night, each where the hour puts it
+    const bodyAz = S.night ? S.sunAz + Math.PI : S.sunAz, bodyEl = S.night ? -S.sunEl : S.sunEl;
+    const brel = Math.atan2(Math.sin(bodyAz - S.cam.a), Math.cos(bodyAz - S.cam.a));
+    if (Math.abs(brel) < 1.15 && bodyEl > -0.08) {
+      // the sky is a backdrop: elevation is compressed so a high sun or moon still sits in the top of the frame
+      const sx = CX + Math.tan(brel) * F, sy = HY - (0.05 + 0.9 * Math.pow(clamp(bodyEl / 0.95, 0, 1), 0.75)) * HY;
       ctx.save(); ctx.beginPath(); ctx.rect(0, 0, w, HY); ctx.clip();
-      const glow = ctx.createRadialGradient(sx, sy, r * 0.6, sx, sy, r * 3.2);
-      glow.addColorStop(0, 'rgba(255,170,80,0.55)'); glow.addColorStop(0.5, 'rgba(255,140,60,0.16)'); glow.addColorStop(1, 'rgba(255,120,40,0)');
-      ctx.fillStyle = glow; ctx.fillRect(sx - r * 3.2, sy - r * 3.2, r * 6.4, r * 6.4);
-      const disc = ctx.createRadialGradient(sx - r * 0.2, sy - r * 0.2, r * 0.1, sx, sy, r);
-      disc.addColorStop(0, '#ffd9a0'); disc.addColorStop(0.7, C.mint); disc.addColorStop(1, '#f06a1e');
-      ctx.fillStyle = disc; ctx.beginPath(); ctx.arc(sx, sy, r, 0, TAU); ctx.fill();
+      if (!S.night) {
+        const low = 1 - clamp(bodyEl / 0.7, 0, 1), r = Math.min(w, hh) * (0.06 + 0.05 * low);
+        const glow = ctx.createRadialGradient(sx, sy, r * 0.6, sx, sy, r * 3.2);
+        glow.addColorStop(0, 'rgba(255,' + Math.round(lerp(230, 170, low)) + ',' + Math.round(lerp(160, 80, low)) + ',0.55)'); glow.addColorStop(0.5, 'rgba(255,' + Math.round(lerp(220, 140, low)) + ',' + Math.round(lerp(140, 60, low)) + ',0.16)'); glow.addColorStop(1, 'rgba(255,120,40,0)');
+        ctx.fillStyle = glow; ctx.fillRect(sx - r * 3.2, sy - r * 3.2, r * 6.4, r * 6.4);
+        const disc = ctx.createRadialGradient(sx - r * 0.2, sy - r * 0.2, r * 0.1, sx, sy, r);
+        disc.addColorStop(0, '#fff6dc'); disc.addColorStop(0.7, low > 0.5 ? C.mint : '#ffe9a8'); disc.addColorStop(1, low > 0.5 ? '#f06a1e' : '#ffc466');
+        ctx.fillStyle = disc; ctx.beginPath(); ctx.arc(sx, sy, r, 0, TAU); ctx.fill();
+      } else {
+        const r = Math.min(w, hh) * 0.04;
+        const glow = ctx.createRadialGradient(sx, sy, r * 0.8, sx, sy, r * 3);
+        glow.addColorStop(0, 'rgba(200,215,255,0.28)'); glow.addColorStop(1, 'rgba(200,215,255,0)');
+        ctx.fillStyle = glow; ctx.fillRect(sx - r * 3, sy - r * 3, r * 6, r * 6);
+        ctx.fillStyle = '#e8ecf5'; ctx.beginPath(); ctx.arc(sx, sy, r, 0, TAU); ctx.fill();
+        ctx.fillStyle = 'rgba(0,0,0,0.08)'; [[-0.3, -0.2, 0.25], [0.25, 0.3, 0.18], [0.35, -0.35, 0.14]].forEach(([a, b, c]) => { ctx.beginPath(); ctx.arc(sx + a * r, sy + b * r, c * r, 0, TAU); ctx.fill(); });
+      }
       ctx.restore();
     }
     // a few soft clouds, lit from the sun's side
@@ -777,7 +839,8 @@
       if (Math.abs(crel) > 1.2) continue;
       const cx = CX + Math.tan(crel) * F * 0.9, cy = HY * (0.22 + 0.4 * h01(i, 8, 45)), cw = (0.08 + 0.1 * h01(i, 9, 46)) * w, ch = cw * 0.28;
       const lit = Math.max(0, 1 - Math.abs(crel - rel) / 2.5);
-      ctx.fillStyle = rgbStr([Math.round(lerp(sky[0] * 1.6 + 30, 255, lit * 0.35)), Math.round(lerp(sky[1] * 1.5 + 30, 190, lit * 0.3)), Math.round(lerp(sky[2] * 1.3 + 40, 140, lit * 0.25))], 0.5);
+      const d2 = (dayK - 0.3) / 0.7;
+      ctx.fillStyle = rgbStr([Math.round(lerp(lerp(sky[0] * 1.6 + 30, 255, lit * 0.35), 245, d2 * 0.8)), Math.round(lerp(lerp(sky[1] * 1.5 + 30, 190, lit * 0.3), 245, d2 * 0.8)), Math.round(lerp(lerp(sky[2] * 1.3 + 40, 140, lit * 0.25), 250, d2 * 0.8))], 0.5);
       [[0, 0, 1], [-0.35, 0.12, 0.7], [0.38, 0.1, 0.75], [0.1, -0.22, 0.6]].forEach(([ox, oy, k]) => { ctx.beginPath(); ctx.ellipse(cx + ox * cw, cy + oy * ch, cw * 0.5 * k, ch * 0.6 * k, 0, 0, TAU); ctx.fill(); });
     }
     // far mountains (two parallax layers, a function of view direction)
@@ -826,10 +889,12 @@
       const o = tileObj(t.tx, t.tz);
       let col = tileColor(t.tx, t.tz, biome, zone.city);
       if (o && o.type === 'lava') col = (hash(t.tx, t.tz, 5) & 1) ? '#ff7a1a' : '#ff9a2a';
+      if (o && o.type === 'ice') col = '#bfe3ff';
       fillPoly(ctx, t.poly, fogged(col, fog, 1));
       if (fog < 0.3 && !o && !zone.city && !roadInfo(t.tx, t.tz).road) drawGroundDetail(ctx, t.tx, t.tz, biome, fog);
       if (o && o.type === 'lava' && fog < 0.9) { ctx.globalAlpha = 0.35 + 0.25 * Math.sin(S.anim * 3 + t.tx); fillPoly(ctx, t.poly, fogged('#ffd060', fog)); ctx.globalAlpha = 1; }
-      if (o && o.type !== 'lava' && !(o.type === 'coin' && S.taken.has(o.key))) objs.push({ f: t.f, o, biome });
+      if (o && o.type === 'ice' && fog < 0.9) { ctx.globalAlpha = 0.25 + 0.2 * Math.sin(S.anim * 2 + t.tz); fillPoly(ctx, t.poly, fogged('#ffffff', fog)); ctx.globalAlpha = 1; }
+      if (o && o.type !== 'lava' && o.type !== 'ice' && !(o.type === 'coin' && S.taken.has(o.key))) objs.push({ f: t.f, o, biome });
       const wi = wallInfo(t.tx, t.tz);
       if ((wi.wx || wi.wz) && !wi.gate) wallTiles.push({ f: t.f, tx: t.tx, tz: t.tz, wi });
     }
@@ -917,6 +982,26 @@
       case 'snowman': drawShadow(ctx, rectCorners(x - 0.75, x + 0.75, z - 0.75, z + 0.75), 2.75, fog); break;
       case 'house': drawShadow(ctx, rectCorners(x - 2.4, x + 2.4, z - 2.4, z + 2.4), 3.9, fog); break;
       case 'tower': drawShadow(ctx, rectCorners(x - 2.5, x + 2.5, z - 2.5, z + 2.5), o.hgt, fog); break;
+      case 'windmill': drawShadow(ctx, rectCorners(x - 0.75, x + 0.75, z - 0.75, z + 0.75), 5.9, fog); break;
+      case 'barn': drawShadow(ctx, rectCorners(x - 2.2, x + 4.1, z - 1.6, z + 1.6), 5, fog); break;
+      case 'watertower': drawShadow(ctx, rectCorners(x - 1.3, x + 1.3, z - 1.3, z + 1.3), 7.4, fog); break;
+      case 'hay': drawShadow(ctx, rectCorners(x - 1.6, x + 1.2, z - 1.5, z + 1.5), 1, fog); break;
+      case 'well': drawShadow(ctx, rectCorners(x - 1, x + 1, z - 0.8, z + 0.8), 2.95, fog); break;
+      case 'chapel': drawShadow(ctx, rectCorners(x - 2.2, x + 2.2, z - 2.6, z + 2.8), 9, fog); break;
+      case 'watchtower': drawShadow(ctx, rectCorners(x - 1.2, x + 1.2, z - 1.2, z + 1.2), 8, fog); break;
+      case 'pyramid': drawShadow(ctx, rectCorners(x - 3.5, x + 3.5, z - 3.5, z + 3.5), 5.5, fog); break;
+      case 'palm': drawShadow(ctx, rectCorners(x - 0.5, x + 1.5, z - 1.3, z + 1.3), 5, fog); break;
+      case 'adobe': drawShadow(ctx, rectCorners(x - 2, x + 2.6, z - 1.4, z + 1.4), 2.8, fog); break;
+      case 'igloo': drawShadow(ctx, rectCorners(x - 1.6, x + 1.6, z - 2.6, z + 1.6), 2.4, fog); break;
+      case 'lodge': drawShadow(ctx, rectCorners(x - 2.5, x + 2.5, z - 2.1, z + 2.1), 4.1, fog); break;
+      case 'cabin': drawShadow(ctx, rectCorners(x - 1.8, x + 1.8, z - 1.5, z + 1.5), 3.4, fog); break;
+      case 'volcano': drawShadow(ctx, rectCorners(x - 3.5, x + 3.5, z - 3.5, z + 3.5), 6.4, fog); break;
+      case 'mine': drawShadow(ctx, rectCorners(x - 1.6, x + 1.6, z - 0.25, z + 2), 2.95, fog); break;
+      case 'obelisk': drawShadow(ctx, rectCorners(x - 0.45, x + 0.45, z - 0.45, z + 0.45), 7.7, fog); break;
+      case 'fountain': drawShadow(ctx, rectCorners(x - 1.8, x + 1.8, z - 1.8, z + 1.8), 2, fog); break;
+      case 'shelter': drawShadow(ctx, rectCorners(x - 1.6, x + 1.6, z - 0.8, z + 0.9), 2.85, fog); break;
+      case 'mast': drawShadow(ctx, rectCorners(x - 0.6, x + 0.6, z - 0.6, z + 0.6), 14, fog); break;
+      case 'billboard': drawShadow(ctx, rectCorners(x - 2.2, x + 2.2, z - 0.1, z + 0.1), 5.2, fog); break;
       default: break;
     }
   }
@@ -930,7 +1015,7 @@
     let row = 0;
     for (let y = 1.4; y < hgt - 1.2 && row < 9; y += 2.6, row++) for (let c = -1; c <= 1; c++) {
       const on = ((row * 3 + c + 1 + lit) * 7) % 5 !== 0;
-      const col = fogged(on ? '#ffd27a' : '#1c2234', fog);
+      const col = fogged(S.night ? (on ? '#ffd27a' : '#1c2234') : '#8fb4dd', fog);
       for (const f of faces) {
         const u0 = c * 1.6 - 0.45, u1 = c * 1.6 + 0.45;
         fillPoly(ctx, f.ax === 'z' ? [cs(x + u0, y, f.p), cs(x + u1, y, f.p), cs(x + u1, y + 1.3, f.p), cs(x + u0, y + 1.3, f.p)] : [cs(f.p, y, z + u0), cs(f.p, y, z + u1), cs(f.p, y + 1.3, z + u1), cs(f.p, y + 1.3, z + u0)], col);
@@ -945,7 +1030,7 @@
   }
 
   function drawObject(ctx, o, fog, biome) {
-    const x = o.x, z = o.z, v = o.v || 0.5;
+    const x = o.x, z = o.z, v = o.v || 0.5, WIN = S.night ? WIN_LIT : WIN_DAY;
     const far = fog > 0.45;
     if (far && (o.type === 'bush' || o.type === 'coin' || o.type === 'snowman')) return;
     switch (o.type) {
@@ -991,10 +1076,181 @@
         if (far) break;
         aabox(ctx, x - 1.4, x + 1.4, 3.2, 3.9, z - 1.4, z + 1.4, roof, fog);
         // lit windows set into the walls that face the camera (the others are hidden by the house)
-        if (S.cam.z < z - 2.1) aabox(ctx, x - 0.35, x + 0.35, 1.0, 1.6, z - 2.18, z - 2.0, WIN_LIT, fog);
-        if (S.cam.z > z + 2.1) aabox(ctx, x - 0.35, x + 0.35, 1.0, 1.6, z + 2.0, z + 2.18, WIN_LIT, fog);
-        if (S.cam.x < x - 2.1) aabox(ctx, x - 2.18, x - 2.0, 1.0, 1.6, z - 0.35, z + 0.35, WIN_LIT, fog);
-        if (S.cam.x > x + 2.1) aabox(ctx, x + 2.0, x + 2.18, 1.0, 1.6, z - 0.35, z + 0.35, WIN_LIT, fog);
+        if (S.cam.z < z - 2.1) aabox(ctx, x - 0.35, x + 0.35, 1.0, 1.6, z - 2.18, z - 2.0, WIN, fog);
+        if (S.cam.z > z + 2.1) aabox(ctx, x - 0.35, x + 0.35, 1.0, 1.6, z + 2.0, z + 2.18, WIN, fog);
+        if (S.cam.x < x - 2.1) aabox(ctx, x - 2.18, x - 2.0, 1.0, 1.6, z - 0.35, z + 0.35, WIN, fog);
+        if (S.cam.x > x + 2.1) aabox(ctx, x + 2.0, x + 2.18, 1.0, 1.6, z - 0.35, z + 0.35, WIN, fog);
+        break;
+      }
+      // ---- the twenty landmarks ----
+      case 'windmill': {
+        aabox(ctx, x - 0.75, x + 0.75, 0, 3, z - 0.75, z + 0.75, { side: '#d9d2c3', top: '#e8e2d4' }, fog);
+        aabox(ctx, x - 0.5, x + 0.5, 3, 5.2, z - 0.5, z + 0.5, { side: '#d9d2c3', top: '#e8e2d4' }, fog);
+        aabox(ctx, x - 0.6, x + 0.6, 5.2, 5.9, z - 0.6, z + 0.6, { side: '#7a2d2d', top: '#a03a3a' }, fog);
+        if (far) break;
+        aabox(ctx, x - 0.18, x + 0.18, 4.9, 5.3, z - 0.85, z - 0.5, DARK, fog);
+        const bc = fogged('#efe9db', fog, 0.95);
+        for (let i = 0; i < 4; i++) {
+          const a = S.anim * 0.9 + v * 6 + i * Math.PI / 2, ca = Math.cos(a), sa = Math.sin(a);
+          fillPoly(ctx, [cs(x + ca * 0.3 - sa * 0.1, 5.1 + sa * 0.3 + ca * 0.1, z - 0.9), cs(x + ca * 2.7 - sa * 0.22, 5.1 + sa * 2.7 + ca * 0.22, z - 0.9), cs(x + ca * 2.7 + sa * 0.22, 5.1 + sa * 2.7 - ca * 0.22, z - 0.9), cs(x + ca * 0.3 + sa * 0.1, 5.1 + sa * 0.3 - ca * 0.1, z - 0.9)], bc);
+        }
+        break;
+      }
+      case 'barn': {
+        aabox(ctx, x - 2.2, x + 2.2, 0, 3, z - 1.6, z + 1.6, { side: '#9a2b2b', top: '#b53434' }, fog);
+        aabox(ctx, x + 2.9, x + 4.1, 0, 5.5, z - 0.6, z + 0.6, { side: '#b9bcc7', top: '#d7dae3' }, fog);
+        if (far) break;
+        aabox(ctx, x - 2.4, x + 2.4, 3, 3.5, z - 1.8, z + 1.8, DARKWOOD, fog);
+        aabox(ctx, x - 1.6, x + 1.6, 3.5, 4.4, z - 1.2, z + 1.2, { side: '#9a2b2b', top: '#5a1a1a' }, fog);
+        aabox(ctx, x - 0.6, x + 0.6, 0, 1.9, z - 1.66, z - 1.6, DARK, fog);
+        aabox(ctx, x + 3.1, x + 3.9, 5.5, 6.1, z - 0.4, z + 0.4, STEEL, fog);
+        break;
+      }
+      case 'watertower': {
+        aabox(ctx, x - 1.3, x + 1.3, 4.6, 6.8, z - 1.3, z + 1.3, STEEL, fog);
+        if (far) break;
+        [[-0.9, -0.9], [0.9, -0.9], [-0.9, 0.9], [0.9, 0.9]].forEach(([u, w]) => aabox(ctx, x + u - 0.14, x + u + 0.14, 0, 4.6, z + w - 0.14, z + w + 0.14, DARKWOOD, fog));
+        aabox(ctx, x - 0.8, x + 0.8, 6.8, 7.4, z - 0.8, z + 0.8, { side: '#5a6278', top: '#6a7288' }, fog);
+        break;
+      }
+      case 'hay': [[-1.1, -0.6], [0.6, -0.9], [-0.2, 0.9]].forEach(([u, w]) => aabox(ctx, x + u - 0.6, x + u + 0.6, 0, 1.0, z + w - 0.6, z + w + 0.6, { side: '#d8b85a', top: '#e8cd7a' }, fog)); break;
+      case 'well': {
+        aabox(ctx, x - 0.8, x + 0.8, 0, 0.9, z - 0.8, z + 0.8, STONE, fog);
+        if (far) break;
+        aabox(ctx, x - 0.75, x - 0.6, 0.9, 2.6, z - 0.08, z + 0.08, WOOD, fog); aabox(ctx, x + 0.6, x + 0.75, 0.9, 2.6, z - 0.08, z + 0.08, WOOD, fog);
+        aabox(ctx, x - 1.0, x + 1.0, 2.6, 2.95, z - 0.6, z + 0.6, { side: '#7a2d2d', top: '#a03a3a' }, fog);
+        break;
+      }
+      case 'chapel': {
+        aabox(ctx, x - 2, x + 2, 0, 4.5, z - 2.4, z + 2.4, { side: '#dcd2bf', top: '#ece4d1' }, fog);
+        aabox(ctx, x - 0.7, x + 0.7, 0, 7.5, z + 1.4, z + 2.8, { side: '#d4c8b3', top: '#e4dccb' }, fog);
+        if (far) break;
+        aabox(ctx, x - 2.2, x + 2.2, 4.5, 5.0, z - 2.6, z + 2.6, { side: '#5a4a3a', top: '#6a5a4a' }, fog);
+        aabox(ctx, x - 0.5, x + 0.5, 7.5, 8.3, z + 1.6, z + 2.6, { side: '#5a4a3a', top: '#6a5a4a' }, fog);
+        aabox(ctx, x - 0.25, x + 0.25, 8.3, 9.4, z + 1.85, z + 2.35, { side: '#5a4a3a', top: '#6a5a4a' }, fog);
+        aabox(ctx, x - 0.5, x + 0.5, 0, 2.0, z - 2.46, z - 2.4, DARK, fog);
+        aabox(ctx, x - 0.35, x + 0.35, 2.4, 3.4, z - 2.46, z - 2.4, WIN, fog);
+        break;
+      }
+      case 'watchtower': {
+        aabox(ctx, x - 0.3, x + 0.3, 0, 6, z - 0.3, z + 0.3, WOOD, fog);
+        aabox(ctx, x - 1.2, x + 1.2, 6, 7.8, z - 1.2, z + 1.2, { side: '#8a5a33', top: '#a06a3c' }, fog);
+        if (far) break;
+        aabox(ctx, x - 1.4, x + 1.4, 7.8, 8.1, z - 1.4, z + 1.4, DARKWOOD, fog);
+        break;
+      }
+      case 'campfire': {
+        if (far) break;
+        drawBox(ctx, x, z, 0, 0.8, 0.14, 0, 0.28, DARKWOOD, fog, 0); drawBox(ctx, x, z, Math.PI / 2, 0.8, 0.14, 0.28, 0.5, DARKWOOD, fog, 0);
+        const hf = 0.6 + 0.3 * Math.sin(S.anim * 9 + x);
+        aabox(ctx, x - 0.25, x + 0.25, 0.5, 0.5 + hf, z - 0.25, z + 0.25, { side: C.mint, top: '#ffd27a' }, fog);
+        aabox(ctx, x - 0.12, x + 0.12, 0.55, 0.55 + hf * 0.7, z - 0.12, z + 0.12, { side: '#ffd27a', top: '#fff2cc' }, fog);
+        const g0 = cs(x, 0.01, z); if (g0.f > NEAR) { const q = sp(g0); ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = fogged(C.mint, fog, 1, S.night ? 0.28 : 0.1); ctx.beginPath(); ctx.ellipse(q.x, q.y, 2.6 * q.s, 1.0 * q.s, 0, 0, TAU); ctx.fill(); ctx.restore(); }
+        break;
+      }
+      case 'mushroom': {
+        aabox(ctx, x - 0.25, x + 0.25, 0, 0.9, z - 0.25, z + 0.25, { side: '#e8e0d0', top: '#f3ede0' }, fog);
+        aabox(ctx, x - 0.7, x + 0.7, 0.9, 1.4, z - 0.7, z + 0.7, { side: '#c9302c', top: '#e04a46' }, fog);
+        if (far) break;
+        aabox(ctx, x + 0.95, x + 1.25, 0, 0.55, z + 0.5, z + 0.8, { side: '#e8e0d0', top: '#f3ede0' }, fog);
+        aabox(ctx, x + 0.7, x + 1.5, 0.55, 0.85, z + 0.25, z + 1.05, { side: '#c9302c', top: '#e04a46' }, fog);
+        break;
+      }
+      case 'pyramid': for (let i = 0; i < 5; i++) { const half = 3.5 - i * 0.7; aabox(ctx, x - half, x + half, i * 1.1, (i + 1) * 1.1, z - half, z + half, SAND, fog); if (far && i >= 1) break; } break;
+      case 'palm': {
+        for (let i = 0; i < 3; i++) { const ox = i * 0.25; aabox(ctx, x + ox - 0.18, x + ox + 0.18, i * 1.7, (i + 1) * 1.7, z - 0.18, z + 0.18, { side: '#8a6a3a', top: '#a07c48' }, fog); }
+        if (far) break;
+        for (let k = 0; k < 5; k++) { const yaw = k * TAU / 5 + v * 3; drawBox(ctx, x + 0.5 + Math.sin(yaw) * 1.3, z + Math.cos(yaw) * 1.3, yaw, 0.28, 1.4, 4.9, 5.08, { side: '#2f8f4a', top: '#4fb86a' }, fog, 0); }
+        break;
+      }
+      case 'adobe': {
+        aabox(ctx, x - 2, x + 2, 0, 2.2, z - 1.4, z + 1.4, { side: '#c9a978', top: '#dcc08c' }, fog);
+        if (far) break;
+        aabox(ctx, x + 2.2, x + 2.6, 0, 2.8, z - 1.4, z + 0.2, { side: '#b89a6a', top: '#c9ad7a' }, fog);
+        aabox(ctx, x - 0.5, x + 0.5, 0, 1.7, z - 1.46, z - 1.4, DARK, fog);
+        break;
+      }
+      case 'igloo': {
+        aabox(ctx, x - 1.6, x + 1.6, 0, 1.0, z - 1.6, z + 1.6, SNOWY, fog);
+        aabox(ctx, x - 1.2, x + 1.2, 1, 1.8, z - 1.2, z + 1.2, SNOWY, fog);
+        aabox(ctx, x - 0.7, x + 0.7, 1.8, 2.4, z - 0.7, z + 0.7, SNOWY, fog);
+        if (far) break;
+        aabox(ctx, x - 0.6, x + 0.6, 0, 1.0, z - 2.6, z - 1.6, { side: '#e4ecf7', top: '#f6f9ff' }, fog);
+        aabox(ctx, x - 0.4, x + 0.4, 0, 0.8, z - 2.66, z - 2.6, DARK, fog);
+        break;
+      }
+      case 'lodge': {
+        aabox(ctx, x - 2.2, x + 2.2, 0, 2.6, z - 1.8, z + 1.8, WOOD, fog);
+        aabox(ctx, x - 2.5, x + 2.5, 2.6, 3.2, z - 2.1, z + 2.1, SNOWY, fog);
+        aabox(ctx, x - 1.6, x + 1.6, 3.2, 4.1, z - 1.4, z + 1.4, SNOWY, fog);
+        if (far) break;
+        aabox(ctx, x + 1.2, x + 1.7, 3.5, 5, z - 0.3, z + 0.3, STONE, fog);
+        aabox(ctx, x - 1.4, x - 0.6, 1.0, 1.7, z - 1.86, z - 1.8, WIN, fog); aabox(ctx, x + 0.6, x + 1.4, 1.0, 1.7, z - 1.86, z - 1.8, WIN, fog);
+        aabox(ctx, x - 3.0, x - 2.9, 0, 5.5, z - 0.05, z + 0.05, STEEL, fog); aabox(ctx, x - 2.9, x - 1.9, 4.8, 5.4, z - 0.03, z + 0.03, { side: C.mint, top: C.mint }, fog);
+        break;
+      }
+      case 'cabin': {
+        aabox(ctx, x - 1.5, x + 1.5, 0, 2.2, z - 1.2, z + 1.2, { side: '#7a5230', top: '#8a5a33' }, fog);
+        aabox(ctx, x - 1.8, x + 1.8, 2.2, 2.7, z - 1.5, z + 1.5, DARKWOOD, fog);
+        if (far) break;
+        aabox(ctx, x - 1.1, x + 1.1, 2.7, 3.4, z - 1.0, z + 1.0, DARKWOOD, fog);
+        aabox(ctx, x + 0.7, x + 1.1, 3.0, 4.2, z - 0.2, z + 0.2, STONE, fog);
+        aabox(ctx, x - 0.4, x + 0.4, 0.9, 1.6, z - 1.26, z - 1.2, WIN, fog);
+        break;
+      }
+      case 'volcano': {
+        for (let i = 0; i < 4; i++) { const half = 3.5 - i * 0.8; aabox(ctx, x - half, x + half, i * 1.5, (i + 1) * 1.5, z - half, z + half, { side: '#3a2a2a', top: '#4a3838' }, fog); }
+        aabox(ctx, x - 0.9, x + 0.9, 6, 6.4, z - 0.9, z + 0.9, { side: '#ff7a1a', top: '#ffb347' }, fog);
+        if (far) break;
+        const c0 = cs(x, 6.4, z); if (c0.f > NEAR) { const q = sp(c0); ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = fogged(C.mint, fog, 1, S.night ? 0.35 : 0.15); ctx.beginPath(); ctx.ellipse(q.x, q.y, 2.2 * q.s, 1.0 * q.s, 0, 0, TAU); ctx.fill(); ctx.restore(); }
+        break;
+      }
+      case 'mine': {
+        aabox(ctx, x - 1.6, x + 1.6, 0, 2.6, z + 0.4, z + 2.0, { side: '#2a2024', top: '#3a3034' }, fog);
+        if (far) break;
+        aabox(ctx, x - 1.4, x - 1.1, 0, 2.6, z - 0.2, z + 0.1, DARKWOOD, fog); aabox(ctx, x + 1.1, x + 1.4, 0, 2.6, z - 0.2, z + 0.1, DARKWOOD, fog);
+        aabox(ctx, x - 1.5, x + 1.5, 2.6, 2.95, z - 0.25, z + 0.15, DARKWOOD, fog);
+        aabox(ctx, x - 1.1, x + 1.1, 0, 2.6, z + 0.38, z + 0.42, DARK, fog);
+        [-0.5, 0.5].forEach((u) => fillPoly(ctx, [cs(x + u - 0.06, 0.02, z - 3.5), cs(x + u + 0.06, 0.02, z - 3.5), cs(x + u + 0.06, 0.02, z), cs(x + u - 0.06, 0.02, z)], fogged('#6b7080', fog)));
+        break;
+      }
+      case 'obelisk': {
+        aabox(ctx, x - 0.45, x + 0.45, 0, 7, z - 0.45, z + 0.45, { side: '#1c1820', top: '#2a2430' }, fog);
+        if (far) break;
+        aabox(ctx, x - 0.5, x + 0.5, 4, 4.4, z - 0.5, z + 0.5, { side: C.mint, top: C.lav }, fog);
+        aabox(ctx, x - 0.25, x + 0.25, 7, 7.7, z - 0.25, z + 0.25, { side: '#2a2430', top: '#3a3440' }, fog);
+        break;
+      }
+      case 'fountain': {
+        aabox(ctx, x - 1.8, x + 1.8, 0, 0.6, z - 1.8, z + 1.8, STONE, fog);
+        aabox(ctx, x - 1.5, x + 1.5, 0.6, 0.75, z - 1.5, z + 1.5, { side: '#5fb5ff', top: '#9ad4ff' }, fog);
+        if (far) break;
+        aabox(ctx, x - 0.3, x + 0.3, 0.75, 2.0, z - 0.3, z + 0.3, STONE, fog);
+        const hj = 1.6 + 0.3 * Math.sin(S.anim * 5);
+        aabox(ctx, x - 0.12, x + 0.12, 2.0, 2.0 + hj, z - 0.12, z + 0.12, { side: '#bfe3ff', top: '#ffffff' }, fog);
+        break;
+      }
+      case 'shelter': {
+        aabox(ctx, x - 1.6, x + 1.6, 2.6, 2.85, z - 0.8, z + 0.9, { side: '#2a3044', top: '#3a4058' }, fog);
+        if (far) break;
+        aabox(ctx, x - 1.4, x - 1.25, 0, 2.6, z + 0.55, z + 0.7, STEEL, fog); aabox(ctx, x + 1.25, x + 1.4, 0, 2.6, z + 0.55, z + 0.7, STEEL, fog);
+        aabox(ctx, x - 1.4, x + 1.4, 0.2, 2.6, z + 0.6, z + 0.68, { side: '#5f8fc0', top: '#5f8fc0' }, fog);
+        aabox(ctx, x - 1.1, x + 1.1, 0.45, 0.55, z + 0.1, z + 0.5, DARKWOOD, fog);
+        break;
+      }
+      case 'mast': {
+        aabox(ctx, x - 0.2, x + 0.2, 0, 14, z - 0.2, z + 0.2, { side: '#6b7080', top: '#8a8f9a' }, fog);
+        const on = Math.sin(S.anim * 4) > 0;
+        aabox(ctx, x - 0.18, x + 0.18, 14, 14.4, z - 0.18, z + 0.18, { side: on ? C.rose : '#5a1a22', top: on ? '#ff8a96' : '#5a1a22' }, fog);
+        if (far) break;
+        for (let i = 0; i < 3; i++) aabox(ctx, x - 0.6, x + 0.6, 3 + i * 3.5, 3.15 + i * 3.5, z - 0.6, z + 0.6, { side: '#6b7080', top: '#8a8f9a' }, fog);
+        break;
+      }
+      case 'billboard': {
+        aabox(ctx, x - 2.2, x + 2.2, 3, 5.2, z - 0.08, z + 0.08, { side: '#1d4fd3', top: '#2a62ea', front: '#1d4fd3', back: '#1d4fd3' }, fog);
+        if (far) break;
+        aabox(ctx, x - 1.6, x - 1.45, 0, 3, z - 0.08, z + 0.08, STEEL, fog); aabox(ctx, x + 1.45, x + 1.6, 0, 3, z - 0.08, z + 0.08, STEEL, fog);
+        aabox(ctx, x - 1.8, x + 1.8, 3.8, 4.4, z - 0.1, z + 0.1, { side: C.mint, top: C.lav }, fog);
         break;
       }
       case 'tower': {
@@ -1002,7 +1258,7 @@
         aabox(ctx, x - hw, x + hw, 0, hgt, z - hw, z + hw, col, fog);
         if (far) break;
         if (fog < 0.22) drawWindows(ctx, x, z, hw, hgt, o.lit, fog);
-        else for (let y = 1.8, k = 0; y < hgt - 1.2 && k < 7; y += 2.8, k++) aabox(ctx, x - hw - 0.06, x + hw + 0.06, y, y + 0.7, z - hw - 0.06, z + hw + 0.06, ((k + o.lit) % 3) ? WIN_LIT : WIN_DARK, fog);
+        else for (let y = 1.8, k = 0; y < hgt - 1.2 && k < 7; y += 2.8, k++) aabox(ctx, x - hw - 0.06, x + hw + 0.06, y, y + 0.7, z - hw - 0.06, z + hw + 0.06, S.night ? (((k + o.lit) % 3) ? WIN_LIT : WIN_DARK) : WIN_DAY, fog);
         aabox(ctx, x - hw + 0.6, x + hw - 0.6, hgt, hgt + 0.5, z - hw + 0.6, z + hw - 0.6, { side: '#2a3044', top: '#3a4058' }, fog);
         if (v > 0.7) aabox(ctx, x - 0.1, x + 0.1, hgt + 0.5, hgt + 3, z - 0.1, z + 0.1, { side: '#2a3044', top: C.rose }, fog);
         break;
@@ -1038,9 +1294,9 @@
       const px = cx + sx * (HALF + 0.8), pz = cz + sz * (HALF + 0.8);
       // the lamp's pool of light on the ground
       const g0 = cs(px, 0.01, pz);
-      if (g0.f > NEAR && fog < 0.7) { const q = sp(g0); ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = fogged(sx < 0 ? C.lav : C.amber, fog, 1, 0.14); ctx.beginPath(); ctx.ellipse(q.x, q.y, 3.2 * q.s, 1.2 * q.s, 0, 0, TAU); ctx.fill(); ctx.restore(); }
+      if (S.night && g0.f > NEAR && fog < 0.7) { const q = sp(g0); ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = fogged(sx < 0 ? C.lav : C.amber, fog, 1, 0.14); ctx.beginPath(); ctx.ellipse(q.x, q.y, 3.2 * q.s, 1.2 * q.s, 0, 0, TAU); ctx.fill(); ctx.restore(); }
       aabox(ctx, px - 0.12, px + 0.12, 0, 3.6, pz - 0.12, pz + 0.12, { side: '#3a4258', top: '#5a6278' }, fog);
-      aabox(ctx, px - 0.35, px + 0.35, 3.6, 3.95, pz - 0.35, pz + 0.35, { side: sx < 0 ? C.lav : C.amber, top: '#ffffff' }, fog);
+      aabox(ctx, px - 0.35, px + 0.35, 3.6, 3.95, pz - 0.35, pz + 0.35, S.night ? { side: sx < 0 ? C.lav : C.amber, top: '#ffffff' } : { side: '#8a93a8', top: '#aab2c4' }, fog);
     });
   }
 
@@ -1114,11 +1370,13 @@
     const sh = cs(x, 0.01, z);
     if (sh.f > NEAR) { const q = sp(sh); ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = car.boosting ? 'rgba(255,138,43,0.3)' : 'rgba(77,163,255,0.2)'; ctx.beginPath(); ctx.ellipse(q.x, q.y, 1.35 * q.s, 0.48 * q.s, 0, 0, TAU); ctx.fill(); ctx.restore(); }
     if (!REDUCED) {
-      const b0 = W(-0.85, 2.3), b1 = W(0.85, 2.3), b2 = W(2.8, 12), b3 = W(-2.8, 12);
       ctx.save(); ctx.globalCompositeOperation = 'lighter';
-      fillPoly(ctx, [cs(b0.x, 0.02, b0.z), cs(b1.x, 0.02, b1.z), cs(b2.x, 0.02, b2.z), cs(b3.x, 0.02, b3.z)], 'rgba(255,236,170,0.09)');
-      const c0 = W(-0.6, 2.3), c1 = W(0.6, 2.3), c2 = W(1.6, 7), c3 = W(-1.6, 7);
-      fillPoly(ctx, [cs(c0.x, 0.02, c0.z), cs(c1.x, 0.02, c1.z), cs(c2.x, 0.02, c2.z), cs(c3.x, 0.02, c3.z)], 'rgba(255,236,170,0.08)');
+      if (S.dayK < 0.62) {   // headlights matter once the light goes
+        const b0 = W(-0.85, 2.3), b1 = W(0.85, 2.3), b2 = W(2.8, 12), b3 = W(-2.8, 12);
+        fillPoly(ctx, [cs(b0.x, 0.02, b0.z), cs(b1.x, 0.02, b1.z), cs(b2.x, 0.02, b2.z), cs(b3.x, 0.02, b3.z)], 'rgba(255,236,170,0.1)');
+        const c0 = W(-0.6, 2.3), c1 = W(0.6, 2.3), c2 = W(1.6, 7), c3 = W(-1.6, 7);
+        fillPoly(ctx, [cs(c0.x, 0.02, c0.z), cs(c1.x, 0.02, c1.z), cs(c2.x, 0.02, c2.z), cs(c3.x, 0.02, c3.z)], 'rgba(255,236,170,0.09)');
+      }
       if (car.braking) [[-0.64, -2.15], [0.64, -2.15]].forEach(([u, w]) => { const pp = W(u, w), q = sp(cs(pp.x, 0.7, pp.z)); if (q.s > 0) { ctx.fillStyle = 'rgba(255,60,80,0.35)'; ctx.beginPath(); ctx.ellipse(q.x, q.y, 0.5 * q.s, 0.3 * q.s, 0, 0, TAU); ctx.fill(); } });
       ctx.restore();
     }
@@ -1217,6 +1475,11 @@
     ctx.globalAlpha = 1; ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
     if (S.mode === 'play' || S.mode === 'question') {
       drawSpeedo(ctx);
+      // the clock, under the minimap
+      const mins = Math.round(((S.tod * 24 + 6) % 24) * 60), hrs = Math.floor(mins / 60) % 24, mm = mins % 60;
+      const cy = (w < 640 ? 8 + 96 : 12 + 132) + 16;
+      ctx.font = '700 12px ' + FONT; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = 'rgba(238,243,255,0.85)';
+      ctx.fillText((S.night ? '☾ ' : '☀ ') + String(hrs).padStart(2, '0') + ':' + String(mm).padStart(2, '0'), w - (w < 640 ? 56 : 78), cy); ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
       const g = nearestGate(S.car.x, S.car.z);
       const target = g.open || g.best;
       if (target) {
@@ -1368,6 +1631,10 @@
     spawn(type, x, z) { if (!S) return null; const o = { type, x, z, solid: type !== 'coin', r: type === 'coin' ? 0.6 : 1.0, v: 0.5, taken: false, id: ++S.uid }; S.extra.push(o); return o.id; },
     setFuel(n) { if (S) { S.fuel = clamp(Number(n) || 0, 0, FUEL_MAX); updateHud(false); } },
     setNitro(n) { if (S) { S.nitro = clamp(Number(n) || 0, 0, 100); updateHud(false); } },
+    /** Set the time of day (0 dawn, 0.25 noon, 0.5 dusk, 0.75 midnight). */
+    setTime(t) { if (S) { S.tod = mod(Number(t) || 0, 1); updateLight(); } },
+    /** Scan outward for the nearest tile holding a structure of this type. */
+    findProp(type) { if (!S) return null; for (let r = 1; r < 260; r++) for (let j = -r; j <= r; j++) for (let i = -r; i <= r; i++) { if (Math.max(Math.abs(i), Math.abs(j)) !== r) continue; const o = tileObj(i, j); if (o && o.type === type) return { x: o.x, z: o.z, tx: i, tz: j }; } return null; },
     forceKind(k) { if (S) S.forceKind = k || null; },
     dismiss() { if (!S || !S.question) return false; closeQuestion(); S.mode = 'play'; S.lastT = 0; S.rearmAt = S.t + 2.5; return true; },
     freeze(on) { if (S) S.frozen = on !== false; },
