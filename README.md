@@ -30,9 +30,10 @@ request, prints the video URL on success, and exits non-zero on failed, canceled
 requests. Each run is a billable generation. `npm install` is only needed for this example; the
 site itself still has no build step.
 
-Artwork is optional: drop `hero.jpg` and `card-<game>.jpg` into `assets/art/` and the home page
-picks them up (prompts and sizes in `docs/ART_PROMPTS.md`); without them the page keeps its
-gradient cards.
+The home page artwork in `assets/art/` (hero backdrop and six game cards) was generated with the
+Higgsfield API (Recraft V4.1 Pro) by `scripts/generate-art.ts` from the prompts in
+`docs/ART_PROMPTS.md`; `npx tsx scripts/generate-art.ts --all` regenerates it. Without the files
+the page falls back to gradient cards.
 
 The home page plays “Vibing” by Pufino and every other page plays “Downtown” by Moavii (both
 from freetouse.com, trimmed to the musical part and level-matched, in `assets/music/`). Each

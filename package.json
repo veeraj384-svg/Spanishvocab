@@ -3,10 +3,10 @@
   "version": "1.0.0",
   "private": true,
   "description": "Spanish Vocab: a static site (no build step) plus a Higgsfield API example (index.ts).",
-  "type": "module",
   "scripts": {
     "higgsfield:example": "tsx index.ts",
-    "test": "node tests/run-all.js"
+    "test": "node tests/run-all.js",
+    "art:generate": "tsx scripts/generate-art.ts"
   },
   "license": "UNLICENSED",
   "dependencies": {

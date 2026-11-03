@@ -5,7 +5,7 @@ The site picks them up automatically once the files are in `assets/art/` (see th
 
 ## Settings
 
-- Model: **Nano Banana Pro** (resolution 2k). FLUX.2 (pro) also works well. Avoid the Soul models: they are tuned for people and fashion.
+- Model: through the API, **Recraft V4.1 Pro** (`recraft/v4.1/pro/text-to-image`, resolution 2k) made the current set; `scripts/generate-art.ts` runs all seven. In the Higgsfield app, Nano Banana Pro or FLUX.2 (pro) also work. Avoid the Soul models: they are tuned for people and fashion.
 - One image per prompt. Generate two or three variations and keep the best.
 - Keep the **style line** identical across all seven so they read as one set.
 
@@ -13,7 +13,7 @@ The site picks them up automatically once the files are in `assets/art/` (see th
 
 > Hand-painted editorial illustration, flat shapes with soft gouache texture and visible paper grain, limited palette of deep navy, cobalt blue, warm orange and a touch of red, soft rim light, cinematic composition, no text, no letters, no logos, no watermark, no people's faces.
 
-## 1. Hero backdrop — `hero.jpg` — aspect **21:9**
+## 1. Hero backdrop — `hero.jpg` — aspect **2:1** (21:9 where offered)
 
 > A wide dusk landscape seen from a quiet hilltop: a long road with glowing blue lane lines winding toward a small town of warm-lit houses, a big low orange sun behind blocky mountains, a few stars above. Calm, spacious, most detail on the right third, the left third kept dark and simple for text.
 
@@ -50,7 +50,7 @@ Two ways, whichever is easier:
 
 | File | Aspect | Used for |
 |---|---|---|
-| `hero.jpg` | 21:9 | home hero backdrop |
+| `hero.jpg` | 2:1 | home hero backdrop |
 | `card-platformer.jpg` | 4:3 | Energy Run card |
 | `card-spell.jpg` | 4:3 | Spell Forge card |
 | `card-accent.jpg` | 4:3 | Accent Hunter card |

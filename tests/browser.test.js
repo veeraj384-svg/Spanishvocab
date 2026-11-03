@@ -33,7 +33,7 @@ async function run(viewport, touch) {
     // ---- home ----
     const cards = await page.$$eval('.game-card', (els) => els.map((a) => a.getAttribute('href')));
     assert(cards.length === 6, label + ': 6 game cards, got ' + cards.length);
-    assert(await page.$$eval('.game-card', (els) => els.every((el) => /gradient/.test(getComputedStyle(el).backgroundImage))), label + ': game cards paint a gradient');
+    assert(await page.$$eval('.game-card', (els) => els.every((el) => /gradient|url\(/.test(getComputedStyle(el).backgroundImage))), label + ': game cards paint a gradient or their artwork');
     const startHref = await page.$eval('a.btn-primary.btn-lg', (a) => a.getAttribute('href'));
     assert(GAMES.some((g) => startHref === '#/play/' + g), label + ': Start playing links to a game: ' + startHref);
     assert(await page.evaluate(() => PQ.Games.all().length === 6 && PQ.Vocab.all().length === 31), label + ': 6 games, 31 words registered');

@@ -4,7 +4,7 @@ Optional images the home page picks up automatically when present (nothing break
 
 | File | Used for | Size |
 |---|---|---|
-| `hero.jpg` | backdrop of the home hero | 21:9, about 2400×1030 |
+| `hero.jpg` | backdrop of the home hero | 2:1, 1800×900 |
 | `card-platformer.jpg` | Energy Run card | 4:3 |
 | `card-spell.jpg` | Spell Forge card | 4:3 |
 | `card-accent.jpg` | Accent Hunter card | 4:3 |
