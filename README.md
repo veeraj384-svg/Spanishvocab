@@ -20,6 +20,10 @@ in your browser (`localStorage`), and weak words are served more often until the
 Typing tip: type a vowel or `n`, then press <kbd>`</kbd> to add its accent (a → á, n → ñ). There is
 also an on-screen accent bar in every typing game.
 
+Artwork is optional: drop `hero.jpg` and `card-<game>.jpg` into `assets/art/` and the home page
+picks them up (prompts and sizes in `docs/ART_PROMPTS.md`); without them the page keeps its
+gradient cards.
+
 The home page plays “Vibing” by Pufino and every other page plays “Downtown” by Moavii (both
 from freetouse.com, trimmed to the musical part and level-matched, in `assets/music/`). Each
 track resumes where it left off when you come back to it. If a recording fails to load, that

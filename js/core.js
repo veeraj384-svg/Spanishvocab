@@ -513,6 +513,8 @@
       const h = Math.floor(vh - hh - above - below - gap * Math.max(0, n - 1) - pad - 8);
       return Math.max(min || 320, Math.min(max || 1400, h));
     },
+    /** Resolves true when an image exists; used for optional artwork (assets/art/) that may not have been generated yet. */
+    loadArt(url) { return new Promise((res) => { try { const im = new Image(); im.onload = () => res(true); im.onerror = () => res(false); im.src = url; } catch (e) { res(false); } }); },
     layerRoot() { return document.fullscreenElement || document.webkitFullscreenElement || document.body; },
     /** h('div.card', {onclick}, 'text', child, ...) */
     h(tag, props) {
@@ -1587,6 +1589,7 @@
           UI.h('a.small.muted', { href: '#/stats' }, 'Full progress →'),
           UI.h('button.btn.btn-ghost.btn-sm.home-reset', { type: 'button', onclick: confirmReset }, 'Reset progress'))));
     page.appendChild(hero);
+    UI.loadArt('assets/art/hero.jpg').then((ok) => { if (ok && hero.isConnected) hero.classList.add('has-art'); });
 
     /** Wipe everything on this device, after a confirmation. */
     function confirmReset() {
@@ -1615,10 +1618,14 @@
     if (!games.length) grid.appendChild(UI.h('div.card', null, 'No games loaded yet.'));
     games.forEach((g) => {
       const best = Progress.best(g.id);
-      grid.appendChild(UI.h('a.card.card-hover.game-card', { href: '#/play/' + g.id, style: { '--accent': g.accent || 'var(--c-amber)', '--accent-2': g.accent2 || g.accent || 'var(--c-mint)' } },
+      const card = UI.h('a.card.card-hover.game-card', { href: '#/play/' + g.id, style: { '--accent': g.accent || 'var(--c-amber)', '--accent-2': g.accent2 || g.accent || 'var(--c-mint)' } },
         UI.h('div.icon', null, g.icon || '🎮'),
         UI.h('div', null, UI.h('div.game-name', null, g.name), UI.h('div.game-tag', null, g.tagline || '')),
-        UI.h('div.game-cta', null, UI.h('span', null, best ? 'Best: ' + best : 'Play now'), UI.h('span.arrow', null, '→'))));
+        UI.h('div.game-cta', null, UI.h('span', null, best ? 'Best: ' + best : 'Play now'), UI.h('span.arrow', null, '→')));
+      grid.appendChild(card);
+      // artwork for the card, if it has been generated (see docs/ART_PROMPTS.md)
+      const art = 'assets/art/card-' + g.id + '.jpg';
+      UI.loadArt(art).then((ok) => { if (ok && card.isConnected) { card.style.setProperty('--art', 'url("' + new URL(art, document.baseURI).href + '")'); card.classList.add('has-art'); } });   // absolute: a url() in a custom property resolves against the stylesheet otherwise
     });
     page.appendChild(grid);
 

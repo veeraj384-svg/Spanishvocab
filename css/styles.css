@@ -464,6 +464,18 @@ p { margin: 0 0 var(--sp-4); }
 .hero-stats { animation: pop var(--t-slow) var(--ease-bounce) both; }
 @media (max-width: 900px) { .hero { grid-template-columns: 1fr; } }
 
+/* Artwork (assets/art/, see docs/ART_PROMPTS.md): the hero gets a full-bleed backdrop and the game cards show their art */
+.hero.has-art { position: relative; isolation: isolate; border-radius: var(--r-xl); overflow: hidden; padding: var(--sp-10) var(--sp-8); min-height: 400px; border: 1px solid var(--border-strong); box-shadow: var(--shadow-lg); }
+.hero.has-art::before { content: ''; position: absolute; inset: 0; z-index: -2; background: url("../assets/art/hero.jpg") center / cover no-repeat; }
+.hero.has-art::after { content: ''; position: absolute; inset: 0; z-index: -1; background: linear-gradient(90deg, rgba(6, 10, 22, 0.94) 0%, rgba(6, 10, 22, 0.78) 42%, rgba(6, 10, 22, 0.3) 100%); }
+.hero.has-art .hero-stats { background: rgba(6, 10, 22, 0.55); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
+@media (max-width: 900px) { .hero.has-art { padding: var(--sp-8) var(--sp-5); } .hero.has-art::after { background: linear-gradient(180deg, rgba(6, 10, 22, 0.55) 0%, rgba(6, 10, 22, 0.92) 100%); } }
+.game-card.has-art { min-height: 300px; justify-content: flex-end; background: var(--art) center / cover no-repeat; }
+.game-card.has-art::before { display: none; }
+.game-card.has-art::after { opacity: 1; mix-blend-mode: normal; background: linear-gradient(180deg, rgba(6, 10, 22, 0.05) 0%, rgba(6, 10, 22, 0.35) 45%, rgba(6, 10, 22, 0.92) 100%); }
+.game-card.has-art .icon { display: none; }
+.game-card.has-art:hover { filter: none; }
+
 /* Home: reset link */
 .home-reset { color: var(--muted); }
 .home-reset:hover { color: var(--c-rose); background: rgba(239, 59, 77, 0.1); }
