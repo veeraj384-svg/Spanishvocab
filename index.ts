@@ -10,6 +10,7 @@
  * This makes a billable generation request.
  */
 import { config as loadEnv } from 'dotenv';
+import axios from 'axios';
 import { higgsfield, createHiggsfieldClient } from '@higgsfield/client/v2';
 
 loadEnv({ path: '.env.local', quiet: true });
@@ -27,14 +28,37 @@ function fail(message: string): never {
   process.exit(1);
 }
 
+const API = 'https://api.higgsfield.ai';
+
+/**
+ * The SDK reports every HTTP 403 as "Not enough credits". A sandboxed environment's egress proxy also answers
+ * 403 when a host is not allowed, so check reachability first and report that case for what it is.
+ */
+async function preflight(): Promise<void> {
+  try {
+    await axios.get(API + '/', { timeout: 20000, validateStatus: () => true, transformResponse: (d) => d })
+      .then((r) => {
+        const body = typeof r.data === 'string' ? r.data : '';
+        if (r.status === 403 && /request blocked|allowlist|not allowed/i.test(body)) {
+          fail(`Network policy blocks ${API}: ${body.trim()}. Allow api.higgsfield.ai in this environment's network settings. No request was made.`);
+        }
+      });
+  } catch (err) {
+    const e = err as { code?: string; message?: string };
+    fail(`Cannot reach ${API} (${e?.code || e?.message || String(err)}). No request was made.`);
+  }
+}
+
 async function main(): Promise<void> {
   const creds = process.env.HF_CREDENTIALS;
   if (!creds || !creds.includes(':')) {
     fail('HF_CREDENTIALS is not set (expected key-id:key-secret in .env.local or the environment). No request was made.');
   }
 
+  await preflight();
+
   // Video generation can take a while: allow 15 minutes of polling instead of the SDK's 5-minute default.
-  const client = createHiggsfieldClient({ credentials: creds, maxPollTime: 15 * 60 * 1000, pollInterval: 3000 });
+  const client = createHiggsfieldClient({ credentials: creds, baseURL: API, maxPollTime: 15 * 60 * 1000, pollInterval: 3000 });
   void higgsfield; // the configured singleton would work too; an explicit client keeps the timeout settings local
 
   console.log(`Submitting ${MODEL} ...`);
