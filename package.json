@@ -5,8 +5,7 @@
   "description": "Spanish Vocab: a static site (no build step) plus a Higgsfield API example (index.ts).",
   "scripts": {
     "higgsfield:example": "tsx index.ts",
-    "test": "node tests/run-all.js",
-    "art:generate": "tsx scripts/generate-art.ts"
+    "test": "node tests/run-all.js"
   },
   "license": "UNLICENSED",
   "dependencies": {

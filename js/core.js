@@ -526,8 +526,6 @@
       const p = paths[id]; if (!p) return null;
       return '<svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + p + '</svg>';
     },
-    /** Resolves true when an image exists; used for optional artwork (assets/art/) that may not have been generated yet. */
-    loadArt(url) { return new Promise((res) => { try { const im = new Image(); im.onload = () => res(true); im.onerror = () => res(false); im.src = url; } catch (e) { res(false); } }); },
     layerRoot() { return document.fullscreenElement || document.webkitFullscreenElement || document.body; },
     /** h('div.card', {onclick}, 'text', child, ...) */
     h(tag, props) {
@@ -1603,7 +1601,6 @@
           UI.h('a.small.muted', { href: '#/stats' }, 'Full progress →'),
           UI.h('button.btn.btn-ghost.btn-sm.home-reset', { type: 'button', onclick: confirmReset }, 'Reset progress'))));
     page.appendChild(hero);
-    UI.loadArt('assets/art/hero.jpg').then((ok) => { if (ok && hero.isConnected) hero.classList.add('has-art'); });
 
     /** Wipe everything on this device, after a confirmation. */
     function confirmReset() {
@@ -1637,9 +1634,6 @@
         UI.h('div', null, UI.h('div.game-name', null, g.name), UI.h('div.game-tag', null, g.tagline || '')),
         UI.h('div.game-cta', null, UI.h('span', null, best ? 'Best: ' + best : 'Play now'), UI.h('span.arrow', null, '→')));
       grid.appendChild(card);
-      // artwork for the card, if it has been generated (see docs/ART_PROMPTS.md)
-      const art = 'assets/art/card-' + g.id + '.jpg';
-      UI.loadArt(art).then((ok) => { if (ok && card.isConnected) { card.style.setProperty('--art', 'url("' + new URL(art, document.baseURI).href + '")'); card.classList.add('has-art'); } });   // absolute: a url() in a custom property resolves against the stylesheet otherwise
     });
     page.appendChild(grid);
 

@@ -30,10 +30,6 @@ request, prints the video URL on success, and exits non-zero on failed, canceled
 requests. Each run is a billable generation. `npm install` is only needed for this example; the
 site itself still has no build step.
 
-Artwork is optional: the home page shows gradient cards unless `hero.jpg` and `card-<game>.jpg`
-exist in `assets/art/`. `npm run art:generate` can make a set with the Higgsfield API from the
-prompts in `docs/ART_PROMPTS.md`.
-
 The home page plays “Vibing” by Pufino and every other page plays “Downtown” by Moavii (both
 from freetouse.com, trimmed to the musical part and level-matched, in `assets/music/`). Each
 track resumes where it left off when you come back to it. If a recording fails to load, that
