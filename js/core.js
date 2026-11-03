@@ -513,6 +513,19 @@
       const h = Math.floor(vh - hh - above - below - gap * Math.max(0, n - 1) - pad - 8);
       return Math.max(min || 320, Math.min(max || 1400, h));
     },
+    /** Monoline glyphs for the game cards (no emoji): a bolt, an anvil, a target, a meteor, cards, a car. */
+    glyph(id) {
+      const paths = {
+        platformer: '<path d="M13 2 4 14h7l-1 8 9-12h-7z"/>',
+        spell: '<path d="M3 9h12l5-3v4l-4 2v2h-5l1 4H8l1-4H5a2 2 0 0 1-2-2z"/>',
+        accent: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3.5"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3"/>',
+        blaster: '<path d="M21 3l-8.5 8.5M21 3c-2.3 1-4.3 2.4-6 4.2"/><circle cx="8.5" cy="15.5" r="5"/>',
+        flash: '<rect x="3" y="6" width="12" height="15" rx="2"/><path d="M8 3h11a2 2 0 0 1 2 2v12"/>',
+        highway: '<path d="M3 13l2.2-5.2A1.5 1.5 0 0 1 6.6 7h10.8a1.5 1.5 0 0 1 1.4.8L21 13v5H3z"/><circle cx="7.5" cy="17.5" r="1.6"/><circle cx="16.5" cy="17.5" r="1.6"/><path d="M5 13h14"/>',
+      };
+      const p = paths[id]; if (!p) return null;
+      return '<svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + p + '</svg>';
+    },
     /** Resolves true when an image exists; used for optional artwork (assets/art/) that may not have been generated yet. */
     loadArt(url) { return new Promise((res) => { try { const im = new Image(); im.onload = () => res(true); im.onerror = () => res(false); im.src = url; } catch (e) { res(false); } }); },
     layerRoot() { return document.fullscreenElement || document.webkitFullscreenElement || document.body; },
@@ -763,7 +776,8 @@
       paintMusic();
       const vol = UI.h('button.btn.btn-icon', { type: 'button', title: 'Volume', 'aria-label': 'Volume', 'aria-pressed': 'true' }, '🔊');
       vol.addEventListener('click', () => UI.volumePanel(vol));
-      const dock = UI.h('div.game-dock', null, music, vol);
+      const home = UI.h('a.btn.btn-icon', { href: '#/', title: 'Back to the site', 'aria-label': 'Home' }, '⌂');
+      const dock = UI.h('div.game-dock', null, home, music, vol);
       const canFs = !!(document.fullscreenEnabled || document.webkitFullscreenEnabled) && typeof pageEl.requestFullscreen === 'function';
       if (canFs) {
         const fs = UI.h('button.btn.btn-icon', { type: 'button', title: 'Fullscreen', 'aria-label': 'Fullscreen', 'aria-pressed': 'false' }, '⛶');
@@ -1569,7 +1583,7 @@
     const hero = UI.h('section.hero', null,
       UI.h('div.hero-text', null,
         UI.h('div.eyebrow', null, Vocab.meta().list),
-        UI.h('h1', null, 'Practice your ', UI.h('span.grad-text', null, 'Spanish'), ' vocab'),
+        UI.h('h1', null, 'Practice your ', UI.h('em.accent-word', null, 'Spanish'), ' vocab'),
         UI.h('p.text-2', null, 'Spelling and accents, in short games. The words you miss come back more often.'),
         UI.h('div.row', { style: { marginTop: '18px' } },
           UI.h('a.btn.btn-primary.btn-lg', { href: '#/play/' + (Games.all()[0] ? Games.all()[0].id : 'spell') }, '▶ Start playing'),
@@ -1619,7 +1633,7 @@
     games.forEach((g) => {
       const best = Progress.best(g.id);
       const card = UI.h('a.card.card-hover.game-card', { href: '#/play/' + g.id, style: { '--accent': g.accent || 'var(--c-amber)', '--accent-2': g.accent2 || g.accent || 'var(--c-mint)' } },
-        UI.h('div.icon', null, g.icon || '🎮'),
+        UI.glyph(g.id) ? UI.h('div.icon', { html: UI.glyph(g.id) }) : UI.h('div.icon', null, g.icon || '🎮'),
         UI.h('div', null, UI.h('div.game-name', null, g.name), UI.h('div.game-tag', null, g.tagline || '')),
         UI.h('div.game-cta', null, UI.h('span', null, best ? 'Best: ' + best : 'Play now'), UI.h('span.arrow', null, '→')));
       grid.appendChild(card);

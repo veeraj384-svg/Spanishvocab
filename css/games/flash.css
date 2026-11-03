@@ -313,5 +313,5 @@
 .g-flash-cats .chip:disabled { opacity: 0.45; cursor: not-allowed; }
 
 /* The card fills the viewport under the top bar */
-.g-flash-card-inner { min-height: max(340px, calc(100vh - 400px)); }
+.g-flash-card-inner { min-height: max(340px, calc(100vh - 320px)); }
 @media (min-width: 900px) and (min-height: 760px) { .g-flash-card-inner { font-size: 1.15em; } }

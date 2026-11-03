@@ -684,9 +684,29 @@
     ctx.closePath(); ctx.fillStyle = fill; ctx.fill();
     return true;
   }
+  // A low dusk sun: the direction toward the light (unit vector) and, for cast shadows, how far the top of a thing
+  // slides along the ground per unit of height. Shadows are shortened a little so tall towers do not drown the street.
+  const SUN_AZ = 0.9, SUN_EL = 0.42;
+  const LX = Math.sin(SUN_AZ) * Math.cos(SUN_EL), LY = Math.sin(SUN_EL), LZ = Math.cos(SUN_AZ) * Math.cos(SUN_EL);
+  const SHX = -LX / LY * 0.55, SHZ = -LZ / LY * 0.55;
+  function hull(pts) {   // convex hull (monotone chain) of {x, z} points
+    const P = pts.slice().sort((a, b) => a.x - b.x || a.z - b.z);
+    const cross = (o, a, b) => (a.x - o.x) * (b.z - o.z) - (a.z - o.z) * (b.x - o.x);
+    const lower = []; for (const q of P) { while (lower.length >= 2 && cross(lower[lower.length - 2], lower[lower.length - 1], q) <= 0) lower.pop(); lower.push(q); }
+    const upper = []; for (let i = P.length - 1; i >= 0; i--) { const q = P[i]; while (upper.length >= 2 && cross(upper[upper.length - 2], upper[upper.length - 1], q) <= 0) upper.pop(); upper.push(q); }
+    upper.pop(); lower.pop(); return lower.concat(upper);
+  }
+  /** Cast shadow of a box-like thing: the hull of its footprint and of the footprint pushed along the sun's direction by its height. */
+  function drawShadow(ctx, corners, h, fog) {
+    if (fog > 0.6) return;
+    const hh = Math.min(h, 10);
+    const pts = corners.concat(corners.map((c) => ({ x: c.x + SHX * hh, z: c.z + SHZ * hh })));
+    fillPoly(ctx, hull(pts).map((q) => cs(q.x, 0.015, q.z)), 'rgba(0,0,0,' + (0.34 * (1 - fog)).toFixed(3) + ')');
+  }
+  const rectCorners = (x0, x1, z0, z1) => [{ x: x0, z: z0 }, { x: x1, z: z0 }, { x: x1, z: z1 }, { x: x0, z: z1 }];
   /**
    * A box with its own yaw (and optional roll about its long axis): the faces that face the camera, drawn back
-   * to front, shaded by orientation. colors: { side, top, front, back }.
+   * to front, lit by the dusk sun (ambient + diffuse, a little extra sky light on tops). colors: { side, top, front, back }.
    */
   function drawBox(ctx, cx, cz, yaw, hw, hl, y0, y1, colors, fog, roll) {
     const sa = Math.sin(yaw), ca = Math.cos(yaw);
@@ -709,33 +729,58 @@
       const mx = (a.x + c.x) / 2, my = (a.y + c.y) / 2, mz = (a.z + c.z) / 2;
       if (nx * (mx - cx) + ny * (my - ym) + nz * (mz - cz) < 0) { nx = -nx; ny = -ny; nz = -nz; }   // point away from the box centre
       const dot = nx * (mx - S.cam.x) + ny * (my - CAM_H) + nz * (mz - S.cam.z);
-      if (dot < 0) vis.push({ fc, depth: cs(mx, my, mz).f });
+      if (dot < 0) {
+        const len = Math.hypot(nx, ny, nz) || 1;
+        const diff = Math.max(0, (nx * LX + ny * LY + nz * LZ) / len);
+        const shade = Math.round((0.5 + 0.5 * diff + (ny / len > 0.5 ? 0.08 : 0)) * 20) / 20;   // quantised: the colour cache stays small
+        vis.push({ fc, depth: cs(mx, my, mz).f, shade });
+      }
     }
     vis.sort((a, b) => b.depth - a.depth);
-    for (const v of vis) fillPoly(ctx, v.fc.i.map((j) => cs(P[j].x, P[j].y, P[j].z)), fogged(v.fc.c, fog, v.fc.k));
+    for (const v of vis) fillPoly(ctx, v.fc.i.map((j) => cs(P[j].x, P[j].y, P[j].z)), fogged(v.fc.c, fog, v.shade));
   }
   const aabox = (ctx, x0, x1, y0, y1, z0, z1, colors, fog) => drawBox(ctx, (x0 + x1) / 2, (z0 + z1) / 2, 0, (x1 - x0) / 2, (z1 - z0) / 2, y0, y1, typeof colors === 'string' ? { side: colors } : colors, fog, 0);
 
   function drawSky(ctx) {
     const { w, h: hh } = S.view;
-    ctx.fillStyle = rgbStr(S.skyRGB.map(Math.round)); ctx.fillRect(0, 0, w, HY + 1);
+    const sky = S.skyRGB, rel = Math.atan2(Math.sin(SUN_AZ - S.cam.a), Math.cos(SUN_AZ - S.cam.a));
+    const warm = Math.max(0, 1 - Math.abs(rel) / 1.7);
+    // a graded sky: deep overhead, lighter toward the horizon, warmed on the sun's side
+    const g = ctx.createLinearGradient(0, 0, 0, HY);
+    g.addColorStop(0, rgbStr(sky.map((v) => Math.round(v * 0.55))));
+    g.addColorStop(0.55, rgbStr(sky.map(Math.round)));
+    g.addColorStop(1, rgbStr([Math.round(lerp(sky[0] * 1.35, 255, warm * 0.45)), Math.round(lerp(sky[1] * 1.3, 150, warm * 0.4)), Math.round(lerp(sky[2] * 1.25, 60, warm * 0.35))]));
+    ctx.fillStyle = g; ctx.fillRect(0, 0, w, HY + 1);
     const base = -S.cam.a / TAU * w * 2.2;
     for (let i = 0; i < 70; i++) {
-      const fx = mod(h01(i, 3, 41) * w * 2.2 + base, w * 2.2) - w * 0.6, fy = h01(i, 4, 42) * HY * 0.7;
+      const fx = mod(h01(i, 3, 41) * w * 2.2 + base, w * 2.2) - w * 0.6, fy = h01(i, 4, 42) * HY * 0.6;
       if (fx < -2 || fx > w + 2) continue;
-      ctx.globalAlpha = 0.25 + 0.6 * (0.5 + 0.5 * Math.sin(S.anim * (0.8 + h01(i, 5, 43) * 2) + i));
+      ctx.globalAlpha = (0.2 + 0.6 * (0.5 + 0.5 * Math.sin(S.anim * (0.8 + h01(i, 5, 43) * 2) + i))) * (1 - fy / HY * 0.8);
       ctx.fillStyle = '#fff'; ctx.fillRect(fx, fy, 1.4, 1.4);
     }
     ctx.globalAlpha = 1;
-    const rel = Math.atan2(Math.sin(0.9 - S.cam.a), Math.cos(0.9 - S.cam.a));
-    if (Math.abs(rel) < 1.1) {
-      const r = Math.min(w, hh) * 0.14, sx = CX + Math.tan(rel) * F, sy = HY - r * 0.2;
+    // the sun: a disc with a soft glow
+    if (Math.abs(rel) < 1.15) {
+      const r = Math.min(w, hh) * 0.11, sx = CX + Math.tan(rel) * F, sy = HY - r * 0.35;
       ctx.save(); ctx.beginPath(); ctx.rect(0, 0, w, HY); ctx.clip();
-      ctx.fillStyle = C.mint; ctx.shadowColor = C.mint; ctx.shadowBlur = 40; ctx.beginPath(); ctx.arc(sx, sy, r, 0, TAU); ctx.fill(); ctx.shadowBlur = 0;
-      ctx.fillStyle = rgbStr(S.skyRGB.map(Math.round)); for (let i = 0; i < 4; i++) ctx.fillRect(sx - r, sy + r * (0.15 + i * 0.2), r * 2, r * (0.03 + i * 0.03));
+      const glow = ctx.createRadialGradient(sx, sy, r * 0.6, sx, sy, r * 3.2);
+      glow.addColorStop(0, 'rgba(255,170,80,0.55)'); glow.addColorStop(0.5, 'rgba(255,140,60,0.16)'); glow.addColorStop(1, 'rgba(255,120,40,0)');
+      ctx.fillStyle = glow; ctx.fillRect(sx - r * 3.2, sy - r * 3.2, r * 6.4, r * 6.4);
+      const disc = ctx.createRadialGradient(sx - r * 0.2, sy - r * 0.2, r * 0.1, sx, sy, r);
+      disc.addColorStop(0, '#ffd9a0'); disc.addColorStop(0.7, C.mint); disc.addColorStop(1, '#f06a1e');
+      ctx.fillStyle = disc; ctx.beginPath(); ctx.arc(sx, sy, r, 0, TAU); ctx.fill();
       ctx.restore();
     }
-    const fogc = rgbStr(S.fogRGB.map(Math.round));
+    // a few soft clouds, lit from the sun's side
+    for (let i = 0; i < 7; i++) {
+      const az = h01(i, 7, 44) * TAU, crel = Math.atan2(Math.sin(az - S.cam.a * 0.85), Math.cos(az - S.cam.a * 0.85));
+      if (Math.abs(crel) > 1.2) continue;
+      const cx = CX + Math.tan(crel) * F * 0.9, cy = HY * (0.22 + 0.4 * h01(i, 8, 45)), cw = (0.08 + 0.1 * h01(i, 9, 46)) * w, ch = cw * 0.28;
+      const lit = Math.max(0, 1 - Math.abs(crel - rel) / 2.5);
+      ctx.fillStyle = rgbStr([Math.round(lerp(sky[0] * 1.6 + 30, 255, lit * 0.35)), Math.round(lerp(sky[1] * 1.5 + 30, 190, lit * 0.3)), Math.round(lerp(sky[2] * 1.3 + 40, 140, lit * 0.25))], 0.5);
+      [[0, 0, 1], [-0.35, 0.12, 0.7], [0.38, 0.1, 0.75], [0.1, -0.22, 0.6]].forEach(([ox, oy, k]) => { ctx.beginPath(); ctx.ellipse(cx + ox * cw, cy + oy * ch, cw * 0.5 * k, ch * 0.6 * k, 0, 0, TAU); ctx.fill(); });
+    }
+    // far mountains (two parallax layers, a function of view direction)
     [[0.5, 0.11, 61, 0.45], [1, 0.16, 62, 0.7]].forEach(([par, amp, salt, dark]) => {
       ctx.beginPath(); ctx.moveTo(0, HY + 2);
       for (let x = 0; x <= w; x += 16) {
@@ -746,7 +791,11 @@
       ctx.lineTo(w, HY + 2); ctx.closePath();
       ctx.fillStyle = rgbStr(S.fogRGB.map((v) => Math.round(v * dark))); ctx.fill();
     });
-    ctx.fillStyle = fogc; ctx.fillRect(0, HY - 1, w, hh - HY + 1);
+    // ground beyond the draw distance, and a haze band on the horizon
+    ctx.fillStyle = rgbStr(S.fogRGB.map(Math.round)); ctx.fillRect(0, HY - 1, w, hh - HY + 1);
+    const haze = ctx.createLinearGradient(0, HY - 36, 0, HY + 2);
+    haze.addColorStop(0, rgbStr(S.fogRGB.map(Math.round), 0)); haze.addColorStop(1, rgbStr(S.fogRGB.map(Math.round), 0.55));
+    ctx.fillStyle = haze; ctx.fillRect(0, HY - 36, w, 38);
   }
 
   function drawWorld(ctx) {
@@ -778,6 +827,7 @@
       let col = tileColor(t.tx, t.tz, biome, zone.city);
       if (o && o.type === 'lava') col = (hash(t.tx, t.tz, 5) & 1) ? '#ff7a1a' : '#ff9a2a';
       fillPoly(ctx, t.poly, fogged(col, fog, 1));
+      if (fog < 0.3 && !o && !zone.city && !roadInfo(t.tx, t.tz).road) drawGroundDetail(ctx, t.tx, t.tz, biome, fog);
       if (o && o.type === 'lava' && fog < 0.9) { ctx.globalAlpha = 0.35 + 0.25 * Math.sin(S.anim * 3 + t.tx); fillPoly(ctx, t.poly, fogged('#ffd060', fog)); ctx.globalAlpha = 1; }
       if (o && o.type !== 'lava' && !(o.type === 'coin' && S.taken.has(o.key))) objs.push({ f: t.f, o, biome });
       const wi = wallInfo(t.tx, t.tz);
@@ -785,6 +835,7 @@
     }
     if (S.prof) { S.prof.tiles += performance.now() - S.prof._t; S.prof._t = performance.now(); S.prof.nTiles += tiles.length; S.prof.nObjs += objs.length; }
     drawRoadMarks(ctx);
+    objs.forEach((it) => objShadow(ctx, it.o, fogOf(it.f)));   // cast shadows lie on the ground, under everything that stands
     if (S.prof) { S.prof.marks += performance.now() - S.prof._t; S.prof._t = performance.now(); }
     const items = objs.map((it) => ({ f: it.f, draw: () => drawObject(ctx, it.o, fogOf(it.f), it.biome) }));
     wallTiles.forEach((wt) => items.push({ f: wt.f, draw: () => drawWallTile(ctx, wt.tx, wt.tz, wt.wi, fogOf(wt.f)) }));
@@ -843,6 +894,49 @@
     }
   }
 
+  /** Small marks that make the near ground read as grass, sand, snow or cracked rock. */
+  function drawGroundDetail(ctx, tx, tz, biome, fog) {
+    const x0 = tx * TILE, z0 = tz * TILE;
+    for (let k = 0; k < 3; k++) {
+      const px = x0 + 0.8 + h01(tx, tz, 51 + k) * (TILE - 1.6), pz = z0 + 0.8 + h01(tx, tz, 61 + k) * (TILE - 1.6);
+      if (biome === 'plains' || biome === 'forest') fillPoly(ctx, [cs(px - 0.24, 0.01, pz), cs(px + 0.24, 0.01, pz), cs(px + 0.06, 0.45, pz + 0.04)], fogged(biome === 'plains' ? '#2f7d3a' : '#1f5a2c', fog, 0.95));
+      else if (biome === 'desert') fillPoly(ctx, [cs(px - 0.26, 0.02, pz - 0.18), cs(px + 0.26, 0.02, pz - 0.18), cs(px + 0.2, 0.02, pz + 0.18), cs(px - 0.2, 0.02, pz + 0.18)], fogged('#b89560', fog, 0.9));
+      else if (biome === 'snow') fillPoly(ctx, [cs(px - 0.12, 0.02, pz), cs(px, 0.02, pz - 0.12), cs(px + 0.12, 0.02, pz), cs(px, 0.02, pz + 0.12)], fogged('#ffffff', fog, 1, 0.85));
+      else if (biome === 'badlands') fillPoly(ctx, [cs(px - 0.6, 0.02, pz - 0.05), cs(px + 0.6, 0.02, pz + 0.1), cs(px + 0.6, 0.02, pz + 0.2), cs(px - 0.6, 0.02, pz + 0.05)], fogged('#2a1614', fog));
+    }
+  }
+  /** The cast shadow of a standing thing, by type. */
+  function objShadow(ctx, o, fog) {
+    if (!o.solid || fog > 0.6) return;
+    const x = o.x, z = o.z, v = o.v || 0.5;
+    switch (o.type) {
+      case 'tree': drawShadow(ctx, rectCorners(x - 1.2, x + 1.2, z - 1.2, z + 1.2), 1.4 + v * 0.8 + 2.2, fog); break;
+      case 'pine': drawShadow(ctx, rectCorners(x - 1.3, x + 1.3, z - 1.3, z + 1.3), 4.3, fog); break;
+      case 'cactus': drawShadow(ctx, rectCorners(x - 0.4, x + 0.4, z - 0.35, z + 0.35), 2.6 + v, fog); break;
+      case 'rock': drawShadow(ctx, rectCorners(x - 0.9, x + 0.9, z - 0.8, z + 0.8), 0.9 + v * 0.6, fog); break;
+      case 'snowman': drawShadow(ctx, rectCorners(x - 0.75, x + 0.75, z - 0.75, z + 0.75), 2.75, fog); break;
+      case 'house': drawShadow(ctx, rectCorners(x - 2.4, x + 2.4, z - 2.4, z + 2.4), 3.9, fog); break;
+      case 'tower': drawShadow(ctx, rectCorners(x - 2.5, x + 2.5, z - 2.5, z + 2.5), o.hgt, fog); break;
+      default: break;
+    }
+  }
+  /** Individually lit windows on the faces of a near tower (the far ones keep their window bands). */
+  function drawWindows(ctx, x, z, hw, hgt, lit, fog) {
+    const faces = [];
+    if (S.cam.z < z - hw) faces.push({ ax: 'z', p: z - hw - 0.03 });
+    if (S.cam.z > z + hw) faces.push({ ax: 'z', p: z + hw + 0.03 });
+    if (S.cam.x < x - hw) faces.push({ ax: 'x', p: x - hw - 0.03 });
+    if (S.cam.x > x + hw) faces.push({ ax: 'x', p: x + hw + 0.03 });
+    let row = 0;
+    for (let y = 1.4; y < hgt - 1.2 && row < 9; y += 2.6, row++) for (let c = -1; c <= 1; c++) {
+      const on = ((row * 3 + c + 1 + lit) * 7) % 5 !== 0;
+      const col = fogged(on ? '#ffd27a' : '#1c2234', fog);
+      for (const f of faces) {
+        const u0 = c * 1.6 - 0.45, u1 = c * 1.6 + 0.45;
+        fillPoly(ctx, f.ax === 'z' ? [cs(x + u0, y, f.p), cs(x + u1, y, f.p), cs(x + u1, y + 1.3, f.p), cs(x + u0, y + 1.3, f.p)] : [cs(f.p, y, z + u0), cs(f.p, y, z + u1), cs(f.p, y + 1.3, z + u1), cs(f.p, y + 1.3, z + u0)], col);
+      }
+    }
+  }
   /** One stretch of district wall: a stone wall with a post, running along the tile's edge on the wall line. */
   function drawWallTile(ctx, tx, tz, wi, fog) {
     const col = (tx + tz) & 1 ? WALL : WALL2;
@@ -907,7 +1001,8 @@
         const hw = 2.5, hgt = o.hgt, col = (TOWER_COLS[o.biome] || TOWER_COLS.plains)[o.c];
         aabox(ctx, x - hw, x + hw, 0, hgt, z - hw, z + hw, col, fog);
         if (far) break;
-        for (let y = 1.8, k = 0; y < hgt - 1.2 && k < 7; y += 2.8, k++) aabox(ctx, x - hw - 0.06, x + hw + 0.06, y, y + 0.7, z - hw - 0.06, z + hw + 0.06, ((k + o.lit) % 3) ? WIN_LIT : WIN_DARK, fog);
+        if (fog < 0.22) drawWindows(ctx, x, z, hw, hgt, o.lit, fog);
+        else for (let y = 1.8, k = 0; y < hgt - 1.2 && k < 7; y += 2.8, k++) aabox(ctx, x - hw - 0.06, x + hw + 0.06, y, y + 0.7, z - hw - 0.06, z + hw + 0.06, ((k + o.lit) % 3) ? WIN_LIT : WIN_DARK, fog);
         aabox(ctx, x - hw + 0.6, x + hw - 0.6, hgt, hgt + 0.5, z - hw + 0.6, z + hw - 0.6, { side: '#2a3044', top: '#3a4058' }, fog);
         if (v > 0.7) aabox(ctx, x - 0.1, x + 0.1, hgt + 0.5, hgt + 3, z - 0.1, z + 0.1, { side: '#2a3044', top: C.rose }, fog);
         break;
@@ -929,8 +1024,21 @@
   /** Street lamps on the four corners of an intersection. */
   function drawIntersection(ctx, cx, cz, fog) {
     if (fog > 0.8) return;
+    if (fog < 0.5) {   // zebra crossings on the four approaches
+      const stripe = fogged('#e8ecf5', fog, 1, 0.7);
+      for (const [dx, dz] of [[0, -1], [0, 1], [-1, 0], [1, 0]]) {
+        const ax = cx + dx * (HALF + 1.4), az = cz + dz * (HALF + 1.4);
+        for (let t = -3; t <= 3; t += 1.5) {
+          const pts = dz !== 0 ? [cs(ax + t - 0.45, 0.02, az - 0.8), cs(ax + t + 0.45, 0.02, az - 0.8), cs(ax + t + 0.45, 0.02, az + 0.8), cs(ax + t - 0.45, 0.02, az + 0.8)] : [cs(ax - 0.8, 0.02, az + t - 0.45), cs(ax + 0.8, 0.02, az + t - 0.45), cs(ax + 0.8, 0.02, az + t + 0.45), cs(ax - 0.8, 0.02, az + t + 0.45)];
+          fillPoly(ctx, pts, stripe);
+        }
+      }
+    }
     [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(([sx, sz]) => {
       const px = cx + sx * (HALF + 0.8), pz = cz + sz * (HALF + 0.8);
+      // the lamp's pool of light on the ground
+      const g0 = cs(px, 0.01, pz);
+      if (g0.f > NEAR && fog < 0.7) { const q = sp(g0); ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = fogged(sx < 0 ? C.lav : C.amber, fog, 1, 0.14); ctx.beginPath(); ctx.ellipse(q.x, q.y, 3.2 * q.s, 1.2 * q.s, 0, 0, TAU); ctx.fill(); ctx.restore(); }
       aabox(ctx, px - 0.12, px + 0.12, 0, 3.6, pz - 0.12, pz + 0.12, { side: '#3a4258', top: '#5a6278' }, fog);
       aabox(ctx, px - 0.35, px + 0.35, 3.6, 3.95, pz - 0.35, pz + 0.35, { side: sx < 0 ? C.lav : C.amber, top: '#ffffff' }, fog);
     });
@@ -940,7 +1048,7 @@
   function drawGate(ctx, axis, k, j, gx, gz, fog) {
     const key = gateKey(axis, k, j), cleared = S.cleared.has(key);
     const P = (a, b) => (axis === 'x' ? { x: gx + a, z: gz + b } : { x: gx + b, z: gz + a });   // a: across the wall, b: along the road
-    const pillar = (b) => { const p = P(0, b); aabox(ctx, p.x - 0.5, p.x + 0.5, 0, 4.4, p.z - 0.5, p.z + 0.5, { side: '#56607a', top: '#8c96b0' }, fog); };
+    const pillar = (b) => { const p = P(0, b); drawShadow(ctx, rectCorners(p.x - 0.5, p.x + 0.5, p.z - 0.5, p.z + 0.5), 4.4, fog); aabox(ctx, p.x - 0.5, p.x + 0.5, 0, 4.4, p.z - 0.5, p.z + 0.5, { side: '#56607a', top: '#8c96b0' }, fog); };
     pillar(-(HALF + 0.6)); pillar(HALF + 0.6);
     const beam = cleared ? { side: C.mint, top: '#ffd18a' } : { side: C.amber2, top: C.amber };
     if (axis === 'x') aabox(ctx, gx - 0.4, gx + 0.4, 3.9, 4.5, gz - HALF - 1.1, gz + HALF + 1.1, beam, fog);
@@ -1001,9 +1109,19 @@
     const sa = Math.sin(a), ca = Math.cos(a);
     const W = (u, w) => ({ x: x + u * ca + w * sa, z: z - u * sa + w * ca });
     const B = (u, w, hw, hl, y0, y1, colors) => { const p = W(u, w); drawBox(ctx, p.x, p.z, a, hw, hl, y0, y1, colors, 0, roll); };
-    // shadow + underglow
+    // cast shadow, underglow, and the headlights' beams on the road ahead
+    drawShadow(ctx, [W(-0.95, -2.1), W(0.95, -2.1), W(0.95, 2.1), W(-0.95, 2.1)], 1.3, 0);
     const sh = cs(x, 0.01, z);
-    if (sh.f > NEAR) { const q = sp(sh); ctx.fillStyle = 'rgba(0,0,0,0.45)'; ctx.beginPath(); ctx.ellipse(q.x, q.y, 1.55 * q.s, 0.6 * q.s, 0, 0, TAU); ctx.fill(); ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = car.boosting ? 'rgba(255,138,43,0.3)' : 'rgba(77,163,255,0.22)'; ctx.beginPath(); ctx.ellipse(q.x, q.y, 1.35 * q.s, 0.48 * q.s, 0, 0, TAU); ctx.fill(); ctx.restore(); }
+    if (sh.f > NEAR) { const q = sp(sh); ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = car.boosting ? 'rgba(255,138,43,0.3)' : 'rgba(77,163,255,0.2)'; ctx.beginPath(); ctx.ellipse(q.x, q.y, 1.35 * q.s, 0.48 * q.s, 0, 0, TAU); ctx.fill(); ctx.restore(); }
+    if (!REDUCED) {
+      const b0 = W(-0.85, 2.3), b1 = W(0.85, 2.3), b2 = W(2.8, 12), b3 = W(-2.8, 12);
+      ctx.save(); ctx.globalCompositeOperation = 'lighter';
+      fillPoly(ctx, [cs(b0.x, 0.02, b0.z), cs(b1.x, 0.02, b1.z), cs(b2.x, 0.02, b2.z), cs(b3.x, 0.02, b3.z)], 'rgba(255,236,170,0.09)');
+      const c0 = W(-0.6, 2.3), c1 = W(0.6, 2.3), c2 = W(1.6, 7), c3 = W(-1.6, 7);
+      fillPoly(ctx, [cs(c0.x, 0.02, c0.z), cs(c1.x, 0.02, c1.z), cs(c2.x, 0.02, c2.z), cs(c3.x, 0.02, c3.z)], 'rgba(255,236,170,0.08)');
+      if (car.braking) [[-0.64, -2.15], [0.64, -2.15]].forEach(([u, w]) => { const pp = W(u, w), q = sp(cs(pp.x, 0.7, pp.z)); if (q.s > 0) { ctx.fillStyle = 'rgba(255,60,80,0.35)'; ctx.beginPath(); ctx.ellipse(q.x, q.y, 0.5 * q.s, 0.3 * q.s, 0, 0, TAU); ctx.fill(); } });
+      ctx.restore();
+    }
     const cc = CAR_COLORS.find((c) => c.id === car.color) || CAR_COLORS[0];
     const paint = { side: cc.hex, top: shade(cc.hex, 1.28), front: shade(cc.hex, 1.1), back: shade(cc.hex, 0.74) };
     const bumper = { side: shade(cc.hex, 0.8), top: shade(cc.hex, 1.05) };
